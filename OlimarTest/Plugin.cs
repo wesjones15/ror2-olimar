@@ -100,7 +100,9 @@ namespace OlimarTest
                 "Pikmin carry the enemy's own body instead of a numbered pellet. Experimental: the " +
                 "pellet the Pikmin go for stays where the enemy died while the body may roll away.");
             CarriersPerMetre = Config.Bind("Corpses", "CarriersPerMetre", 2f,
-                "Pikmin needed to lift a corpse per metre of the enemy's radius (1 to 20).");
+                "How big a pellet an enemy leaves, per metre of its radius: the largest of 1, 5, 10 " +
+                "and 20 not above radius x this (a Beetle leaves a 1 pellet). With " +
+                "CarryBodies, the Pikmin needed to lift the body.");
             Sound = Config.Bind("Sound", "Enabled", true,
                 "Play Pikmin's sound effects (from your disc) for whistles, throws, Pikmin and the " +
                 "Onion. Pikmin's music never plays; RoR2's soundtrack stays.");

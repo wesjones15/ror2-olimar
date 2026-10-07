@@ -676,11 +676,26 @@ namespace OlimarTest
 
             float r_m = Mathf.Max(0.3f, v.bestFitRadius);
             int weight = Mathf.Clamp(Mathf.RoundToInt(r_m * Plugin.CarriersPerMetre.Value), 1, 20);
+            var at = UnityHost.ToSim(UnityHost.Snap(v.footPosition));
+            float yaw = UnityHost.Yaw(v.transform.forward);
+            if (!Plugin.CarryBodies.Value)
+            {
+                // A numbered pellet, as Pikmin 1 drops: 1, 5, 10 or 20 by the enemy's size, in a
+                // random colour, carried and sized as on the disc.
+                int colour = UnityEngine.Random.Range(0, 3);
+                int pellet = Native.pik_sim_spawn_numbered_pellet(sim, (uint)weight, (uint)colour, ref at, yaw);
+                if (Plugin.LogEvents.Value && pellet >= 0)
+                {
+                    int n = weight >= 20 ? 20 : weight >= 10 ? 10 : weight >= 5 ? 5 : 1;
+                    Plugin.Log.LogInfo($"{v.GetDisplayName()} left a {Colour(colour)} {n} pellet ({pellet})");
+                }
+                return;
+            }
             float radius = Mathf.Clamp(r_m / UnityHost.Scale, 8f, 150f);
             var desc = new Native.PelletDesc
             {
-                pos = UnityHost.ToSim(UnityHost.Snap(v.footPosition)),
-                yaw = UnityHost.Yaw(v.transform.forward),
+                pos = at,
+                yaw = yaw,
                 radius = radius,
                 height = radius * 0.5f,
                 min_carriers = (uint)weight,
@@ -690,7 +705,7 @@ namespace OlimarTest
                 color = -1,
             };
             int id = Native.pik_sim_spawn_pellet(sim, ref desc);
-            if (id >= 0 && Plugin.CarryBodies.Value) Corpses.Claim((uint)id, v);
+            if (id >= 0) Corpses.Claim((uint)id, v);
             if (Plugin.LogEvents.Value && id >= 0)
                 Plugin.Log.LogInfo($"{v.GetDisplayName()} left corpse {id} (needs {weight} Pikmin)");
         }

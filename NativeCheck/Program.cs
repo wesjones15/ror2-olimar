@@ -112,8 +112,12 @@ static class Program
         Check(Native.pik_sim_onions(sim, onions, 2) == 1 && onions[0].colors == 0b111, "Onion read back");
         var sprouts = new Native.Sprout[2];
         Native.pik_sim_sprouts(sim, sprouts, 2);
-        var pellets = new Native.Pellet[2];
-        Check(Native.pik_sim_pellets(sim, pellets, 2) == 1 && pellets[0].min_carriers == 1, "pellet read back");
+        var pelletAt = new Native.Vec3(-80, 0, 50);
+        Check(Native.pik_sim_spawn_numbered_pellet(sim, 7, Native.Red, ref pelletAt, 0f) == 1, "numbered pellet");
+        var pellets = new Native.Pellet[3];
+        Check(Native.pik_sim_pellets(sim, pellets, 3) == 2 && pellets[0].min_carriers == 1, "pellet read back");
+        Check(pellets[1].min_carriers == 5 && pellets[1].max_carriers == 10 && pellets[1].radius == 20f,
+            $"5 pellet from the disc: {pellets[1].min_carriers}-{pellets[1].max_carriers} carriers, radius {pellets[1].radius}");
         var centre = new Native.Vec3(cap.pos.x, 0, 0);
         Native.pik_sim_attack_pikis_in_sphere(sim, ref centre, 1000f, 1000f);
         Check(Native.pik_sim_poisoned(sim) == 0, "not poisoned");

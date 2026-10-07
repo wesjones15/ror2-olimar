@@ -295,6 +295,9 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_piki(IntPtr sim, uint color, ref Vec3 pos, int captain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_add_onion(IntPtr sim, ref Vec3 pos, uint colors);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_pellet(IntPtr sim, ref PelletDesc desc);
+        /// A 1, 5, 10 or 20 pellet (the largest not above `number`) in colour `color` (0-2), with
+        /// the disc's carriers, seeds and size.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_numbered_pellet(IntPtr sim, uint number, uint color, ref Vec3 pos, float yaw);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_plant_sprout(IntPtr sim, uint color, ref Vec3 pos);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_creatures(IntPtr sim, [In] Creature[] creatures, uint n, [In] Part[] parts, uint m);
 

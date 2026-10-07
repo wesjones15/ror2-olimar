@@ -26,7 +26,8 @@ What works:
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
   Pikmin that die. The game's sound effects play for whistles, throws, Pikmin and the Onion at
   RoR2's sound effects volume (`Sound.Enabled`, `Sound.Volume`). Pikmin's music never plays.
-- **Corpses**: a dead enemy leaves a numbered pellet sized to it. Pikmin carry it to the
+- **Corpses**: a dead enemy leaves a 1, 5, 10 or 20 pellet by its size (`CarriersPerMetre`),
+  red, yellow or blue at random, with the disc's size, carriers and seeds. Pikmin carry it to the
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
   `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
 - **Onion**: one Onion for all three colours is placed where Olimar lands (or one per colour,
