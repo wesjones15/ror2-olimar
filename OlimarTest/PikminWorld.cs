@@ -393,7 +393,6 @@ namespace OlimarTest
             PartCount = 0;
             bodies.Clear();
             creatureIndex.Clear();
-            thrownAt.Clear();
             foreach (var b in CharacterBody.readOnlyInstancesList)
             {
                 if (!b || !b.healthComponent || !b.healthComponent.alive) continue;
