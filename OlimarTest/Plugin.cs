@@ -44,7 +44,8 @@ namespace OlimarTest
         internal static ControlScheme Scheme;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue;
         internal static ConfigEntry<bool> OnionPerColour;
-        internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHurtPerDamage, PikminHurtRadius;
+        internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
+        internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> LogEvents;
@@ -81,10 +82,16 @@ namespace OlimarTest
                 "hits for 15 points: 0.75x Olimar's damage per swing at the default.");
             ProcCoefficient = Config.Bind("Combat", "ProcCoefficient", 0.1f,
                 "Proc coefficient of a Pikmin hit (items like Ukulele). Pikmin hit often; keep it low.");
-            PikminHurtPerDamage = Config.Bind("Combat", "PikminHurtPerDamage", 10f,
-                "Pikmin health (100 max) lost per point of RoR2 damage an enemy hit deals near them.");
+            PikminHealth = Config.Bind("Combat", "PikminHealth", 0.5f,
+                "Each Pikmin's health as a share of Olimar's max health, so they scale with his level " +
+                "and health items. At 0.5 a Lemurian's bite (12 at level 1) takes a fifth of a " +
+                "Pikmin's health.");
             PikminHurtRadius = Config.Bind("Combat", "PikminHurtRadius", 1.5f,
                 "Metres around an enemy hit's impact point in which Pikmin are hurt too.");
+            OlimarHealth = Config.Bind("Combat", "OlimarHealth", 220f,
+                "Olimar's base max health (Commando's is 110).");
+            OlimarHealthPerLevel = Config.Bind("Combat", "OlimarHealthPerLevel", 66f,
+                "Max health Olimar gains per level (Commando's is 33).");
             MaxPellets = Config.Bind("Corpses", "MaxPellets", 30, "Most enemy corpses on the ground at once.");
             CarriersPerMetre = Config.Bind("Corpses", "CarriersPerMetre", 2f,
                 "Pikmin needed to lift a corpse per metre of the enemy's radius (1 to 20).");
@@ -209,6 +216,8 @@ namespace OlimarTest
             cb.baseNameToken = "OLIMARTEST_BODY_NAME";
             cb.subtitleNameToken = "OLIMARTEST_BODY_SUBTITLE";
             cb.bodyColor = new Color(0.95f, 0.75f, 0.2f);
+            cb.baseMaxHealth = Plugin.OlimarHealth.Value;
+            cb.levelMaxHealth = Plugin.OlimarHealthPerLevel.Value;
             foreach (var esm in body.GetComponents<EntityStateMachine>())
                 if (esm.customName == "Body")
                     esm.mainStateType = new SerializableEntityStateType(typeof(OlimarMain));

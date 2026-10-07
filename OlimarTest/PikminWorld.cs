@@ -577,6 +577,22 @@ namespace OlimarTest
             return null;
         }
 
+        float NearestOlimarHealth(Vector3 at)
+        {
+            float best = float.MaxValue, health = 110f;
+            foreach (var d in driverOf.Values)
+            {
+                if (!d || !d.Body) continue;
+                float dist = (d.Body.corePosition - at).sqrMagnitude;
+                if (dist < best)
+                {
+                    best = dist;
+                    health = d.Body.maxHealth;
+                }
+            }
+            return health;
+        }
+
         // An enemy's hit on anything also hurts the Pikmin around where it landed.
         void OnDamageDealt(DamageReport r)
         {
@@ -590,8 +606,11 @@ namespace OlimarTest
             var at = r.damageInfo.position;
             if (at == Vector3.zero) return;
             var centre = UnityHost.ToSim(at);
+            // A Pikmin has PikminHealth x the nearest Olimar's max health; the sim counts its
+            // health out of 100 (piki_max_health's code default).
+            float full = Mathf.Max(1f, Plugin.PikminHealth.Value * NearestOlimarHealth(at));
             Native.pik_sim_attack_pikis_in_sphere(sim, ref centre,
-                Plugin.PikminHurtRadius.Value / UnityHost.Scale, r.damageDealt * Plugin.PikminHurtPerDamage.Value);
+                Plugin.PikminHurtRadius.Value / UnityHost.Scale, r.damageDealt / full * 100f);
         }
 
         // A dead enemy leaves a corpse for the Pikmin to carry home (BTeki::dieSoon →
