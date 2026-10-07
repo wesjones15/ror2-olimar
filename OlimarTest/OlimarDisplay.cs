@@ -7,8 +7,8 @@ using UnityEngine;
 namespace OlimarTest
 {
     // Olimar on the character select screen (ror2-common's DisplayModel): his own sim, with
-    // him alone standing idle on a flat floor at the display's root (so he breathes and looks
-    // about), drawn through a silent view with no cursor. Views take a moment to build (the
+    // him and a red, a yellow and a blue Pikmin standing idle on a flat floor at the display's
+    // root (so they breathe and look about), drawn through a silent view with no cursor. Views take a moment to build (the
     // bakes), so released ones wait in a pool for the next lobby.
     internal sealed class OlimarDisplay : IDisplayActor
     {
@@ -47,6 +47,13 @@ namespace OlimarTest
                 return null;
             }
             view.ShowCursors(false);
+            // A Pikmin of each colour beside him, free (not in his squad), so they stand where
+            // they're put, facing the camera like him.
+            foreach (var (colour, x, z) in new[] { (Native.Red, -16f, -2f), (Native.Yellow, 16f, -2f), (Native.Blue, 29f, -10f) })
+            {
+                var at = new Native.Vec3(x, 0f, z);
+                Native.pik_sim_spawn_piki(sim, colour, ref at, -1);
+            }
             return new OlimarDisplay(view, sim);
         }
 
