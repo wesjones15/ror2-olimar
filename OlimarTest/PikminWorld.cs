@@ -130,6 +130,7 @@ namespace OlimarTest
             onionIds.Clear();
             bodies.Clear();
             creatureIndex.Clear();
+            thrownAt.Clear();
             PikiCount = PelletCount = OnionCount = SproutCount = 0;
             Corpses.Clear();
             if (view) view.Clear();
@@ -392,6 +393,7 @@ namespace OlimarTest
             PartCount = 0;
             bodies.Clear();
             creatureIndex.Clear();
+            thrownAt.Clear();
             foreach (var b in CharacterBody.readOnlyInstancesList)
             {
                 if (!b || !b.healthComponent || !b.healthComponent.alive) continue;
@@ -495,12 +497,49 @@ namespace OlimarTest
 
         static string Colour(int c) => c >= 0 && c < 3 ? ColourNames[c] : "?";
 
+        // Where each thrown Pikmin was aimed (the captain's cursor when it left his hand), to log
+        // throws that land well away from it.
+        readonly Dictionary<uint, Vector3> thrownAt = new Dictionary<uint, Vector3>();
+
+        // A thrown Pikmin's distance from where it was aimed, flat, in metres; -1 if unknown.
+        float OffAim(uint piki, out Vector3 aim, out Vector3 at)
+        {
+            at = Vector3.zero;
+            if (!thrownAt.TryGetValue(piki, out aim)) return -1f;
+            thrownAt.Remove(piki);
+            for (int i = 0; i < PikiCount; i++)
+                if (Pikis[i].id == piki)
+                {
+                    at = UnityHost.ToUnity(Pikis[i].pos);
+                    var d = at - aim;
+                    d.y = 0f;
+                    return d.magnitude;
+                }
+            return -1f;
+        }
+
         void LogEvent(in Native.Event e)
         {
             string what;
             switch (e.kind)
             {
-                case Native.EventKind.Latched: what = $"Pikmin {e.a} latched onto {Name(e)}"; break;
+                case Native.EventKind.Thrown:
+                    if (driverOf.TryGetValue(e.b, out var thrower) && thrower && thrower.HasState)
+                        thrownAt[e.a] = UnityHost.ToUnity(thrower.State.cursor_world);
+                    return;
+                case Native.EventKind.Landed:
+                {
+                    float off = OffAim(e.a, out var aim, out var at);
+                    if (off < 1.5f) return;
+                    what = $"Pikmin {e.a} landed {off:F1} m from the cursor (aimed {aim}, landed {at})";
+                    break;
+                }
+                case Native.EventKind.Latched:
+                {
+                    float off = OffAim(e.a, out _, out _);
+                    what = $"Pikmin {e.a} latched onto {Name(e)}" + (off >= 0f ? $", {off:F1} m from the cursor" : "");
+                    break;
+                }
                 case Native.EventKind.PikiDied: what = $"Pikmin {e.a} died ({(new[] { "attacked", "crushed", "eaten", "killed" })[Mathf.Clamp(e.c, 0, 3)]})"; break;
                 case Native.EventKind.Swallowed: what = $"Pikmin {e.a} swallowed by {Name(e)}"; break;
                 case Native.EventKind.PelletLifted: what = $"corpse {e.a} lifted, heading for Onion {e.b}"; break;
