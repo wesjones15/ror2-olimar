@@ -4,14 +4,14 @@ using System.Text;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 2). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 3). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
     // points along (sin a, 0, cos a), the same as a Unity yaw.
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 2;
+        public const uint AbiVersion = 3;
 
         // Colour indices (PikiColor::index, the decomp's order).
         public const uint Blue = 0, Red = 1, Yellow = 2;
@@ -186,6 +186,9 @@ namespace OlimarTest
         public const byte KindCaptain = 0, KindPiki = 1, KindHappa = 2, KindOnion = 3, KindPellet = 4,
             KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8;
 
+        // Batch blends (libpikmin_present::view::blend).
+        public const byte BlendOpaque = 0, BlendCutout = 1, BlendTranslucent = 2;
+
         [StructLayout(LayoutKind.Sequential)]
         public struct ModelInfo
         {
@@ -197,8 +200,9 @@ namespace OlimarTest
         public struct Batch
         {
             public uint first_index, index_count, first_vertex, vertex_count;
+            /// Baked texture id with no per-draw colours, or -1.
             public int texture;
-            /// 0 opaque, 1 alpha test, 2 alpha blend, 3 inverse blend.
+            /// BlendOpaque, BlendCutout or BlendTranslucent.
             public byte blend, lit, cull, _p0;
         }
 
@@ -240,12 +244,13 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_batches(IntPtr view, uint model, [Out] Batch[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_indices(IntPtr view, uint model, [Out] int[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_uvs(IntPtr view, uint model, [Out] float[] outPairs, uint max);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_texture(IntPtr view, uint model, uint tex, out Texture info, [Out] byte[] rgba, uint len);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_texture(IntPtr view, uint id, out Texture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_update(IntPtr view, IntPtr sim, ref ViewFrame frame);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_draws(IntPtr view, [Out] Draw[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_positions(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_normals(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_colors(IntPtr view, out uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_texture_ids(IntPtr view, out uint count);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate byte GroundFn(IntPtr user, ref Vec3 pos, out float height);

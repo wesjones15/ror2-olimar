@@ -8,10 +8,11 @@ namespace OlimarTest
     // Pikmin's own models from the user's disc, through libpikmin's view (pik_view_*): one
     // Unity mesh per model built at load, then every frame one object per posed instance
     // (Olimar, each Pikmin and its leaf, Onions, pellets, sprouts, the cursor) with the
-    // vertices libpikmin skinned for it. Materials use RoR2's own HGStandard shader: the model's
-    // texture times a colour libpikmin works out from each material's TEV setup, so the game's
-    // lighting applies. The same view plays the game's sounds for the sim's events (not its
-    // music).
+    // vertices libpikmin skinned for it. libpikmin bakes each material's TEV setup into one
+    // texture (a pellet gets one per colour), drawn with RoR2's own HGStandard shader so the
+    // game's lighting applies; see-through materials (Olimar's helmet) use its Cloud Remap
+    // effect shader instead, unlit, as HGStandard is deferred and can't blend. The same view
+    // plays the game's sounds for the sim's events (not its music).
     internal sealed class ModelView : IDisposable
     {
         IntPtr view;
@@ -20,7 +21,7 @@ namespace OlimarTest
         class Model
         {
             public Mesh template;
-            public Material[] materials;
+            public Native.Batch[] batches;
             public int vertexCount;
             public int batchCount;
             public Bounds bounds;
@@ -33,10 +34,15 @@ namespace OlimarTest
             public Mesh mesh;
             public uint model;
             public bool seen;
+            /// The texture each batch is drawn with now.
+            public int[] textures;
+            public Material[] materials;
         }
 
         Model[] models;
         readonly Dictionary<ulong, Instance> instances = new Dictionary<ulong, Instance>();
+        readonly Dictionary<int, Texture2D> textures = new Dictionary<int, Texture2D>();
+        readonly Dictionary<(int, byte, byte), Material> materials = new Dictionary<(int, byte, byte), Material>();
         Native.Draw[] draws = new Native.Draw[512];
         int drawCount;
         Vector3[] vbuf = new Vector3[0], nbuf = new Vector3[0];
@@ -44,6 +50,7 @@ namespace OlimarTest
         static readonly int ColorId = Shader.PropertyToID("_Color");
         static readonly int FadeId = Shader.PropertyToID("_Fade");
         static readonly int FlashId = Shader.PropertyToID("_FlashColor");
+        static readonly int TintId = Shader.PropertyToID("_TintColor");
 
         public string Status { get; private set; }
 
@@ -84,7 +91,8 @@ namespace OlimarTest
             return mv;
         }
 
-        static Shader shader;
+        static Shader shader, glass;
+        static bool glassLooked;
 
         // RoR2's HGStandard, taken off Commando's own material.
         static Shader HgStandard()
@@ -110,11 +118,21 @@ namespace OlimarTest
             return shader;
         }
 
+        // RoR2's Cloud Remap effect shader, for blending; null (and see-through materials drawn
+        // as cutouts) if it can't be had.
+        static Shader Glass()
+        {
+            if (glassLooked) return glass;
+            glassLooked = true;
+            try { glass = LegacyShaderAPI.Find("Hopoo Games/FX/Cloud Remap"); }
+            catch (Exception e) { Plugin.Log.LogWarning($"no Cloud Remap shader ({e.Message}); see-through parts drawn solid"); }
+            return glass;
+        }
+
         void Build()
         {
             int n = (int)Native.pik_view_model_count(view);
             models = new Model[n];
-            var textures = new Dictionary<(uint, int), Texture2D>();
             for (uint m = 0; m < n; m++)
             {
                 if (Native.pik_view_model(view, m, out var info) == 0)
@@ -132,22 +150,12 @@ namespace OlimarTest
                 mesh.vertices = new Vector3[info.vertex_count];
                 mesh.uv = uvs;
                 mesh.subMeshCount = batches.Length;
-                var materials = new Material[batches.Length];
                 for (int b = 0; b < batches.Length; b++)
                 {
                     var tri = new int[batches[b].index_count];
                     Array.Copy(indices, batches[b].first_index, tri, 0, tri.Length);
                     mesh.SetTriangles(tri, b, false);
-                    Texture2D tex = null;
-                    if (batches[b].texture >= 0 && !textures.TryGetValue((m, batches[b].texture), out tex))
-                    {
-                        // A texture Unity won't take leaves its batch untextured, not the
-                        // whole set of models.
-                        try { tex = LoadTexture(m, (uint)batches[b].texture); }
-                        catch (Exception e) { Plugin.Log.LogWarning($"Pikmin texture {m}/{batches[b].texture}: {e.Message}"); }
-                        textures[(m, batches[b].texture)] = tex;
-                    }
-                    materials[b] = MakeMaterial(batches[b], tex);
+                    MaterialFor(batches[b], batches[b].texture);
                 }
                 // Animations reach past the bind pose; a roomy box saves recomputing it.
                 var lo = new Vector3(info.lo.x, info.lo.y, info.lo.z);
@@ -157,7 +165,7 @@ namespace OlimarTest
                 models[m] = new Model
                 {
                     template = mesh,
-                    materials = materials,
+                    batches = batches,
                     vertexCount = (int)info.vertex_count,
                     batchCount = batches.Length,
                     bounds = bounds,
@@ -165,15 +173,38 @@ namespace OlimarTest
             }
         }
 
-        Texture2D LoadTexture(uint model, uint slot)
+        // Baked texture `id`, loaded the first time it's asked for. A texture Unity won't take
+        // leaves its batches untextured, not the whole set of models.
+        Texture2D TextureFor(int id)
         {
-            if (Native.pik_view_texture(view, model, slot, out var t, null, 0) == 0) return null;
+            if (id < 0) return null;
+            if (textures.TryGetValue(id, out var tex)) return tex;
+            try { tex = LoadTexture((uint)id); }
+            catch (Exception e) { Plugin.Log.LogWarning($"Pikmin texture {id}: {e.Message}"); }
+            textures[id] = tex;
+            return tex;
+        }
+
+        Material MaterialFor(Native.Batch b, int texture)
+        {
+            var k = (texture, b.blend, b.lit);
+            if (!materials.TryGetValue(k, out var m))
+            {
+                m = MakeMaterial(b, TextureFor(texture));
+                materials[k] = m;
+            }
+            return m;
+        }
+
+        Texture2D LoadTexture(uint id)
+        {
+            if (Native.pik_view_texture(view, id, out var t, null, 0) == 0) return null;
             var px = new byte[t.width * t.height * 4];
-            if (Native.pik_view_texture(view, model, slot, out t, px, (uint)px.Length) == 0) return null;
+            if (Native.pik_view_texture(view, id, out t, px, (uint)px.Length) == 0) return null;
             // Rows top first, as Unity's v = 0 is the first row: GX's v = 0 is the top.
             var tex = new Texture2D((int)t.width, (int)t.height, TextureFormat.RGBA32, true)
             {
-                name = $"pikmin texture {model}/{slot}",
+                name = $"pikmin texture {id}",
                 filterMode = FilterMode.Bilinear,
                 wrapModeU = Wrap(t.wrap_s),
                 wrapModeV = Wrap(t.wrap_t),
@@ -190,18 +221,35 @@ namespace OlimarTest
 
         static Material MakeMaterial(Native.Batch b, Texture2D tex)
         {
+            if (b.blend == Native.BlendTranslucent && Glass())
+            {
+                // Plain alpha blending: no colour ramp, soft edges or fades of its own.
+                var g = new Material(Glass()) { name = "pikmin glass", renderQueue = 3000 };
+                g.SetTexture("_MainTex", tex ? tex : Texture2D.whiteTexture);
+                g.SetColor("_TintColor", Color.white);
+                g.SetFloat("_DisableRemapOn", 1f);
+                g.EnableKeyword("DISABLEREMAP");
+                g.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                g.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                g.SetFloat("_Boost", 1f);
+                g.SetFloat("_AlphaBoost", 1f);
+                g.SetFloat("_AlphaBias", 0f);
+                g.SetFloat("_InvFade", 100f);
+                g.SetFloat("_Cull", 0f);
+                g.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.LessEqual);
+                return g;
+            }
             var m = new Material(HgStandard()) { name = "pikmin" };
             if (tex) m.SetTexture("_MainTex", tex);
             m.SetColor("_Color", Color.white);
-            // Translucent materials (Olimar's helmet, the Onion's glow) become cutouts:
-            // HGStandard is deferred.
-            if (b.blend != 0)
+            // Alpha tested (a leaf's outline), or translucent without the glass shader.
+            if (b.blend != Native.BlendOpaque)
             {
                 m.SetFloat("_EnableCutout", 1f);
                 m.EnableKeyword("CUTOUT");
             }
             // Both sides, as the game draws some of these (leaves, the cursor) and the
-            // handedness flip above is easy to get backwards.
+            // handedness flip below is easy to get backwards.
             m.SetFloat("_Cull", 0f);
             // Smoothed two tone like RoR2's characters; "unlitish" for what the game draws unlit
             // (Pikmin eyes, the cursor).
@@ -213,8 +261,10 @@ namespace OlimarTest
             return m;
         }
 
-        /// Poses the sim and moves the objects. `frame` carries the camera and volume.
-        public unsafe void Update(IntPtr sim, ref Native.ViewFrame frame, float scale)
+        /// Poses the sim and moves the objects. `frame` carries the camera and volume. Draws
+        /// `hide` says no to (pellets standing in for a corpse the host carries itself) aren't
+        /// shown.
+        public unsafe void Update(IntPtr sim, ref Native.ViewFrame frame, float scale, Func<Native.Draw, bool> hide = null)
         {
             if (view == IntPtr.Zero || sim == IntPtr.Zero) return;
             Native.pik_view_update(view, sim, ref frame);
@@ -224,14 +274,16 @@ namespace OlimarTest
             var pos = (Vector3*)Native.pik_view_positions(view, out uint vc);
             var nrm = (Vector3*)Native.pik_view_normals(view, out _);
             var col = (Color*)Native.pik_view_colors(view, out uint cc);
+            var tid = (int*)Native.pik_view_texture_ids(view, out uint tc);
 
             foreach (var inst in instances.Values) inst.seen = false;
             for (int i = 0; i < drawCount; i++)
             {
                 var d = draws[i];
                 if (d.model >= models.Length) continue;
+                if (hide != null && hide(d)) continue;
                 var model = models[d.model];
-                if (d.first_vertex + model.vertexCount > vc || d.first_color + model.batchCount > cc) continue;
+                if (d.first_vertex + model.vertexCount > vc || d.first_color + model.batchCount > Math.Min(cc, tc)) continue;
                 var inst = Get(d.key, d.model);
                 inst.seen = true;
                 if (!inst.go.activeSelf) inst.go.SetActive(true);
@@ -260,12 +312,30 @@ namespace OlimarTest
                 inst.mesh.SetVertices(vbuf, 0, vn);
                 inst.mesh.SetNormals(nbuf, 0, vn);
 
+                // A draw's own textures (a pellet's colour); materials change only when they do.
+                bool changed = false;
+                for (int b = 0; b < model.batchCount; b++)
+                {
+                    int tex = tid[d.first_color + b];
+                    if (inst.textures[b] == tex && inst.materials[b]) continue;
+                    inst.textures[b] = tex;
+                    inst.materials[b] = MaterialFor(model.batches[b], tex);
+                    changed = true;
+                }
+                if (changed) inst.renderer.sharedMaterials = inst.materials;
+
                 for (int b = 0; b < model.batchCount; b++)
                 {
                     block.Clear();
-                    block.SetColor(ColorId, col[d.first_color + b]);
-                    block.SetFloat(FadeId, Mathf.Clamp01(d.alpha));
-                    if ((d.flags & 1) != 0) block.SetColor(FlashId, new Color(1f, 1f, 1f, 0.5f));
+                    var c = col[d.first_color + b];
+                    if (model.batches[b].blend == Native.BlendTranslucent && Glass())
+                        block.SetColor(TintId, c);
+                    else
+                    {
+                        block.SetColor(ColorId, c);
+                        block.SetFloat(FadeId, Mathf.Clamp01(d.alpha));
+                        if ((d.flags & 1) != 0) block.SetColor(FlashId, new Color(1f, 1f, 1f, 0.5f));
+                    }
                     inst.renderer.SetPropertyBlock(block, b);
                 }
             }
@@ -283,8 +353,8 @@ namespace OlimarTest
                 inst.mesh = UnityEngine.Object.Instantiate(models[model].template);
                 inst.mesh.MarkDynamic();
                 inst.go.GetComponent<MeshFilter>().sharedMesh = inst.mesh;
-                inst.renderer.sharedMaterials = models[model].materials;
                 inst.model = model;
+                ResetMaterials(inst);
                 return inst;
             }
             var go = new GameObject($"pikmin {key >> 56}/{key & 0xFFFFFFFF}");
@@ -293,12 +363,26 @@ namespace OlimarTest
             mesh.MarkDynamic();
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r = go.AddComponent<MeshRenderer>();
-            r.sharedMaterials = models[model].materials;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             r.receiveShadows = true;
             inst = new Instance { go = go, renderer = r, mesh = mesh, model = model };
+            ResetMaterials(inst);
             instances[key] = inst;
             return inst;
+        }
+
+        // The model's own materials (its batches' textures with no per-draw colours).
+        void ResetMaterials(Instance inst)
+        {
+            var batches = models[inst.model].batches;
+            inst.textures = new int[batches.Length];
+            inst.materials = new Material[batches.Length];
+            for (int b = 0; b < batches.Length; b++)
+            {
+                inst.textures[b] = batches[b].texture;
+                inst.materials[b] = MaterialFor(batches[b], batches[b].texture);
+            }
+            inst.renderer.sharedMaterials = inst.materials;
         }
 
         public void Dispose()
@@ -313,18 +397,14 @@ namespace OlimarTest
             instances.Clear();
             if (models != null)
                 foreach (var m in models)
-                {
-                    if (m == null) continue;
-                    if (m.template) UnityEngine.Object.Destroy(m.template);
-                    foreach (var mat in m.materials)
-                    {
-                        if (!mat) continue;
-                        var tex = mat.GetTexture("_MainTex");
-                        if (tex) UnityEngine.Object.Destroy(tex);
-                        UnityEngine.Object.Destroy(mat);
-                    }
-                }
+                    if (m != null && m.template) UnityEngine.Object.Destroy(m.template);
             models = null;
+            foreach (var mat in materials.Values)
+                if (mat) UnityEngine.Object.Destroy(mat);
+            materials.Clear();
+            foreach (var tex in textures.Values)
+                if (tex) UnityEngine.Object.Destroy(tex);
+            textures.Clear();
             if (root) UnityEngine.Object.Destroy(root.gameObject);
         }
     }

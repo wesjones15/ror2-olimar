@@ -139,9 +139,9 @@ static class Program
                 foreach (var b in batches)
                     if (b.texture >= 0)
                     {
-                        ok &= Native.pik_view_texture(view, m, (uint)b.texture, out var t, null, 0) == 1;
+                        ok &= Native.pik_view_texture(view, (uint)b.texture, out var t, null, 0) == 1;
                         var px = new byte[t.width * t.height * 4];
-                        ok &= Native.pik_view_texture(view, m, (uint)b.texture, out t, px, (uint)px.Length) == 1;
+                        ok &= Native.pik_view_texture(view, (uint)b.texture, out t, px, (uint)px.Length) == 1;
                     }
                 if (!ok) badModels++;
             }
@@ -156,6 +156,17 @@ static class Program
             Native.pik_view_draws(view, draws, nd);
             Native.pik_view_positions(view, out uint vc);
             Native.pik_view_colors(view, out uint cc);
+            IntPtr idsPtr = Native.pik_view_texture_ids(view, out uint tc);
+            var ids = new int[tc];
+            Marshal.Copy(idsPtr, ids, 0, (int)tc);
+            int textured = 0, badTextures = 0;
+            foreach (int id in ids)
+            {
+                if (id < 0) continue;
+                textured++;
+                if (Native.pik_view_texture(view, (uint)id, out var t, null, 0) == 0 || t.width == 0) badTextures++;
+            }
+            Check(tc == cc && textured > 0 && badTextures == 0, $"{textured} textured batches drawn ({badTextures} bad)");
             var last = draws[nd - 1];
             Native.pik_view_model(view, last.model, out var li);
             Check(Array.Exists(draws, d => d.kind == Native.KindCaptain) && Array.Exists(draws, d => d.kind == Native.KindOnion)
