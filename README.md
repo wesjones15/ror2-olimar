@@ -26,9 +26,9 @@ What works:
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
   Pikmin that die. The game's sound effects play for whistles, throws, Pikmin and the Onion at
   RoR2's sound effects volume (`Sound.Enabled`, `Sound.Volume`). Pikmin's music never plays.
-- **Corpses**: a dead enemy's own body stays where it fell. Pikmin lift it and carry it to the
-  Onion, which turns it into seeds; sprouts grow and are plucked with the throw button. An
-  enemy that leaves no body (a void death) leaves a numbered pellet sized to it.
+- **Corpses**: a dead enemy leaves a numbered pellet sized to it. Pikmin carry it to the
+  Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
+  `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
 - **Onion**: one Onion for all three colours is placed where Olimar lands (or one per colour,
   `OnionPerColour`). Stand under it for its menu: d-pad / arrow keys up calls 5 Pikmin out,
   down puts 5 away, left/right picks the colour.
@@ -121,7 +121,7 @@ and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 15 models; 
 - Clients see Commando, not Olimar's model, and hear none of Pikmin's sounds (the view runs
   where the sim does).
 - Olimar's footsteps and voice, and particle effects other than the whistle and ghosts.
-- Clients see a corpse lie where it fell, not carried.
+- With `CarryBodies`, clients see a corpse lie where it fell, not carried.
 - Enemies don't target Pikmin or shake them off; only hits that land on something hurt them.
 - Hazards (fire, water, electricity), so colours only differ in attack and carrying.
 - Carry paths are straight lines; corpses get stuck on walls between them and the Onion.
