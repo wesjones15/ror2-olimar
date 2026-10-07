@@ -48,6 +48,7 @@ namespace OlimarTest
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
+        internal static ConfigEntry<bool> CarryBodies;
         internal static ConfigEntry<bool> LogEvents;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<float> SoundVolume;
@@ -95,6 +96,9 @@ namespace OlimarTest
             OlimarHealthPerLevel = Config.Bind("Combat", "OlimarHealthPerLevel", 66f,
                 "Max health Olimar gains per level (Commando's is 33).");
             MaxPellets = Config.Bind("Corpses", "MaxPellets", 30, "Most enemy corpses on the ground at once.");
+            CarryBodies = Config.Bind("Corpses", "CarryBodies", false,
+                "Pikmin carry the enemy's own body instead of a numbered pellet. Experimental: the " +
+                "pellet the Pikmin go for stays where the enemy died while the body may roll away.");
             CarriersPerMetre = Config.Bind("Corpses", "CarriersPerMetre", 2f,
                 "Pikmin needed to lift a corpse per metre of the enemy's radius (1 to 20).");
             Sound = Config.Bind("Sound", "Enabled", true,

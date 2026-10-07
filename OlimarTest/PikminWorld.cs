@@ -652,7 +652,7 @@ namespace OlimarTest
                 color = -1,
             };
             int id = Native.pik_sim_spawn_pellet(sim, ref desc);
-            if (id >= 0) Corpses.Claim((uint)id, v);
+            if (id >= 0 && Plugin.CarryBodies.Value) Corpses.Claim((uint)id, v);
             if (Plugin.LogEvents.Value && id >= 0)
                 Plugin.Log.LogInfo($"{v.GetDisplayName()} left corpse {id} (needs {weight} Pikmin)");
         }
