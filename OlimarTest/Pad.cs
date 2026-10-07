@@ -12,13 +12,17 @@ namespace OlimarTest
     // swarm toward the cursor, jump recentre, sprint zoom, arrow keys the Onion menu.
     //
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap
-    // between two 30 Hz ticks still registers.
+    // between two 30 Hz ticks still registers. X is also RoR2's interact button: a press made
+    // while an interact prompt is on screen (leaving the drop pod, a chest) goes to RoR2 only,
+    // and doesn't dismiss until it's let go.
     internal class Pad
     {
         public Vector2 move, swarm;
         public bool swarmToCursor;
         // Down now, and pressed at some point since the sim last ran a tick.
         bool throwNow, whistleNow, dismissNow, throwTap, whistleTap, dismissTap;
+        // The current X press belongs to an interact prompt.
+        bool dismissForPrompt;
         public bool Throw => throwNow || throwTap;
         public bool Whistle => whistleNow || whistleTap;
         public bool Dismiss => dismissNow || dismissTap;
@@ -26,7 +30,8 @@ namespace OlimarTest
         public bool menuUp, menuDown, menuLeft, menuRight;
         public bool usingPad;
 
-        public void Read(Player player)
+        /// `interactPrompt`: RoR2 is showing an interact prompt right now.
+        public void Read(Player player, bool interactPrompt)
         {
             if (player == null) return;
             var gp = Gamepad(player);
@@ -38,7 +43,10 @@ namespace OlimarTest
                 swarmToCursor = false;
                 throwNow = gp.a.value;
                 whistleNow = gp.b.value;
-                dismissNow = gp.x.value;
+                bool x = gp.x.value;
+                if (x && interactPrompt && !dismissNow) dismissForPrompt = true;
+                if (!x) dismissForPrompt = false;
+                dismissNow = x && !dismissForPrompt;
                 recentre |= gp.leftBumper.justPressed || Pressed(gp.leftTrigger);
                 zoom |= Pressed(gp.rightTrigger);
                 topView |= gp.rightBumper.justPressed;

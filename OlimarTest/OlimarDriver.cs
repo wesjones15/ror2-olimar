@@ -103,10 +103,24 @@ namespace OlimarTest
             }
         }
 
+        InteractionDriver interaction;
+
+        // Whether RoR2 shows an interact prompt (`ContextManager` asks the same question): the
+        // drop pod's exit, a chest, a shrine...
+        bool InteractPrompt()
+        {
+            if (!interaction && Body) interaction = Body.GetComponent<InteractionDriver>();
+            if (!interaction) return false;
+            var target = interaction.FindBestInteractableObject();
+            if (!target) return false;
+            var it = target.GetComponent<IInteractable>();
+            return it == null || it.GetInteractability(interaction.interactor) != Interactability.Disabled;
+        }
+
         void Update()
         {
             FindLocalUser();
-            if (localUser != null) pad.Read(localUser.inputPlayer);
+            if (localUser != null) pad.Read(localUser.inputPlayer, InteractPrompt());
             if (captain < 0) return;
 
             if (cam != null)
