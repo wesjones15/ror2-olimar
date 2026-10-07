@@ -1,0 +1,39 @@
+# Builds libpikmin's DLL and the OlimarTest plugin, and installs both into the game's
+# BepInEx/plugins/OlimarTest/ folder along with a pointer to libpikmin's extracted assets.
+#
+#   powershell -ExecutionPolicy Bypass -File build.ps1 [-RoR2Dir <game folder>] [-NoInstall]
+param(
+    [string]$RoR2Dir = (Join-Path $PSScriptRoot "..\Risk Of Rain 2 2023"),
+    [string]$LibPikmin = (Join-Path $PSScriptRoot "..\libpikmin"),
+    [switch]$NoInstall
+)
+$ErrorActionPreference = "Stop"
+
+$cargo = Join-Path $env:USERPROFILE ".cargo\bin\cargo.exe"
+if (-not (Test-Path $cargo)) { $cargo = "cargo" }
+
+Write-Host "== libpikmin-ffi (pikmin.dll)"
+Push-Location $LibPikmin
+try { & $cargo build -p libpikmin-ffi --release; if ($LASTEXITCODE) { throw "cargo failed" } }
+finally { Pop-Location }
+
+Write-Host "== OlimarTest.dll"
+dotnet build (Join-Path $PSScriptRoot "OlimarTest\OlimarTest.csproj") -c Release "-p:RoR2Dir=$RoR2Dir"
+if ($LASTEXITCODE) { throw "dotnet build failed" }
+
+$dist = Join-Path $PSScriptRoot "dist\OlimarTest"
+New-Item -ItemType Directory -Force $dist | Out-Null
+Copy-Item (Join-Path $PSScriptRoot "OlimarTest\bin\Release\netstandard2.0\OlimarTest.dll") $dist -Force
+Copy-Item (Join-Path $LibPikmin "target\release\pikmin.dll") $dist -Force
+# Where the assets extracted from your own disc live (libpikmin/assets). If it isn't there
+# yet the plugin builds it on first run from the disc set in its config.
+$assets = [System.IO.Path]::GetFullPath((Join-Path $LibPikmin "assets"))
+[System.IO.File]::WriteAllText((Join-Path $dist "assets_dir.txt"), $assets)
+Write-Host "built $dist (assets: $assets)"
+
+if (-not $NoInstall) {
+    $plugins = Join-Path $RoR2Dir "BepInEx\plugins\OlimarTest"
+    New-Item -ItemType Directory -Force $plugins | Out-Null
+    Copy-Item (Join-Path $dist "*") $plugins -Force
+    Write-Host "installed into $plugins"
+}
