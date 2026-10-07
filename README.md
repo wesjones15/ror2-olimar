@@ -3,7 +3,9 @@
 Risk of Rain 2 host for [libpikmin](../libpikmin): Olimar and his Pikmin in RoR2.
 Targets the 2023 build (1.2.4.4, Unity 2019.4.37, BepInEx 5) in `../Risk Of Rain 2 2023`.
 Modelled on [ror2-mario](../ror2-mario); the two can be installed side by side (different
-DLLs, GUIDs and tokens).
+DLLs, GUIDs and tokens). Both compile in [ror2-common](../ror2-common)'s shared C# (model
+drawing, the character select display, prefab cloning, content registration, world probes),
+which must sit next to this folder to build.
 
 ## OlimarTest (first test character)
 
@@ -26,6 +28,8 @@ What works:
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
   Pikmin that die. The game's sound effects play for whistles, throws, Pikmin and the Onion at
   RoR2's sound effects volume (`Sound.Enabled`, `Sound.Volume`). Pikmin's music never plays.
+  On the character select screen Olimar stands idle in place of Commando (once your disc's
+  files are extracted).
 - **Corpses**: a dead enemy leaves a 1, 5, 10 or 20 pellet by its size (`CarriersPerMetre`),
   red, yellow or blue at random, with the disc's size, carriers and seeds. Pikmin carry it to the
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
@@ -77,13 +81,16 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
   ticks, the way MarioTest does for Mario. RoR2's own network transform shows that to others.
 - `UnityHost` answers the sim's ground and wall queries with raycasts against RoR2's world
   layer. 1 Pikmin unit = 4 cm (`Sim.MetresPerUnit`): Olimar runs at 6.4 m/s.
-- `ModelView` draws with libpikmin's view (`pik_view_*`, from `libpikmin-present`): one mesh
-  per model built at load, then each frame an object per posed instance with the vertices
-  libpikmin skinned for it, and per batch a texture libpikmin baked by running that material's
+- `PikminModels` draws with libpikmin's view (`pik_view_*`, from `libpikmin-present`) through
+  ror2-common's `ModelView`: one mesh per model built at load, then each frame an object per
+  posed instance with the vertices libpikmin skinned for it, and per batch a texture libpikmin baked by running that material's
   TEV stages on the CPU per texel (a leaf's green is a second texture; a pellet gets one per
   colour). See-through materials (Olimar's helmet) use RoR2's Cloud Remap effect shader, as
-  HGStandard is deferred. Particles come from libpikmin as camera-facing quads, each effect's
-  GX colour mode split into additive texture x colour layers, also drawn with Cloud Remap.
+  HGStandard is deferred. `Particles` (Pikmin's own, so not in ror2-common) draws libpikmin's
+  camera-facing quads, each effect's GX colour mode split into additive texture x colour
+  layers, also with Cloud Remap. `OlimarDisplay` is the character select screen's Olimar:
+  ror2-common's `DisplayModel` on Commando's display, drawing a silent view of a sim with just
+  Olimar standing idle on a flat floor, no cursor.
   `Corpses` keeps a dead enemy's model from RoR2's corpse clean-up and, once its pellet is
   lifted, freezes the ragdoll and moves it with the pellet. The same view plays the sounds: RoR2's own audio
   is Wwise (Unity's audio is off), so libpikmin mixes them and plays them through Windows on a

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using OlimarTest;
+using Ror2Common;
 
 // A flat floor at y = 0, a wall along x = 400 and one creature 100 units ahead, answered from
 // C# the way the plugin's UnityHost and PikminWorld answer them in the game.
@@ -133,7 +134,7 @@ static class Program
             for (uint m = 0; m < models; m++)
             {
                 Native.pik_view_model(view, m, out var info);
-                var batches = new Native.Batch[info.batch_count];
+                var batches = new ViewBatch[info.batch_count];
                 var idx = new int[info.index_count];
                 var uv = new float[info.vertex_count * 2];
                 bool ok = Native.pik_view_batches(view, m, batches, info.batch_count) == info.batch_count
@@ -156,7 +157,7 @@ static class Program
             };
             Native.pik_view_update(view, sim, ref frame);
             uint nd = Native.pik_view_draws(view, null, 0);
-            var draws = new Native.Draw[nd];
+            var draws = new ViewDraw[nd];
             Native.pik_view_draws(view, draws, nd);
             Native.pik_view_positions(view, out uint vc);
             Native.pik_view_colors(view, out uint cc);
@@ -189,6 +190,14 @@ static class Program
             Native.pik_view_particles(view, out uint pn);
             Check(pn > 0 && Native.pik_view_particle_texture(view, 0, out var pt, null, 0) == 1 && pt.width > 0,
                 $"{pn} whistle particles");
+
+            // The character select screen's view: no cursor or marker.
+            Native.pik_view_show_cursors(view, 0);
+            Native.pik_view_update(view, sim, ref frame);
+            var quiet = new ViewDraw[Native.pik_view_draws(view, null, 0)];
+            Native.pik_view_draws(view, quiet, (uint)quiet.Length);
+            Check(!Array.Exists(quiet, d => d.kind == Native.KindCursor || d.kind == Native.KindMarker)
+                  && Array.Exists(quiet, d => d.kind == Native.KindCaptain), "cursors hidden");
             Native.pik_view_free(view);
 
             // The sound output opens and closes in a plain process (nothing is played).

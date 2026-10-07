@@ -1,12 +1,14 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using Ror2Common;
 
 namespace OlimarTest
 {
     // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 5). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
-    // whose sizes differ. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
+    // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
+    // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
     // points along (sin a, 0, cos a), the same as a Unity yaw.
     internal static class Native
     {
@@ -186,47 +188,9 @@ namespace OlimarTest
         public const byte KindCaptain = 0, KindPiki = 1, KindHappa = 2, KindOnion = 3, KindPellet = 4,
             KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8;
 
-        // Batch blends (libpikmin_present::view::blend).
-        public const byte BlendOpaque = 0, BlendCutout = 1, BlendTranslucent = 2;
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct ModelInfo
-        {
-            public uint vertex_count, index_count, batch_count, texture_count;
-            public Vec3 lo, hi;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct Batch
-        {
-            public uint first_index, index_count, first_vertex, vertex_count;
-            /// Baked texture id with no per-draw colours, or -1.
-            public int texture;
-            /// BlendOpaque, BlendCutout or BlendTranslucent. lit: 1 colour lit, 2 alpha lit (only
-            /// opaque where light falls). env: texture coordinates change every frame.
-            public byte blend, lit, cull, env;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct Texture
-        {
-            public uint width, height;
-            /// 0 repeat, 1 clamp, 2 mirror.
-            public byte wrap_s, wrap_t, _p0, _p1;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct Draw
-        {
-            public ulong key;
-            public uint model;
-            public byte kind, flags, _p0, _p1;
-            public Vec3 pos;
-            public float rot_x, rot_y, rot_z, rot_w;
-            public uint first_vertex, first_color;
-            public float alpha;
-            public uint id;
-        }
+        // Models' info, batches, textures and draws are ror2-common's ViewModelInfo, ViewBatch
+        // (blends: ViewBlend; libpikmin_present::view::blend has no additive), ViewTexture and
+        // ViewDraw.
 
         /// A camera-facing quad: corners top-left, top-right, bottom-right, bottom-left (texture
         /// (0,0) (1,0) (1,1) (0,1)), drawn as texture x colour.
@@ -253,20 +217,21 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_free(IntPtr view);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_status(IntPtr view);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_model_count(IntPtr view);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_model(IntPtr view, uint model, out ModelInfo info);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_batches(IntPtr view, uint model, [Out] Batch[] outArr, uint max);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_model(IntPtr view, uint model, out ViewModelInfo info);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_batches(IntPtr view, uint model, [Out] ViewBatch[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_indices(IntPtr view, uint model, [Out] int[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_uvs(IntPtr view, uint model, [Out] float[] outPairs, uint max);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_texture(IntPtr view, uint id, out Texture info, [Out] byte[] rgba, uint len);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_texture(IntPtr view, uint id, out ViewTexture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_update(IntPtr view, IntPtr sim, ref ViewFrame frame);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_draws(IntPtr view, [Out] Draw[] outArr, uint max);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_show_cursors(IntPtr view, byte show);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_draws(IntPtr view, [Out] ViewDraw[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_positions(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_normals(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_colors(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_texture_ids(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_particles(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_frame_uvs(IntPtr view, out uint count);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_particle_texture(IntPtr view, uint id, out Texture info, [Out] byte[] rgba, uint len);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_particle_texture(IntPtr view, uint id, out ViewTexture info, [Out] byte[] rgba, uint len);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate byte GroundFn(IntPtr user, ref Vec3 pos, out float height);
@@ -322,18 +287,11 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_sprouts(IntPtr sim, [Out] Sprout[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_events(IntPtr sim, [Out] Event[] outArr, uint max);
 
-        [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern IntPtr LoadLibraryW(string path);
-
         /// Loads pikmin.dll from the plugin folder up front, so the [DllImport]s above bind to it
         /// whatever Mono's search path is, then checks it speaks this plugin's ABI.
         public static bool Load(string path, out string error)
         {
-            if (LoadLibraryW(path) == IntPtr.Zero)
-            {
-                error = $"LoadLibrary({path}) failed: Win32 error {Marshal.GetLastWin32Error()}";
-                return false;
-            }
+            if (!NativeLib.Load(path, out error)) return false;
             uint v = pik_abi_version();
             if (v != AbiVersion)
             {
@@ -347,8 +305,8 @@ namespace OlimarTest
                 creature = Size<Creature>(), part = Size<Part>(), pellet_desc = Size<PelletDesc>(),
                 captain = Size<Captain>(), piki = Size<Piki>(), pellet = Size<Pellet>(),
                 onion = Size<Onion>(), sprout = Size<Sprout>(), evt = Size<Event>(),
-                onion_counts = Size<OnionCounts>(), model_info = Size<ModelInfo>(), batch = Size<Batch>(),
-                texture = Size<Texture>(), draw = Size<Draw>(), view_frame = Size<ViewFrame>(),
+                onion_counts = Size<OnionCounts>(), model_info = Size<ViewModelInfo>(), batch = Size<ViewBatch>(),
+                texture = Size<ViewTexture>(), draw = Size<ViewDraw>(), view_frame = Size<ViewFrame>(),
                 particle = Size<Particle>(),
             };
             if (!s.Equals(mine))
@@ -367,15 +325,7 @@ namespace OlimarTest
             $"{s.piki}/{s.pellet}/{s.onion}/{s.sprout}/{s.evt}/{s.onion_counts}/" +
             $"{s.model_info}/{s.batch}/{s.texture}/{s.draw}/{s.view_frame}/{s.particle}";
 
-        public static string Utf8(IntPtr p)
-        {
-            if (p == IntPtr.Zero) return null;
-            int n = 0;
-            while (Marshal.ReadByte(p, n) != 0) n++;
-            var bytes = new byte[n];
-            Marshal.Copy(p, bytes, 0, n);
-            return Encoding.UTF8.GetString(bytes);
-        }
+        public static string Utf8(IntPtr p) => NativeLib.Utf8(p);
 
         public static string Utf8(byte[] buf)
         {
@@ -383,11 +333,27 @@ namespace OlimarTest
             return Encoding.UTF8.GetString(buf, 0, n < 0 ? buf.Length : n);
         }
 
-        public static byte[] CString(string s)
-        {
-            var b = Encoding.UTF8.GetBytes(s ?? "");
-            Array.Resize(ref b, b.Length + 1);
-            return b;
-        }
+        public static byte[] CString(string s) => NativeLib.CString(s);
+    }
+
+    // pik_view_* as ror2-common's IViewSource.
+    internal sealed class PikViewSource : IViewSource
+    {
+        public readonly IntPtr Handle;
+
+        public PikViewSource(IntPtr view) { Handle = view; }
+
+        public uint ModelCount() => Native.pik_view_model_count(Handle);
+        public bool Model(uint model, out ViewModelInfo info) => Native.pik_view_model(Handle, model, out info) != 0;
+        public uint Batches(uint model, ViewBatch[] output, uint max) => Native.pik_view_batches(Handle, model, output, max);
+        public uint Indices(uint model, int[] output, uint max) => Native.pik_view_indices(Handle, model, output, max);
+        public uint Uvs(uint model, float[] output, uint max) => Native.pik_view_uvs(Handle, model, output, max);
+        public bool Texture(uint id, out ViewTexture info, byte[] rgba, uint len) => Native.pik_view_texture(Handle, id, out info, rgba, len) != 0;
+        public uint Draws(ViewDraw[] output, uint max) => Native.pik_view_draws(Handle, output, max);
+        public IntPtr Positions(out uint count) => Native.pik_view_positions(Handle, out count);
+        public IntPtr Normals(out uint count) => Native.pik_view_normals(Handle, out count);
+        public IntPtr Colors(out uint count) => Native.pik_view_colors(Handle, out count);
+        public IntPtr TextureIds(out uint count) => Native.pik_view_texture_ids(Handle, out count);
+        public IntPtr FrameUvs(out uint count) => Native.pik_view_frame_uvs(Handle, out count);
     }
 }

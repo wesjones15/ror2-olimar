@@ -1,13 +1,13 @@
 using System;
 using System.Runtime.InteropServices;
-using RoR2;
+using Ror2Common;
 using UnityEngine;
 
 namespace OlimarTest
 {
-    // libpikmin's world queries answered with Unity physics against RoR2's world layer: the
-    // ground under a point (MapMgr::getMinY, mapMgr.cpp) and pushing a sphere out of walls
-    // (MapMgr::traceMove). Sim units in, sim units out; positions convert with Scale (metres per
+    // libpikmin's world queries answered with Unity physics against RoR2's world layer
+    // (ror2-common's WorldProbe): the ground under a point (MapMgr::getMinY, mapMgr.cpp) and
+    // pushing a sphere out of walls (MapMgr::traceMove). Sim units in, sim units out; positions convert with Scale (metres per
     // sim unit) on the same axes, since both are Y-up with the same handedness of yaw.
     internal static class UnityHost
     {
@@ -22,7 +22,7 @@ namespace OlimarTest
         static readonly Native.GroundFn groundFn = Ground;
         static readonly Native.WallsFn wallsFn = Walls;
 
-        public static int Mask => LayerIndex.world.mask;
+        public static int Mask => WorldProbe.Mask;
 
         /// The callback table. The delegates live in statics so the GC never collects them.
         public static Native.Host Table(Native.DamageFn damage) => new Native.Host
@@ -61,8 +61,7 @@ namespace OlimarTest
             try
             {
                 // A hair above the probe point, so a floor exactly at it counts.
-                var from = ToUnity(pos) + Vector3.up * 0.01f;
-                if (!Physics.Raycast(from, Vector3.down, out var h, GroundReach, Mask, QueryTriggerInteraction.Ignore))
+                if (!WorldProbe.Ground(ToUnity(pos) + Vector3.up * 0.01f, GroundReach, out var h))
                     return 0;
                 height = h.point.y / Scale;
                 return 1;
@@ -74,37 +73,15 @@ namespace OlimarTest
             }
         }
 
-        // A ring of horizontal rays out to the sphere's radius; every steep face they reach
-        // inside it pushes the centre out along its horizontal normal. Two passes settle
-        // corners. The sim sub-steps moves shorter than the radius, so a ray starting inside a
-        // collider (which Unity wouldn't report) only happens if something else put it there.
+        // A ring of horizontal rays out to the sphere's radius (WorldProbe.PushOutOfWalls). The
+        // sim sub-steps moves shorter than the radius, so a ray starting inside a collider
+        // (which Unity wouldn't report) only happens if something else put it there.
         static void Walls(IntPtr user, ref Native.Vec3 centre, float radius, out Native.Vec3 pushed)
         {
             pushed = centre;
             try
             {
-                var c = ToUnity(centre);
-                float r = radius * Scale;
-                for (int pass = 0; pass < 2; pass++)
-                {
-                    bool moved = false;
-                    for (int i = 0; i < WallRays; i++)
-                    {
-                        float a = i * (2f * Mathf.PI / WallRays);
-                        var dir = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
-                        if (!Physics.Raycast(c, dir, out var h, r, Mask, QueryTriggerInteraction.Ignore))
-                            continue;
-                        if (Mathf.Abs(h.normal.y) >= WallNormalY)
-                            continue;
-                        var nh = new Vector3(h.normal.x, 0f, h.normal.z).normalized;
-                        float d = Vector3.Dot(c - h.point, nh);
-                        if (d >= r || d < -r)
-                            continue;
-                        c += nh * (r - d);
-                        moved = true;
-                    }
-                    if (!moved) break;
-                }
+                var c = WorldProbe.PushOutOfWalls(ToUnity(centre), radius * Scale, WallNormalY, null, 0, WallRays);
                 var back = ToSim(c);
                 pushed = new Native.Vec3(back.x, centre.y, back.z);
             }

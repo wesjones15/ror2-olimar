@@ -1,11 +1,12 @@
 using System.Collections.Generic;
+using Ror2Common;
 using RoR2;
 using UnityEngine;
 
 namespace OlimarTest
 {
     // Drawing of the sim, on the machine running it. With the user's assets, Pikmin's own
-    // models, animations and sounds (ModelView); without them, Unity primitives for Pikmin (a
+    // models, animations and sounds (PikminModels); without them, Unity primitives for Pikmin (a
     // capsule with a leaf, bud or flower on top), corpse pellets (flat discs), Onions (a pod on
     // three legs) and sprouts, plus a ring for each captain's cursor. Either way a ring shows
     // the whistle. Positions are interpolated between the last two 30 Hz ticks. None of this is
@@ -13,7 +14,7 @@ namespace OlimarTest
     internal class PikminView : MonoBehaviour
     {
         public PikminWorld world;
-        ModelView models;
+        PikminModels models;
         readonly HashSet<int> drawnCaptains = new HashSet<int>();
 
         static readonly Color[] PikiColours =
@@ -64,7 +65,7 @@ namespace OlimarTest
         public void StartModels()
         {
             DisposeModels();
-            models = ModelView.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
+            models = PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
             if (models != null) Plugin.Log.LogInfo($"Pikmin models: {models.Status}");
         }
 
@@ -131,8 +132,7 @@ namespace OlimarTest
         {
             var frame = new Native.ViewFrame { dt = Time.deltaTime, listener = -1, volume = Volume() };
             var user = LocalUserManager.GetFirstLocalUser();
-            var rig = user != null ? user.cameraRigController : null;
-            var cam = rig && rig.sceneCam ? rig.sceneCam.transform : (Camera.main ? Camera.main.transform : null);
+            var cam = GameSettings.PlayerCamera();
             if (cam)
             {
                 frame.eye = UnityHost.ToSim(cam.position);
@@ -160,17 +160,8 @@ namespace OlimarTest
                 d.HideBody(d.Captain >= 0 && drawnCaptains.Contains(d.Captain));
         }
 
-        // RoR2's master and sound-effects volume (0-100 each).
-        static float Volume()
-        {
-            float Get(string name)
-            {
-                var cv = RoR2.Console.instance ? RoR2.Console.instance.FindConVar(name) : null;
-                return cv != null && float.TryParse(cv.GetString(), System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out float v) ? Mathf.Clamp01(v / 100f) : 1f;
-            }
-            return Get("volume_master") * Get("volume_sfx") * Mathf.Clamp(Plugin.SoundVolume.Value, 0f, 2f);
-        }
+        // RoR2's master and sound-effects volume, times ours.
+        static float Volume() => GameSettings.SfxVolume() * Mathf.Clamp(Plugin.SoundVolume.Value, 0f, 2f);
 
         void DrawPikis(float a)
         {

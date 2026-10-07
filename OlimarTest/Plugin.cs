@@ -1,18 +1,15 @@
 using System;
-using System.Collections;
 using System.IO;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using EntityStates;
+using Ror2Common;
 using RoR2;
 using RoR2.ContentManagement;
 using UnityEngine;
-using UnityEngine.Networking;
 using Path = System.IO.Path;
 
 namespace OlimarTest
@@ -30,7 +27,7 @@ namespace OlimarTest
     // A test survivor for libpikmin in Risk of Rain 2: Commando's body as Olimar, with a squad
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
-    // own content-pack hook.
+    // own content-pack hook (ror2-common's ContentProvider).
     [BepInPlugin(Guid, "Olimar (test)", "0.1.0")]
     public class Plugin : BaseUnityPlugin
     {
@@ -60,6 +57,7 @@ namespace OlimarTest
         void Awake()
         {
             Log = Logger;
+            CommonLog.Log = Logger;
             string here = Path.GetDirectoryName(Info.Location);
 
             var assets = Config.Bind("Paths", "AssetsDir", "",
@@ -125,7 +123,7 @@ namespace OlimarTest
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
 
-            ContentManager.collectContentPackProviders += add => add(new Content());
+            ContentProvider.Register(Guid, Content.Fill);
             Language.onCurrentLanguageChanged += AddTokens;
             PikminWorld.Hook();
         }
@@ -208,23 +206,21 @@ namespace OlimarTest
         }
     }
 
-    internal class Content : IContentPackProvider
+    // The survivor: Commando's body and display, cloned under Olimar's own names, the display
+    // drawing Olimar himself (OlimarDisplay) once the disc's files are there.
+    internal static class Content
     {
-        readonly ContentPack pack = new ContentPack();
-
-        public string identifier => Plugin.Guid;
-
-        public IEnumerator LoadStaticContentAsync(LoadStaticContentAsyncArgs args)
+        public static void Fill(ContentPack pack)
         {
             var commando = LegacyResourcesAPI.Load<GameObject>("Prefabs/CharacterBodies/CommandoBody");
             var commandoDisplay = LegacyResourcesAPI.Load<GameObject>("Prefabs/CharacterDisplays/CommandoDisplay");
             if (!commando || !commandoDisplay)
             {
                 Plugin.Log.LogError($"Commando not found (body {(bool)commando}, display {(bool)commandoDisplay})");
-                yield break;
+                return;
             }
 
-            var body = Prefabs.Clone(commando, "OlimarTestBody", networked: true);
+            var body = Prefabs.Clone(commando, "OlimarTestBody", Plugin.Guid);
             var cb = body.GetComponent<CharacterBody>();
             cb.baseNameToken = "OLIMARTEST_BODY_NAME";
             cb.subtitleNameToken = "OLIMARTEST_BODY_SUBTITLE";
@@ -236,7 +232,8 @@ namespace OlimarTest
                     esm.mainStateType = new SerializableEntityStateType(typeof(OlimarMain));
             body.AddComponent<OlimarDriver>();
 
-            var display = Prefabs.Clone(commandoDisplay, "OlimarTestDisplay", networked: false);
+            var display = Prefabs.Clone(commandoDisplay, "OlimarTestDisplay", Plugin.Guid);
+            DisplayModel.Attach(display, Plugin.Guid, OlimarDisplay.Get);
 
             var survivor = ScriptableObject.CreateInstance<SurvivorDef>();
             survivor.cachedName = "OlimarTest";
@@ -253,58 +250,6 @@ namespace OlimarTest
             pack.survivorDefs.Add(new[] { survivor });
             pack.entityStateTypes.Add(new[] { typeof(OlimarMain) });
             Plugin.Log.LogInfo("Olimar (test) registered");
-        }
-
-        public IEnumerator GenerateContentPackAsync(GetContentPackAsyncArgs args)
-        {
-            ContentPack.Copy(pack, args.output);
-            yield break;
-        }
-
-        public IEnumerator FinalizeAsync(FinalizeAsyncArgs args)
-        {
-            yield break;
-        }
-    }
-
-    internal static class Prefabs
-    {
-        static GameObject holder;
-
-        /// A prefab copy, kept under an inactive object so it never wakes up in the scene. A
-        /// networked copy gets its own asset id, so clients spawn it rather than Commando
-        /// (what R2API's PrefabAPI.InstantiateClone does).
-        public static GameObject Clone(GameObject src, string name, bool networked)
-        {
-            if (!holder)
-            {
-                holder = new GameObject("OlimarTestPrefabs");
-                holder.SetActive(false);
-                UnityEngine.Object.DontDestroyOnLoad(holder);
-            }
-            var copy = UnityEngine.Object.Instantiate(src, holder.transform);
-            copy.name = name;
-            var id = copy.GetComponent<NetworkIdentity>();
-            if (id)
-            {
-                if (!networked)
-                    Plugin.Log.LogWarning($"{name} has a NetworkIdentity but is not registered as networked");
-                var hash = NetworkHash128.Parse(Md5Hex(Plugin.Guid + "/" + name));
-                typeof(NetworkIdentity)
-                    .GetField("m_AssetId", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                    .SetValue(id, hash);
-            }
-            return copy;
-        }
-
-        static string Md5Hex(string s)
-        {
-            using (var md5 = MD5.Create())
-            {
-                var sb = new StringBuilder();
-                foreach (byte b in md5.ComputeHash(Encoding.UTF8.GetBytes(s))) sb.Append(b.ToString("x2"));
-                return sb.ToString();
-            }
         }
     }
 

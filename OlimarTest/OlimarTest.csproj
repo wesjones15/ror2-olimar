@@ -37,4 +37,10 @@
     <Reference Include="com.unity.multiplayer-hlapi.Runtime"><HintPath>$(Managed)\com.unity.multiplayer-hlapi.Runtime.dll</HintPath></Reference>
   </ItemGroup>
 
+  <!-- ror2-common's shared sources (model view, prefab cloning, content, native loading),
+       compiled in so the Mario and Olimar plugins never share an assembly. -->
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)../../ror2-common/src/**/*.cs" Link="Common\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
