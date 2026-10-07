@@ -11,8 +11,10 @@ namespace OlimarTest
     // vertices libpikmin skinned for it. libpikmin bakes each material's TEV setup into one
     // texture (a pellet gets one per colour), drawn with RoR2's own HGStandard shader so the
     // game's lighting applies; see-through materials (Olimar's helmet) use its Cloud Remap
-    // effect shader instead, unlit, as HGStandard is deferred and can't blend. The same view
-    // plays the game's sounds for the sim's events (not its music).
+    // effect shader instead, unlit, as HGStandard is deferred and can't blend. Particles (the
+    // whistle, dead Pikmin's ghosts) are camera-facing quads libpikmin works out, drawn with
+    // Cloud Remap too, one mesh per texture. The same view plays the game's sounds for the sim's
+    // events (not its music).
     internal sealed class ModelView : IDisposable
     {
         IntPtr view;
@@ -38,6 +40,22 @@ namespace OlimarTest
             public int[] textures;
             public Material[] materials;
         }
+
+        // Particles sharing a texture and blend, as one mesh rebuilt every frame.
+        class ParticleGroup
+        {
+            public GameObject go;
+            public Mesh mesh;
+            public Material material;
+            public readonly List<Vector3> vertices = new List<Vector3>();
+            public readonly List<Vector2> uvs = new List<Vector2>();
+            public readonly List<Color> colors = new List<Color>();
+            public readonly List<int> triangles = new List<int>();
+        }
+
+        readonly Dictionary<(uint, byte), ParticleGroup> particleGroups = new Dictionary<(uint, byte), ParticleGroup>();
+        readonly Dictionary<uint, Texture2D> particleTextures = new Dictionary<uint, Texture2D>();
+        static readonly Vector2[] Corners = { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
 
         Model[] models;
         readonly Dictionary<ulong, Instance> instances = new Dictionary<ulong, Instance>();
@@ -341,6 +359,113 @@ namespace OlimarTest
             }
             foreach (var inst in instances.Values)
                 if (!inst.seen && inst.go.activeSelf) inst.go.SetActive(false);
+            DrawParticles(scale);
+        }
+
+        unsafe void DrawParticles(float scale)
+        {
+            var ps = (Native.Particle*)Native.pik_view_particles(view, out uint n);
+            foreach (var g in particleGroups.Values)
+            {
+                g.vertices.Clear();
+                g.uvs.Clear();
+                g.colors.Clear();
+                g.triangles.Clear();
+            }
+            for (uint i = 0; i < n && ps != null; i++)
+            {
+                var p = ps[i];
+                var g = Group(p.texture, p.additive);
+                if (g == null) continue;
+                int b = g.vertices.Count;
+                g.vertices.Add(new Vector3(p.c0.x, p.c0.y, p.c0.z) * scale);
+                g.vertices.Add(new Vector3(p.c1.x, p.c1.y, p.c1.z) * scale);
+                g.vertices.Add(new Vector3(p.c2.x, p.c2.y, p.c2.z) * scale);
+                g.vertices.Add(new Vector3(p.c3.x, p.c3.y, p.c3.z) * scale);
+                var c = new Color(p.r, p.g, p.b, p.a);
+                for (int k = 0; k < 4; k++)
+                {
+                    g.uvs.Add(Corners[k]);
+                    g.colors.Add(c);
+                }
+                g.triangles.Add(b);
+                g.triangles.Add(b + 1);
+                g.triangles.Add(b + 2);
+                g.triangles.Add(b);
+                g.triangles.Add(b + 2);
+                g.triangles.Add(b + 3);
+            }
+            foreach (var g in particleGroups.Values)
+            {
+                bool any = g.vertices.Count > 0;
+                if (g.go.activeSelf != any) g.go.SetActive(any);
+                if (!any) continue;
+                g.mesh.Clear();
+                g.mesh.SetVertices(g.vertices);
+                g.mesh.SetUVs(0, g.uvs);
+                g.mesh.SetColors(g.colors);
+                g.mesh.SetTriangles(g.triangles, 0, true);
+            }
+        }
+
+        // The mesh for particles with texture `id` and this blend; null without Cloud Remap or
+        // the texture.
+        ParticleGroup Group(uint id, byte additive)
+        {
+            if (particleGroups.TryGetValue((id, additive), out var g)) return g;
+            if (!Glass()) return null;
+            if (!particleTextures.TryGetValue(id, out var tex))
+            {
+                try { tex = LoadParticleTexture(id); }
+                catch (Exception e) { Plugin.Log.LogWarning($"Pikmin particle texture {id}: {e.Message}"); }
+                particleTextures[id] = tex;
+            }
+            if (!tex) return null;
+            var m = new Material(Glass()) { name = "pikmin particles", renderQueue = 3100 };
+            m.SetTexture("_MainTex", tex);
+            m.SetColor("_TintColor", Color.white);
+            m.SetFloat("_DisableRemapOn", 1f);
+            m.EnableKeyword("DISABLEREMAP");
+            m.SetFloat("_VertexColorOn", 1f);
+            m.EnableKeyword("VERTEXCOLOR");
+            var one = UnityEngine.Rendering.BlendMode.One;
+            m.SetFloat("_SrcBlend", (float)(additive != 0 ? one : UnityEngine.Rendering.BlendMode.SrcAlpha));
+            m.SetFloat("_DstBlend", (float)(additive != 0 ? one : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
+            m.SetFloat("_Boost", 1f);
+            m.SetFloat("_AlphaBoost", 1f);
+            m.SetFloat("_AlphaBias", 0f);
+            m.SetFloat("_InvFade", 100f);
+            m.SetFloat("_Cull", 0f);
+            m.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.LessEqual);
+            var go = new GameObject($"pikmin particles {id}");
+            go.transform.SetParent(root, false);
+            var mesh = new Mesh { name = go.name };
+            mesh.MarkDynamic();
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = m;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            g = new ParticleGroup { go = go, mesh = mesh, material = m };
+            particleGroups[(id, additive)] = g;
+            return g;
+        }
+
+        Texture2D LoadParticleTexture(uint id)
+        {
+            if (Native.pik_view_particle_texture(view, id, out var t, null, 0) == 0) return null;
+            var px = new byte[t.width * t.height * 4];
+            if (Native.pik_view_particle_texture(view, id, out t, px, (uint)px.Length) == 0) return null;
+            var tex = new Texture2D((int)t.width, (int)t.height, TextureFormat.RGBA32, true)
+            {
+                name = $"pikmin particle texture {id}",
+                filterMode = FilterMode.Bilinear,
+                wrapModeU = Wrap(t.wrap_s),
+                wrapModeV = Wrap(t.wrap_t),
+            };
+            tex.SetPixelData(px, 0);
+            tex.Apply(true, true);
+            return tex;
         }
 
         Instance Get(ulong key, uint model)
@@ -405,6 +530,15 @@ namespace OlimarTest
             foreach (var tex in textures.Values)
                 if (tex) UnityEngine.Object.Destroy(tex);
             textures.Clear();
+            foreach (var g in particleGroups.Values)
+            {
+                if (g.mesh) UnityEngine.Object.Destroy(g.mesh);
+                if (g.material) UnityEngine.Object.Destroy(g.material);
+            }
+            particleGroups.Clear();
+            foreach (var tex in particleTextures.Values)
+                if (tex) UnityEngine.Object.Destroy(tex);
+            particleTextures.Clear();
             if (root) UnityEngine.Object.Destroy(root.gameObject);
         }
     }

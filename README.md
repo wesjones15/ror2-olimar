@@ -23,11 +23,12 @@ What works:
   `OlimarHealthPerLevel`). Pikmin that fall into a void are lost.
 - **Looks and sounds**: Olimar, the Pikmin (with leaf, bud or flower), the Onion, pellets,
   sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
-  (`HGStandard`), in place of Commando's model. The game's sound effects play for whistles,
-  throws, Pikmin and the Onion at RoR2's sound effects volume (`Sound.Enabled`,
-  `Sound.Volume`). Pikmin's music never plays.
-- **Corpses**: a dead enemy leaves a stand-in pellet sized to it. Pikmin carry it to the
-  Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
+  (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
+  Pikmin that die. The game's sound effects play for whistles, throws, Pikmin and the Onion at
+  RoR2's sound effects volume (`Sound.Enabled`, `Sound.Volume`). Pikmin's music never plays.
+- **Corpses**: a dead enemy's own body stays where it fell. Pikmin lift it and carry it to the
+  Onion, which turns it into seeds; sprouts grow and are plucked with the throw button. An
+  enemy that leaves no body (a void death) leaves a numbered pellet sized to it.
 - **Onion**: one Onion for all three colours is placed where Olimar lands (or one per colour,
   `OnionPerColour`). Stand under it for its menu: d-pad / arrow keys up calls 5 Pikmin out,
   down puts 5 away, left/right picks the colour.
@@ -77,9 +78,13 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
   layer. 1 Pikmin unit = 4 cm (`Sim.MetresPerUnit`): Olimar runs at 6.4 m/s.
 - `ModelView` draws with libpikmin's view (`pik_view_*`, from `libpikmin-present`): one mesh
   per model built at load, then each frame an object per posed instance with the vertices
-  libpikmin skinned for it, and per batch the colour libpikmin got by running that material's
-  TEV stages on the CPU (an Onion's colour is a register animation). Translucent materials are
-  drawn as cutouts, as HGStandard is deferred. The same view plays the sounds: RoR2's own audio
+  libpikmin skinned for it, and per batch a texture libpikmin baked by running that material's
+  TEV stages on the CPU per texel (a leaf's green is a second texture; a pellet gets one per
+  colour). See-through materials (Olimar's helmet) use RoR2's Cloud Remap effect shader, as
+  HGStandard is deferred. Particles come from libpikmin as camera-facing quads, each effect's
+  GX colour mode split into additive texture x colour layers, also drawn with Cloud Remap.
+  `Corpses` keeps a dead enemy's model from RoR2's corpse clean-up and, once its pellet is
+  lifted, freezes the ragdoll and moves it with the pellet. The same view plays the sounds: RoR2's own audio
   is Wwise (Unity's audio is off), so libpikmin mixes them and plays them through Windows on a
   thread of its own. Without the assets, `PikminView` falls back to Unity primitives.
 
@@ -115,12 +120,13 @@ and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 15 models; 
   plugin installed anyway (it adds a survivor).
 - Clients see Commando, not Olimar's model, and hear none of Pikmin's sounds (the view runs
   where the sim does).
-- Pikmin's particle effects (whistle sparkles, the ghost of a Pikmin that died) and Olimar's
-  footsteps and voice.
+- Olimar's footsteps and voice, and particle effects other than the whistle and ghosts.
+- Clients see a corpse lie where it fell, not carried.
 - Enemies don't target Pikmin or shake them off; only hits that land on something hurt them.
 - Hazards (fire, water, electricity), so colours only differ in attack and carrying.
 - Carry paths are straight lines; corpses get stuck on walls between them and the Onion.
 - The Onion menu works in steps of 5 and doesn't pause the game.
-- The models and sounds haven't been run in the game yet.
+- The baked materials, see-through helmet, carried corpses and particles haven't been run in
+  the game yet.
 
 Offline / friends-only co-op only.

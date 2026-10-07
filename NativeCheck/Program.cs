@@ -172,6 +172,19 @@ static class Program
             Check(Array.Exists(draws, d => d.kind == Native.KindCaptain) && Array.Exists(draws, d => d.kind == Native.KindOnion)
                   && last.first_vertex + li.vertex_count == vc && last.first_color + li.batch_count == cc,
                 $"{nd} draws, {vc} vertices, {cc} colours");
+
+            // Whistling makes particles, each with a texture.
+            var whistle = new Native.Input { whistle = 1 };
+            Native.pik_sim_set_input(sim, (uint)c, ref whistle);
+            for (int i = 0; i < 20; i++)
+            {
+                Native.pik_sim_set_creatures(sim, creatures, 1, parts, 1);
+                Native.pik_sim_advance(sim, ref host, 1f / 60f);
+                Native.pik_view_update(view, sim, ref frame);
+            }
+            Native.pik_view_particles(view, out uint pn);
+            Check(pn > 0 && Native.pik_view_particle_texture(view, 0, out var pt, null, 0) == 1 && pt.width > 0,
+                $"{pn} whistle particles");
             Native.pik_view_free(view);
 
             // The sound output opens and closes in a plain process (nothing is played).

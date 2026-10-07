@@ -4,14 +4,14 @@ using System.Text;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 3). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 4). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
     // points along (sin a, 0, cos a), the same as a Unity yaw.
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 3;
+        public const uint AbiVersion = 4;
 
         // Colour indices (PikiColor::index, the decomp's order).
         public const uint Blue = 0, Red = 1, Yellow = 2;
@@ -174,7 +174,7 @@ namespace OlimarTest
         public struct Sizes
         {
             public uint vec3, host, input, creature, part, pellet_desc, captain, piki, pellet,
-                onion, sprout, evt, onion_counts, model_info, batch, texture, draw, view_frame;
+                onion, sprout, evt, onion_counts, model_info, batch, texture, draw, view_frame, particle;
         }
 
         // ---- The view (pik_view_*): the disc's models posed each frame, and its sounds ----
@@ -227,6 +227,18 @@ namespace OlimarTest
             public uint id;
         }
 
+        /// A camera-facing quad: corners top-left, top-right, bottom-right, bottom-left (texture
+        /// (0,0) (1,0) (1,1) (0,1)), drawn as texture x colour.
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Particle
+        {
+            public Vec3 c0, c1, c2, c3;
+            public float r, g, b, a;
+            public uint texture;
+            /// 1: added to the screen; 0: alpha blended.
+            public byte additive, _p0, _p1, _p2;
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct ViewFrame
         {
@@ -251,6 +263,8 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_normals(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_colors(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_texture_ids(IntPtr view, out uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_particles(IntPtr view, out uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_particle_texture(IntPtr view, uint id, out Texture info, [Out] byte[] rgba, uint len);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate byte GroundFn(IntPtr user, ref Vec3 pos, out float height);
@@ -330,6 +344,7 @@ namespace OlimarTest
                 onion = Size<Onion>(), sprout = Size<Sprout>(), evt = Size<Event>(),
                 onion_counts = Size<OnionCounts>(), model_info = Size<ModelInfo>(), batch = Size<Batch>(),
                 texture = Size<Texture>(), draw = Size<Draw>(), view_frame = Size<ViewFrame>(),
+                particle = Size<Particle>(),
             };
             if (!s.Equals(mine))
             {
@@ -345,7 +360,7 @@ namespace OlimarTest
         static string Describe(Sizes s) =>
             $"{s.vec3}/{s.host}/{s.input}/{s.creature}/{s.part}/{s.pellet_desc}/{s.captain}/" +
             $"{s.piki}/{s.pellet}/{s.onion}/{s.sprout}/{s.evt}/{s.onion_counts}/" +
-            $"{s.model_info}/{s.batch}/{s.texture}/{s.draw}/{s.view_frame}";
+            $"{s.model_info}/{s.batch}/{s.texture}/{s.draw}/{s.view_frame}/{s.particle}";
 
         public static string Utf8(IntPtr p)
         {
