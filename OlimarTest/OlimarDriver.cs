@@ -151,8 +151,11 @@ namespace OlimarTest
             if (localUser == null) return;
             var rig = localUser.cameraRigController;
             if (!rig) return;
-            if (cam == null)
-                cam = new PikminCamera(transform, Yaw());
+            if (!cam)
+            {
+                cam = gameObject.AddComponent<PikminCamera>();
+                cam.Init(transform, Yaw());
+            }
             if (rig != camRig || !rig.IsOverrideCam(cam))
             {
                 rig.SetOverrideCam(cam, 0.5f);
@@ -162,7 +165,7 @@ namespace OlimarTest
 
         void ReleaseCamera()
         {
-            if (camRig && cam != null && camRig.IsOverrideCam(cam))
+            if (camRig && cam && camRig.IsOverrideCam(cam))
                 camRig.SetOverrideCam(null, 0.5f);
             camRig = null;
         }

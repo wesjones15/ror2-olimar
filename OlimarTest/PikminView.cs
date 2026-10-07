@@ -47,7 +47,7 @@ namespace OlimarTest
         readonly Dictionary<int, LineRenderer> cursors = new Dictionary<int, LineRenderer>();
         readonly Dictionary<int, LineRenderer> whistles = new Dictionary<int, LineRenderer>();
         readonly Dictionary<Color, Material> materials = new Dictionary<Color, Material>();
-        Material lineMat, baseMat;
+        Material baseMat;
         Transform root;
 
         void Awake()
@@ -274,8 +274,7 @@ namespace OlimarTest
             line.positionCount = RingPoints;
             line.useWorldSpace = true;
             line.widthMultiplier = width;
-            line.sharedMaterial = LineMat();
-            line.startColor = line.endColor = colour;
+            line.sharedMaterial = Mat(colour);
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.receiveShadows = false;
             lines[key] = line;
@@ -294,8 +293,10 @@ namespace OlimarTest
             return go;
         }
 
-        // The primitive's own default material, recoloured. RoR2 draws it fine in its deferred
-        // pipeline; its own Hopoo shaders want textures this doesn't have.
+        // The primitive's own default material, recoloured, for rings too. RoR2 draws it fine in
+        // its deferred pipeline; its own Hopoo shaders want textures this doesn't have, and
+        // Shader.Find throws for shaders outside RoR2's table (RoR2BepInExPack's
+        // LegacyShaderDetours), Sprites/Default included.
         Material Mat(Color c)
         {
             if (materials.TryGetValue(c, out var m) && m) return m;
@@ -305,18 +306,10 @@ namespace OlimarTest
                 baseMat = probe.GetComponent<Renderer>().sharedMaterial;
                 DestroyImmediate(probe);
             }
-            m = baseMat ? new Material(baseMat) : new Material(Shader.Find("Standard"));
+            m = new Material(baseMat);
             m.color = c;
             materials[c] = m;
             return m;
-        }
-
-        Material LineMat()
-        {
-            if (lineMat) return lineMat;
-            var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color") ?? Shader.Find("Standard");
-            lineMat = new Material(shader);
-            return lineMat;
         }
     }
 }

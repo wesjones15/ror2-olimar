@@ -7,7 +7,11 @@ namespace OlimarTest
     // behind at one of three zoom levels and only turns when told to (L swings it round behind
     // him), so the stick's directions stay put while he walks. Not a port of Pikmin's own
     // camera (cameraMgr.cpp); its angles and distances are eyeballed.
-    internal class PikminCamera : ICameraStateProvider
+    //
+    // A component on Olimar's body, not a plain object: RoR2's camera modes cast the override
+    // camera to UnityEngine.Object for their null checks (CameraModePlayerBasic.
+    // CollectLookInputInternal), which throws for anything else and stops the camera rig.
+    internal class PikminCamera : MonoBehaviour, ICameraStateProvider
     {
         // (distance m, pitch deg) per zoom level, and the top view.
         static readonly Vector2[] Zooms = { new Vector2(9f, 38f), new Vector2(14f, 48f), new Vector2(21f, 58f) };
@@ -15,13 +19,13 @@ namespace OlimarTest
         const float Fov = 55f;
         const float TurnSmooth = 0.25f;
 
-        readonly Transform target;
+        Transform target;
         float yaw, yawGoal, yawVel;
         int zoom = 1;
         bool top;
         float dist, pitch, distVel, pitchVel;
 
-        public PikminCamera(Transform target, float startYaw)
+        public void Init(Transform target, float startYaw)
         {
             this.target = target;
             yaw = yawGoal = startYaw;
