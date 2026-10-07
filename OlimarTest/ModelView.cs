@@ -27,6 +27,10 @@ namespace OlimarTest
             public int vertexCount;
             public int batchCount;
             public Bounds bounds;
+            /// Some batch is environment mapped (new texture coordinates every frame).
+            public bool hasEnv;
+            /// Some see-through batch is lit, by vertex colours (Cloud Remap is unlit).
+            public bool lightsVertices;
         }
 
         class Instance
@@ -64,6 +68,8 @@ namespace OlimarTest
         Native.Draw[] draws = new Native.Draw[512];
         int drawCount;
         Vector3[] vbuf = new Vector3[0], nbuf = new Vector3[0];
+        Vector2[] ubuf = new Vector2[0];
+        Color[] cbuf = new Color[0];
         readonly MaterialPropertyBlock block = new MaterialPropertyBlock();
         static readonly int ColorId = Shader.PropertyToID("_Color");
         static readonly int FadeId = Shader.PropertyToID("_Fade");
@@ -187,6 +193,8 @@ namespace OlimarTest
                     vertexCount = (int)info.vertex_count,
                     batchCount = batches.Length,
                     bounds = bounds,
+                    hasEnv = Array.Exists(batches, x => x.env != 0),
+                    lightsVertices = Array.Exists(batches, x => x.blend == Native.BlendTranslucent && x.lit != 0),
                 };
             }
         }
@@ -255,6 +263,12 @@ namespace OlimarTest
                 g.SetFloat("_InvFade", 100f);
                 g.SetFloat("_Cull", 0f);
                 g.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.LessEqual);
+                if (b.lit != 0)
+                {
+                    // Lit per vertex by ModelView.Light.
+                    g.SetFloat("_VertexColorOn", 1f);
+                    g.EnableKeyword("VERTEXCOLOR");
+                }
                 return g;
             }
             var m = new Material(HgStandard()) { name = "pikmin" };
@@ -293,6 +307,8 @@ namespace OlimarTest
             var nrm = (Vector3*)Native.pik_view_normals(view, out _);
             var col = (Color*)Native.pik_view_colors(view, out uint cc);
             var tid = (int*)Native.pik_view_texture_ids(view, out uint tc);
+            var uvs = (Vector2*)Native.pik_view_frame_uvs(view, out uint uc);
+            FindSun();
 
             foreach (var inst in instances.Values) inst.seen = false;
             for (int i = 0; i < drawCount; i++)
@@ -319,6 +335,8 @@ namespace OlimarTest
                 {
                     vbuf = new Vector3[vn];
                     nbuf = new Vector3[vn];
+                    ubuf = new Vector2[vn];
+                    cbuf = new Color[vn];
                 }
                 fixed (Vector3* vd = vbuf)
                 fixed (Vector3* nd = nbuf)
@@ -329,6 +347,20 @@ namespace OlimarTest
                 }
                 inst.mesh.SetVertices(vbuf, 0, vn);
                 inst.mesh.SetNormals(nbuf, 0, vn);
+                if (model.hasEnv && uvs != null && d.first_vertex + vn <= uc)
+                {
+                    fixed (Vector2* ud = ubuf)
+                    {
+                        long bytes = (long)vn * sizeof(Vector2);
+                        Buffer.MemoryCopy(uvs + d.first_vertex, ud, bytes, bytes);
+                    }
+                    inst.mesh.SetUVs(0, ubuf, 0, vn);
+                }
+                if (model.lightsVertices)
+                {
+                    Light(model, t.rotation, vn);
+                    inst.mesh.SetColors(cbuf, 0, vn);
+                }
 
                 // A draw's own textures (a pellet's colour); materials change only when they do.
                 bool changed = false;
@@ -466,6 +498,61 @@ namespace OlimarTest
             tex.SetPixelData(px, 0);
             tex.Apply(true, true);
             return tex;
+        }
+
+        Vector3 toSun = new Vector3(0.35f, 0.85f, 0.4f).normalized;
+        Color sunColor = Color.white, ambient = new Color(0.2f, 0.2f, 0.2f, 0f);
+        Light sun;
+        float sunLooked = -10f;
+
+        // RoR2's sun (the scene's main directional light) and ambient, to light see-through
+        // batches the way GX lights their material channel.
+        void FindSun()
+        {
+            if (!sun && Time.unscaledTime - sunLooked > 2f)
+            {
+                sunLooked = Time.unscaledTime;
+                sun = RenderSettings.sun;
+                if (!sun)
+                    foreach (var l in UnityEngine.Object.FindObjectsOfType<Light>())
+                        if (l.type == LightType.Directional && l.isActiveAndEnabled && (!sun || l.intensity > sun.intensity))
+                            sun = l;
+            }
+            if (sun)
+            {
+                toSun = -sun.transform.forward;
+                sunColor = sun.color * Mathf.Clamp(sun.intensity, 0f, 1.5f);
+            }
+            var a = RenderSettings.ambientLight;
+            ambient = new Color(Mathf.Clamp01(a.r), Mathf.Clamp01(a.g), Mathf.Clamp01(a.b), 0f);
+        }
+
+        // Vertex colours for a posed instance (normals in nbuf): GX's channel 0 with one light,
+        // `ambient + light * max(0, n.l)`, on see-through lit batches; white elsewhere. The
+        // stages' ambient alpha is 0, so a lit alpha is just the light (`DayMgr`, stages/*.ini).
+        void Light(Model model, Quaternion rot, int vn)
+        {
+            for (int i = 0; i < vn; i++) cbuf[i] = Color.white;
+            foreach (var b in model.batches)
+            {
+                if (b.blend != Native.BlendTranslucent || b.lit == 0) continue;
+                int end = (int)Math.Min(b.first_vertex + b.vertex_count, (uint)vn);
+                for (int i = (int)b.first_vertex; i < end; i++)
+                {
+                    var n = nbuf[i];
+                    // The model is mirrored across its own X, so are its normals.
+                    float d = Mathf.Max(0f, Vector3.Dot(rot * new Vector3(-n.x, n.y, n.z), toSun));
+                    var c = Color.white;
+                    if ((b.lit & 1) != 0)
+                    {
+                        c.r = Mathf.Clamp01(ambient.r + sunColor.r * d);
+                        c.g = Mathf.Clamp01(ambient.g + sunColor.g * d);
+                        c.b = Mathf.Clamp01(ambient.b + sunColor.b * d);
+                    }
+                    if ((b.lit & 2) != 0) c.a = Mathf.Clamp01(d);
+                    cbuf[i] = c;
+                }
+            }
         }
 
         Instance Get(ulong key, uint model)

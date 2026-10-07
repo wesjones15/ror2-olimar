@@ -4,14 +4,14 @@ using System.Text;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 4). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 5). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
     // points along (sin a, 0, cos a), the same as a Unity yaw.
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 4;
+        public const uint AbiVersion = 5;
 
         // Colour indices (PikiColor::index, the decomp's order).
         public const uint Blue = 0, Red = 1, Yellow = 2;
@@ -202,8 +202,9 @@ namespace OlimarTest
             public uint first_index, index_count, first_vertex, vertex_count;
             /// Baked texture id with no per-draw colours, or -1.
             public int texture;
-            /// BlendOpaque, BlendCutout or BlendTranslucent.
-            public byte blend, lit, cull, _p0;
+            /// BlendOpaque, BlendCutout or BlendTranslucent. lit: 1 colour lit, 2 alpha lit (only
+            /// opaque where light falls). env: texture coordinates change every frame.
+            public byte blend, lit, cull, env;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -264,6 +265,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_colors(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_texture_ids(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_particles(IntPtr view, out uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_frame_uvs(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_particle_texture(IntPtr view, uint id, out Texture info, [Out] byte[] rgba, uint len);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
