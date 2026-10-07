@@ -51,6 +51,8 @@ namespace OlimarTest
         // Read back after each tick that ran.
         public Native.Piki[] Pikis = new Native.Piki[128];
         public Native.Pellet[] Pellets = new Native.Pellet[32];
+        /// Enemies' bodies standing in for their corpse pellets.
+        internal readonly Corpses Corpses = new Corpses();
         public Native.Onion[] Onions = new Native.Onion[4];
         public Native.Sprout[] Sprouts = new Native.Sprout[32];
         public int PikiCount, PelletCount, OnionCount, SproutCount;
@@ -129,6 +131,7 @@ namespace OlimarTest
             bodies.Clear();
             creatureIndex.Clear();
             PikiCount = PelletCount = OnionCount = SproutCount = 0;
+            Corpses.Clear();
             if (view) view.Clear();
         }
 
@@ -617,7 +620,7 @@ namespace OlimarTest
         }
 
         // A dead enemy leaves a corpse for the Pikmin to carry home (BTeki::dieSoon →
-        // becomePellet). RoR2 clears its own corpses, so the pellet is a stand-in object.
+        // becomePellet): a pellet in the sim, drawn as the enemy's own body (Corpses).
         void OnDeath(DamageReport r)
         {
             if (sim == IntPtr.Zero || !NetworkServer.active || r == null) return;
@@ -649,6 +652,7 @@ namespace OlimarTest
                 color = -1,
             };
             int id = Native.pik_sim_spawn_pellet(sim, ref desc);
+            if (id >= 0) Corpses.Claim((uint)id, v);
             if (Plugin.LogEvents.Value && id >= 0)
                 Plugin.Log.LogInfo($"{v.GetDisplayName()} left corpse {id} (needs {weight} Pikmin)");
         }

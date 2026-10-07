@@ -113,6 +113,7 @@ namespace OlimarTest
             {
                 DrawModels();
                 DrawCaptains(cursorRings: false);
+                world.Corpses.Update(world);
                 return;
             }
             if (models != null)
@@ -123,6 +124,7 @@ namespace OlimarTest
             DrawOnions();
             DrawSprouts();
             DrawCaptains(cursorRings: true);
+            world.Corpses.Update(world);
         }
 
         void DrawModels()
@@ -141,7 +143,11 @@ namespace OlimarTest
             foreach (var d in drivers)
                 if (d.Captain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
                     frame.listener = d.Captain;
-            models.Update(world.SimHandle, ref frame, UnityHost.Scale);
+            // A pellet with its enemy's body is drawn as the body.
+            models.Update(world.SimHandle, ref frame, UnityHost.Scale, d =>
+                d.kind == Native.KindPellet &&
+                world.Corpses.Pose(d.id, new Vector3(d.pos.x, d.pos.y, d.pos.z) * UnityHost.Scale,
+                    new Quaternion(d.rot_x, d.rot_y, d.rot_z, d.rot_w)));
 
             // Olimar's own model stands in for Commando's wherever it's drawn.
             drawnCaptains.Clear();
@@ -219,7 +225,7 @@ namespace OlimarTest
             for (int i = 0; i < Mathf.Max(pellets.Count, world.PelletCount); i++)
             {
                 while (pellets.Count <= i) pellets.Add(null);
-                bool show = i < world.PelletCount && world.Pellets[i].state != 3;
+                bool show = i < world.PelletCount && world.Pellets[i].state != 3 && !world.Corpses.Has(world.Pellets[i].id);
                 if (!show)
                 {
                     if (pellets[i]) pellets[i].SetActive(false);
