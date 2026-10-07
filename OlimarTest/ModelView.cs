@@ -141,7 +141,10 @@ namespace OlimarTest
                     Texture2D tex = null;
                     if (batches[b].texture >= 0 && !textures.TryGetValue((m, batches[b].texture), out tex))
                     {
-                        tex = LoadTexture(m, (uint)batches[b].texture);
+                        // A texture Unity won't take leaves its batch untextured, not the
+                        // whole set of models.
+                        try { tex = LoadTexture(m, (uint)batches[b].texture); }
+                        catch (Exception e) { Plugin.Log.LogWarning($"Pikmin texture {m}/{batches[b].texture}: {e.Message}"); }
                         textures[(m, batches[b].texture)] = tex;
                     }
                     materials[b] = MakeMaterial(batches[b], tex);
@@ -175,7 +178,9 @@ namespace OlimarTest
                 wrapModeU = Wrap(t.wrap_s),
                 wrapModeV = Wrap(t.wrap_t),
             };
-            tex.LoadRawTextureData(px);
+            // Only the top level: Apply builds the smaller mips (LoadRawTextureData would want
+            // the whole chain).
+            tex.SetPixelData(px, 0);
             tex.Apply(true, true);
             return tex;
         }
