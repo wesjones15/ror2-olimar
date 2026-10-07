@@ -4,14 +4,14 @@ using System.Text;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs, PIK_ABI_VERSION 1). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 2). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
     // points along (sin a, 0, cos a), the same as a Unity yaw.
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 1;
+        public const uint AbiVersion = 2;
 
         // Colour indices (PikiColor::index, the decomp's order).
         public const uint Blue = 0, Red = 1, Yellow = 2;
@@ -174,8 +174,78 @@ namespace OlimarTest
         public struct Sizes
         {
             public uint vec3, host, input, creature, part, pellet_desc, captain, piki, pellet,
-                onion, sprout, evt, onion_counts;
+                onion, sprout, evt, onion_counts, model_info, batch, texture, draw, view_frame;
         }
+
+        // ---- The view (pik_view_*): the disc's models posed each frame, and its sounds ----
+
+        // Models (libpikmin_present::view::models).
+        public const uint ModelOlimar = 0, ModelOnion = 7, ModelPikihead = 12, ModelCursor = 13, ModelMarker = 14;
+
+        // Draw kinds (libpikmin_present::view::kinds).
+        public const byte KindCaptain = 0, KindPiki = 1, KindHappa = 2, KindOnion = 3, KindPellet = 4,
+            KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct ModelInfo
+        {
+            public uint vertex_count, index_count, batch_count, texture_count;
+            public Vec3 lo, hi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Batch
+        {
+            public uint first_index, index_count, first_vertex, vertex_count;
+            public int texture;
+            /// 0 opaque, 1 alpha test, 2 alpha blend, 3 inverse blend.
+            public byte blend, lit, cull, _p0;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Texture
+        {
+            public uint width, height;
+            /// 0 repeat, 1 clamp, 2 mirror.
+            public byte wrap_s, wrap_t, _p0, _p1;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Draw
+        {
+            public ulong key;
+            public uint model;
+            public byte kind, flags, _p0, _p1;
+            public Vec3 pos;
+            public float rot_x, rot_y, rot_z, rot_w;
+            public uint first_vertex, first_color;
+            public float alpha;
+            public uint id;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct ViewFrame
+        {
+            public float dt;
+            public Vec3 eye, forward, up;
+            public int listener;
+            public float volume;
+        }
+
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_new(byte[] assetsDir, byte sound);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_free(IntPtr view);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_status(IntPtr view);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_model_count(IntPtr view);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_model(IntPtr view, uint model, out ModelInfo info);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_batches(IntPtr view, uint model, [Out] Batch[] outArr, uint max);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_indices(IntPtr view, uint model, [Out] int[] outArr, uint max);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_uvs(IntPtr view, uint model, [Out] float[] outPairs, uint max);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_texture(IntPtr view, uint model, uint tex, out Texture info, [Out] byte[] rgba, uint len);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_update(IntPtr view, IntPtr sim, ref ViewFrame frame);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_draws(IntPtr view, [Out] Draw[] outArr, uint max);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_positions(IntPtr view, out uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_normals(IntPtr view, out uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_colors(IntPtr view, out uint count);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate byte GroundFn(IntPtr user, ref Vec3 pos, out float height);
@@ -253,7 +323,8 @@ namespace OlimarTest
                 creature = Size<Creature>(), part = Size<Part>(), pellet_desc = Size<PelletDesc>(),
                 captain = Size<Captain>(), piki = Size<Piki>(), pellet = Size<Pellet>(),
                 onion = Size<Onion>(), sprout = Size<Sprout>(), evt = Size<Event>(),
-                onion_counts = Size<OnionCounts>(),
+                onion_counts = Size<OnionCounts>(), model_info = Size<ModelInfo>(), batch = Size<Batch>(),
+                texture = Size<Texture>(), draw = Size<Draw>(), view_frame = Size<ViewFrame>(),
             };
             if (!s.Equals(mine))
             {
@@ -268,7 +339,8 @@ namespace OlimarTest
 
         static string Describe(Sizes s) =>
             $"{s.vec3}/{s.host}/{s.input}/{s.creature}/{s.part}/{s.pellet_desc}/{s.captain}/" +
-            $"{s.piki}/{s.pellet}/{s.onion}/{s.sprout}/{s.evt}/{s.onion_counts}";
+            $"{s.piki}/{s.pellet}/{s.onion}/{s.sprout}/{s.evt}/{s.onion_counts}/" +
+            $"{s.model_info}/{s.batch}/{s.texture}/{s.draw}/{s.view_frame}";
 
         public static string Utf8(IntPtr p)
         {

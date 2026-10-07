@@ -49,6 +49,8 @@ namespace OlimarTest
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> LogEvents;
+        internal static ConfigEntry<bool> Sound;
+        internal static ConfigEntry<float> SoundVolume;
 
         /// Extraction has finished (or wasn't needed). The sim waits for this so it starts on
         /// the disc's tuning.
@@ -95,6 +97,11 @@ namespace OlimarTest
             MaxPellets = Config.Bind("Corpses", "MaxPellets", 30, "Most enemy corpses on the ground at once.");
             CarriersPerMetre = Config.Bind("Corpses", "CarriersPerMetre", 2f,
                 "Pikmin needed to lift a corpse per metre of the enemy's radius (1 to 20).");
+            Sound = Config.Bind("Sound", "Enabled", true,
+                "Play Pikmin's sound effects (from your disc) for whistles, throws, Pikmin and the " +
+                "Onion. Pikmin's music never plays; RoR2's soundtrack stays.");
+            SoundVolume = Config.Bind("Sound", "Volume", 1f,
+                "Pikmin sound volume, on top of RoR2's master and sound effects volume (0 to 2).");
             LogEvents = Config.Bind("Debug", "LogEvents", true,
                 "Log notable sim events (latches, deaths, deliveries, plucks) to the BepInEx log.");
 

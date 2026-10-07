@@ -66,6 +66,8 @@ namespace OlimarTest
 
         public bool Running => sim != IntPtr.Zero;
 
+        internal IntPtr SimHandle => sim;
+
         /// Running and not stopped by a bug in the sim.
         public bool Healthy => sim != IntPtr.Zero && !reportedPoison;
 
@@ -185,6 +187,7 @@ namespace OlimarTest
             simStage = Stage.instance;
             reportedPoison = false;
             Plugin.Log.LogInfo($"Pikmin sim started ({Native.Utf8(Native.pik_sim_params_source(sim))})");
+            view.StartModels();
             return true;
         }
 

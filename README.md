@@ -7,8 +7,9 @@ DLLs, GUIDs and tokens).
 
 ## OlimarTest (first test character)
 
-A survivor called **Olimar (test)**: Commando's body, model and HUD leading a squad of Pikmin
-from libpikmin. Commando's skills never fire; Olimar fights with Pikmin.
+A survivor called **Olimar (test)**: Commando's body and HUD leading a squad of Pikmin from
+libpikmin, drawn with Pikmin's own models and animations from your disc. Commando's skills
+never fire; Olimar fights with Pikmin.
 
 What works:
 - **Squad**: you start a run with 10 Red, 5 Yellow and 5 Blue Pikmin (configurable) that
@@ -17,7 +18,14 @@ What works:
   latch onto. Pikmin hits are RoR2 damage from Olimar: attack power x `DamageCoefficient`
   x Olimar's damage stat, with on-hit items at a low proc coefficient.
 - **Getting hurt**: an enemy's hit on anything also hurts the Pikmin around where it landed.
-  Pikmin that fall into a void are lost.
+  A Pikmin's health is `PikminHealth` (half) of Olimar's max health, so it grows with his
+  level and health items. Olimar has twice Commando's health (`OlimarHealth`,
+  `OlimarHealthPerLevel`). Pikmin that fall into a void are lost.
+- **Looks and sounds**: Olimar, the Pikmin (with leaf, bud or flower), the Onion, pellets,
+  sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
+  (`HGStandard`), in place of Commando's model. The game's sound effects play for whistles,
+  throws, Pikmin and the Onion at RoR2's sound effects volume (`Sound.Enabled`,
+  `Sound.Volume`). Pikmin's music never plays.
 - **Corpses**: a dead enemy leaves a stand-in pellet sized to it. Pikmin carry it to the
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
 - **Onion**: one Onion for all three colours is placed where Olimar lands (or one per colour,
@@ -67,8 +75,13 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
   ticks, the way MarioTest does for Mario. RoR2's own network transform shows that to others.
 - `UnityHost` answers the sim's ground and wall queries with raycasts against RoR2's world
   layer. 1 Pikmin unit = 4 cm (`Sim.MetresPerUnit`): Olimar runs at 6.4 m/s.
-- `PikminView` draws everything with Unity primitives: capsules with a leaf, bud or flower,
-  flat discs for corpses, an Onion on three legs, rings for the cursor and whistle.
+- `ModelView` draws with libpikmin's view (`pik_view_*`, from `libpikmin-present`): one mesh
+  per model built at load, then each frame an object per posed instance with the vertices
+  libpikmin skinned for it, and per batch the colour libpikmin got by running that material's
+  TEV stages on the CPU (an Onion's colour is a register animation). Translucent materials are
+  drawn as cutouts, as HGStandard is deferred. The same view plays the sounds: RoR2's own audio
+  is Wwise (Unity's audio is off), so libpikmin mixes them and plays them through Windows on a
+  thread of its own. Without the assets, `PikminView` falls back to Unity primitives.
 
 ### Build and install
 
@@ -90,20 +103,24 @@ Use `-RoR2Dir` for another install and `-NoInstall` to only build into `dist/`.
 dotnet run -c Release --project NativeCheck -- ..\libpikmin\target\release\pikmin.dll ..\libpikmin\assets
 ```
 
-The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 1`, `Olimar (test) registered`,
-and in a run `Pikmin sim started (disc (10 files))`, `captain 0 is ...`, then latches,
-deaths, corpses and deliveries as they happen (turn off with `Debug.LogEvents`).
+The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 2`, `Olimar (test) registered`,
+and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 15 models; sound 48000 Hz,
+2 channels`, `captain 0 is ...`, then latches, deaths, corpses and deliveries as they happen
+(turn off with `Debug.LogEvents`).
 
 ### Not there yet
 
 - **Multiplayer**: the Pikmin only exist on the host. A client playing Olimar walks like
   Commando without skills, and clients don't see the host's Pikmin. Every player needs the
   plugin installed anyway (it adds a survivor).
-- Olimar's and the Pikmin's models, animations and sounds (placeholders, Commando).
+- Clients see Commando, not Olimar's model, and hear none of Pikmin's sounds (the view runs
+  where the sim does).
+- Pikmin's particle effects (whistle sparkles, the ghost of a Pikmin that died) and Olimar's
+  footsteps and voice.
 - Enemies don't target Pikmin or shake them off; only hits that land on something hurt them.
 - Hazards (fire, water, electricity), so colours only differ in attack and carrying.
 - Carry paths are straight lines; corpses get stuck on walls between them and the Onion.
 - The Onion menu works in steps of 5 and doesn't pause the game.
-- None of this has been run in the game yet.
+- The models and sounds haven't been run in the game yet.
 
 Offline / friends-only co-op only.

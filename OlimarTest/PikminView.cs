@@ -1,16 +1,20 @@
 using System.Collections.Generic;
+using RoR2;
 using UnityEngine;
 
 namespace OlimarTest
 {
-    // Placeholder drawing of the sim, on the machine running it: Unity primitives for Pikmin
-    // (a capsule with a leaf, bud or flower on top), corpse pellets (flat discs), Onions (a
-    // pod on three legs) and sprouts, plus rings for each captain's cursor and whistle.
-    // Positions are interpolated between the last two 30 Hz ticks. None of this is networked
-    // yet, and none of it is Pikmin's own art (that would come from the user's disc).
+    // Drawing of the sim, on the machine running it. With the user's assets, Pikmin's own
+    // models, animations and sounds (ModelView); without them, Unity primitives for Pikmin (a
+    // capsule with a leaf, bud or flower on top), corpse pellets (flat discs), Onions (a pod on
+    // three legs) and sprouts, plus a ring for each captain's cursor. Either way a ring shows
+    // the whistle. Positions are interpolated between the last two 30 Hz ticks. None of this is
+    // networked yet.
     internal class PikminView : MonoBehaviour
     {
         public PikminWorld world;
+        ModelView models;
+        readonly HashSet<int> drawnCaptains = new HashSet<int>();
 
         static readonly Color[] PikiColours =
         {
@@ -56,8 +60,29 @@ namespace OlimarTest
             root.SetParent(transform, false);
         }
 
+        /// A new sim: fresh models, animation state and sound emitters for it.
+        public void StartModels()
+        {
+            DisposeModels();
+            models = ModelView.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
+            if (models != null) Plugin.Log.LogInfo($"Pikmin models: {models.Status}");
+        }
+
+        void DisposeModels()
+        {
+            if (models != null)
+            {
+                models.Dispose();
+                models = null;
+            }
+            foreach (var d in FindObjectsOfType<OlimarDriver>()) d.HideBody(false);
+        }
+
+        void OnDestroy() => DisposeModels();
+
         public void Clear()
         {
+            DisposeModels();
             foreach (Transform t in root) Destroy(t.gameObject);
             pikis.Clear();
             pellets.Clear();
@@ -84,12 +109,61 @@ namespace OlimarTest
         void LateUpdate()
         {
             if (!world || !world.Running) return;
+            if (models != null && world.Healthy)
+            {
+                DrawModels();
+                DrawCaptains(cursorRings: false);
+                return;
+            }
+            if (models != null)
+                foreach (var d in FindObjectsOfType<OlimarDriver>()) d.HideBody(false);
             float a = world.RenderAlpha;
             DrawPikis(a);
             DrawPellets();
             DrawOnions();
             DrawSprouts();
-            DrawCaptains();
+            DrawCaptains(cursorRings: true);
+        }
+
+        void DrawModels()
+        {
+            var frame = new Native.ViewFrame { dt = Time.deltaTime, listener = -1, volume = Volume() };
+            var user = LocalUserManager.GetFirstLocalUser();
+            var rig = user != null ? user.cameraRigController : null;
+            var cam = rig && rig.sceneCam ? rig.sceneCam.transform : (Camera.main ? Camera.main.transform : null);
+            if (cam)
+            {
+                frame.eye = UnityHost.ToSim(cam.position);
+                frame.forward = new Native.Vec3(cam.forward.x, cam.forward.y, cam.forward.z);
+                frame.up = new Native.Vec3(cam.up.x, cam.up.y, cam.up.z);
+            }
+            var drivers = FindObjectsOfType<OlimarDriver>();
+            foreach (var d in drivers)
+                if (d.Captain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
+                    frame.listener = d.Captain;
+            models.Update(world.SimHandle, ref frame, UnityHost.Scale);
+
+            // Olimar's own model stands in for Commando's wherever it's drawn.
+            drawnCaptains.Clear();
+            for (int i = 0; i < models.DrawCount; i++)
+            {
+                var dr = models.DrawAt(i);
+                if (dr.kind == Native.KindCaptain) drawnCaptains.Add((int)dr.id);
+            }
+            foreach (var d in drivers)
+                d.HideBody(d.Captain >= 0 && drawnCaptains.Contains(d.Captain));
+        }
+
+        // RoR2's master and sound-effects volume (0-100 each).
+        static float Volume()
+        {
+            float Get(string name)
+            {
+                var cv = RoR2.Console.instance ? RoR2.Console.instance.FindConVar(name) : null;
+                return cv != null && float.TryParse(cv.GetString(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float v) ? Mathf.Clamp01(v / 100f) : 1f;
+            }
+            return Get("volume_master") * Get("volume_sfx") * Mathf.Clamp(Plugin.SoundVolume.Value, 0f, 2f);
         }
 
         void DrawPikis(float a)
@@ -233,21 +307,24 @@ namespace OlimarTest
             }
         }
 
-        void DrawCaptains()
+        void DrawCaptains(bool cursorRings)
         {
             var seen = new HashSet<int>();
             foreach (var d in FindObjectsOfType<OlimarDriver>())
             {
                 if (!d.HasState || d.Captain < 0 || !d.Active) continue;
                 seen.Add(d.Captain);
-                var cursor = Line(cursors, d.Captain, new Color(1f, 0.4f, 0.1f), 0.06f);
-                Ring(cursor, UnityHost.ToUnity(d.State.cursor_world), 0.35f);
+                if (cursorRings)
+                {
+                    var cursor = Line(cursors, d.Captain, new Color(1f, 0.4f, 0.1f), 0.06f);
+                    Ring(cursor, UnityHost.ToUnity(d.State.cursor_world), 0.35f);
+                }
                 var whistle = Line(whistles, d.Captain, new Color(1f, 0.9f, 0.2f), 0.05f);
                 bool on = d.Whistling && d.State.whistle_radius > 0f;
                 whistle.enabled = on;
                 if (on) Ring(whistle, UnityHost.ToUnity(d.State.cursor_world), d.State.whistle_radius * UnityHost.Scale);
             }
-            foreach (var kv in cursors) kv.Value.enabled = seen.Contains(kv.Key);
+            foreach (var kv in cursors) kv.Value.enabled = cursorRings && seen.Contains(kv.Key);
             foreach (var kv in whistles) if (!seen.Contains(kv.Key)) kv.Value.enabled = false;
         }
 

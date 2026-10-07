@@ -117,6 +117,57 @@ static class Program
         var centre = new Native.Vec3(cap.pos.x, 0, 0);
         Native.pik_sim_attack_pikis_in_sphere(sim, ref centre, 1000f, 1000f);
         Check(Native.pik_sim_poisoned(sim) == 0, "not poisoned");
+
+        if (args.Length > 1)
+        {
+            // The view: models through the same structs the plugin builds meshes from, then a
+            // frame posed (no sound: nothing should play from a check).
+            IntPtr view = Native.pik_view_new(Native.CString(args[1]), 0);
+            Check(view != IntPtr.Zero, "view: " + Native.Utf8(Native.pik_view_status(view)));
+            uint models = Native.pik_view_model_count(view);
+            int badModels = 0;
+            for (uint m = 0; m < models; m++)
+            {
+                Native.pik_view_model(view, m, out var info);
+                var batches = new Native.Batch[info.batch_count];
+                var idx = new int[info.index_count];
+                var uv = new float[info.vertex_count * 2];
+                bool ok = Native.pik_view_batches(view, m, batches, info.batch_count) == info.batch_count
+                          && Native.pik_view_indices(view, m, idx, info.index_count) == info.index_count
+                          && Native.pik_view_uvs(view, m, uv, info.vertex_count) == info.vertex_count
+                          && Array.TrueForAll(idx, i => i >= 0 && i < info.vertex_count);
+                foreach (var b in batches)
+                    if (b.texture >= 0)
+                    {
+                        ok &= Native.pik_view_texture(view, m, (uint)b.texture, out var t, null, 0) == 1;
+                        var px = new byte[t.width * t.height * 4];
+                        ok &= Native.pik_view_texture(view, m, (uint)b.texture, out t, px, (uint)px.Length) == 1;
+                    }
+                if (!ok) badModels++;
+            }
+            Check(models == 15 && badModels == 0, $"{models} models read back ({badModels} bad)");
+            var frame = new Native.ViewFrame
+            {
+                dt = 1f / 60f, forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0), listener = c, volume = 1f,
+            };
+            Native.pik_view_update(view, sim, ref frame);
+            uint nd = Native.pik_view_draws(view, null, 0);
+            var draws = new Native.Draw[nd];
+            Native.pik_view_draws(view, draws, nd);
+            Native.pik_view_positions(view, out uint vc);
+            Native.pik_view_colors(view, out uint cc);
+            var last = draws[nd - 1];
+            Native.pik_view_model(view, last.model, out var li);
+            Check(Array.Exists(draws, d => d.kind == Native.KindCaptain) && Array.Exists(draws, d => d.kind == Native.KindOnion)
+                  && last.first_vertex + li.vertex_count == vc && last.first_color + li.batch_count == cc,
+                $"{nd} draws, {vc} vertices, {cc} colours");
+            Native.pik_view_free(view);
+
+            // The sound output opens and closes in a plain process (nothing is played).
+            IntPtr loud = Native.pik_view_new(Native.CString(args[1]), 1);
+            Check(loud != IntPtr.Zero, "view with sound: " + Native.Utf8(Native.pik_view_status(loud)));
+            Native.pik_view_free(loud);
+        }
         Native.pik_sim_free(sim);
 
         Console.WriteLine(failures == 0 ? "all good" : $"{failures} failed");

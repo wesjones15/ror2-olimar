@@ -128,6 +128,20 @@ namespace OlimarTest
             }
         }
 
+        // Commando's model is hidden while Pikmin's Olimar is drawn in his place.
+        CharacterModel charModel;
+        bool bodyHidden;
+
+        public void HideBody(bool hide)
+        {
+            if (hide == bodyHidden) return;
+            if (!charModel && Body && Body.modelLocator && Body.modelLocator.modelTransform)
+                charModel = Body.modelLocator.modelTransform.GetComponent<CharacterModel>();
+            if (!charModel) return;
+            charModel.invisibilityCount += hide ? 1 : -1;
+            bodyHidden = hide;
+        }
+
         void OnDestroy()
         {
             if (PikminWorld.Instance) PikminWorld.Instance.Unregister(this);
