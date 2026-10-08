@@ -967,7 +967,6 @@ namespace OlimarTest
                 seeds_matching = Mathf.Max(1, Mathf.RoundToInt(weight * 1.5f)),
                 seeds_other = Mathf.Max(1, weight / 2),
                 color = -1,
-                ship_part = -1,
             };
             int id = Native.pik_sim_spawn_pellet(sim, ref desc);
             if (id >= 0) Native.pik_sim_recruit_to_pellet(sim, (uint)id, Id(v), 8f / UnityHost.Scale);
