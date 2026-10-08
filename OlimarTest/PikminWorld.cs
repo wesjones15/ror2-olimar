@@ -359,6 +359,9 @@ namespace OlimarTest
                     anyone = true;
                 }
                 Native.pik_sim_set_input(sim, (uint)kv.Key, ref input);
+                // His move speed items (Goat Hoof, Energy Drink...) speed up Navi's run.
+                if (kv.Value && kv.Value.Body)
+                    Native.pik_sim_set_captain_speed(sim, (uint)kv.Key, MinionStats.Of(kv.Value.Body).moveSpeed);
             }
             // With no Olimar about (all dead, or mid-load) the Pikmin wait.
             if (!anyone) return;
@@ -606,27 +609,27 @@ namespace OlimarTest
                 var c = creatures[ci];
                 if (part < c.parts_len) at = UnityHost.ToUnity(parts[c.parts_start + part].centre);
             }
-            var info = new DamageInfo
+            var spec = new NativeHitSpec
             {
-                damage = amount * Plugin.DamageCoefficient.Value * (attacker ? attacker.damage : 12f),
-                crit = attacker && attacker.RollCrit(),
-                attacker = attacker ? attacker.gameObject : null,
-                inflictor = attacker ? attacker.gameObject : null,
+                coefficient = amount * Plugin.DamageCoefficient.Value,
                 position = at,
-                force = Vector3.zero,
-                procChainMask = default,
                 procCoefficient = Plugin.ProcCoefficient.Value,
-                damageType = DamageType.Generic,
-                damageColorIndex = DamageColorIndex.Default,
             };
-            health.TakeDamage(info);
-            if (attacker && GlobalEventManager.instance)
-            {
-                GlobalEventManager.instance.OnHitEnemy(info, victim.gameObject);
-                GlobalEventManager.instance.OnHitAll(info, victim.gameObject);
-            }
-            return 1;
+            // A Pikmin's hit is Olimar's, measured from the Pikmin (Focus Crystal's range);
+            // his own punch is his.
+            bool landed = source == Native.SourcePiki && sourceId < PikiCount
+                ? MinionHit.Deal(attacker, MinionOf(Pikis[sourceId]), health, spec)
+                : NativeHit.Deal(attacker, health, spec);
+            return landed ? (byte)1 : (byte)0;
         }
+
+        static MinionState MinionOf(in Native.Piki p) => new MinionState
+        {
+            position = UnityHost.ToUnity(p.pos),
+            moving = p.vel.x * p.vel.x + p.vel.z * p.vel.z > 1f,
+            grounded = p.on_ground != 0,
+            healthFraction = 1f,
+        };
 
         /// The Olimar a Pikmin's (or captain's) hit counts as coming from.
         CharacterBody AttackerFor(uint source, uint id)
