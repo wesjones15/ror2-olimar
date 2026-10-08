@@ -7,9 +7,10 @@ namespace OlimarTest
     // The Pikmin control scheme's input: a GameCube-style pad read by button position through
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
     // B: whistle, X: dismiss, right stick: swarm (the C-stick), L: recentre the camera,
-    // R: zoom, Z (right bumper): top view, d-pad: the Onion menu. On keyboard and mouse it falls
-    // back to RoR2's actions: move, primary throw, secondary whistle, utility dismiss, special
-    // swarm toward the cursor, jump recentre, sprint zoom, arrow keys the Onion menu.
+    // R: zoom, Z (right bumper): top view. On keyboard and mouse it falls back to RoR2's
+    // actions: move, primary throw, secondary whistle, utility dismiss, special swarm toward
+    // the cursor, jump recentre, sprint zoom. The Onion window takes the stick or d-pad (WASD
+    // or arrow keys), A or a left click to confirm and B or a right click to cancel.
     //
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap
     // between two 30 Hz ticks still registers. X is also RoR2's interact button: a press made
@@ -27,8 +28,12 @@ namespace OlimarTest
         public bool Whistle => whistleNow || whistleTap;
         public bool Dismiss => dismissNow || dismissTap;
         public bool recentre, zoom, topView;
-        public bool menuUp, menuDown, menuLeft, menuRight;
+        // The Onion window: directions held now (-1, 0, 1; up and right positive), and presses.
+        public int menuV, menuH;
+        public bool confirm, cancel;
         public bool usingPad;
+        // Throw and whistle stay up until let go (the press that closed a window).
+        bool swallowThrow, swallowWhistle;
 
         /// `interactPrompt`: RoR2 is showing an interact prompt right now.
         public void Read(Player player, bool interactPrompt)
@@ -50,10 +55,11 @@ namespace OlimarTest
                 recentre |= gp.leftBumper.justPressed || Pressed(gp.leftTrigger);
                 zoom |= Pressed(gp.rightTrigger);
                 topView |= gp.rightBumper.justPressed;
-                menuUp |= gp.dPad.up.justPressed;
-                menuDown |= gp.dPad.down.justPressed;
-                menuLeft |= gp.dPad.left.justPressed;
-                menuRight |= gp.dPad.right.justPressed;
+                var ls = gp.leftStick.value;
+                menuV = gp.dPad.up.value || ls.y > 0.5f ? 1 : gp.dPad.down.value || ls.y < -0.5f ? -1 : 0;
+                menuH = gp.dPad.right.value || ls.x > 0.5f ? 1 : gp.dPad.left.value || ls.x < -0.5f ? -1 : 0;
+                confirm |= gp.a.justPressed;
+                cancel |= gp.b.justPressed;
             }
             else
             {
@@ -65,10 +71,21 @@ namespace OlimarTest
                 dismissNow = player.GetButton(Action.UtilitySkill);
                 recentre |= player.GetButtonDown(Action.Jump);
                 zoom |= player.GetButtonDown(Action.Sprint);
-                menuUp |= UnityEngine.Input.GetKeyDown(KeyCode.UpArrow);
-                menuDown |= UnityEngine.Input.GetKeyDown(KeyCode.DownArrow);
-                menuLeft |= UnityEngine.Input.GetKeyDown(KeyCode.LeftArrow);
-                menuRight |= UnityEngine.Input.GetKeyDown(KeyCode.RightArrow);
+                menuV = Key(KeyCode.UpArrow) || move.y > 0.5f ? 1 : Key(KeyCode.DownArrow) || move.y < -0.5f ? -1 : 0;
+                menuH = Key(KeyCode.RightArrow) || move.x > 0.5f ? 1 : Key(KeyCode.LeftArrow) || move.x < -0.5f ? -1 : 0;
+                confirm |= player.GetButtonDown(Action.PrimarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Return)
+                           || UnityEngine.Input.GetKeyDown(KeyCode.KeypadEnter);
+                cancel |= player.GetButtonDown(Action.SecondarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Backspace);
+            }
+            if (swallowThrow)
+            {
+                if (throwNow) throwNow = false;
+                else swallowThrow = false;
+            }
+            if (swallowWhistle)
+            {
+                if (whistleNow) whistleNow = false;
+                else swallowWhistle = false;
             }
             throwTap |= throwNow;
             whistleTap |= whistleNow;
@@ -76,6 +93,17 @@ namespace OlimarTest
             if (move.sqrMagnitude > 1f) move.Normalize();
             if (swarm.sqrMagnitude > 1f) swarm.Normalize();
         }
+
+        /// Keeps throw and whistle up until they're let go, and drops pending taps: the press
+        /// that closed the Onion window isn't a throw or a whistle.
+        public void Swallow()
+        {
+            swallowThrow = swallowWhistle = true;
+            throwNow = whistleNow = dismissNow = false;
+            throwTap = whistleTap = dismissTap = false;
+        }
+
+        static bool Key(KeyCode k) => UnityEngine.Input.GetKey(k);
 
         /// Clears the taps once the sim has run a tick with them.
         public void Ticked()

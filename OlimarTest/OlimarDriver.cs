@@ -44,10 +44,14 @@ namespace OlimarTest
         public bool HasState;
         public bool Whistling => pad.Whistle;
 
-        // The Onion menu.
+        // The Onion window: which Onion it's open on (-1 closed), the colour shown and how many
+        // to call out (> 0) or put away (< 0) on confirm.
         int menuOnion = -1;
         uint menuColour = Native.Red;
-        const uint MenuStep = 5;
+        int menuDelta;
+        int lastV, lastH;
+        float repeatAt;
+        public bool MenuOpen => menuOnion >= 0;
 
         /// The sim moves the body (Pikmin scheme, running on the server, sim healthy).
         public bool SimMoves => Plugin.Scheme == ControlScheme.Pikmin && captain >= 0
@@ -109,8 +113,7 @@ namespace OlimarTest
         // drop pod's exit, a chest, a shrine...
         bool InteractPrompt()
         {
-            if (!interaction && Body) interaction = Body.GetComponent<InteractionDriver>();
-            if (!interaction) return false;
+            if (!Interaction()) return false;
             var target = interaction.FindBestInteractableObject();
             if (!target) return false;
             var it = target.GetComponent<IInteractable>();
@@ -130,7 +133,9 @@ namespace OlimarTest
                 if (pad.topView) cam.ToggleTop();
             }
             pad.recentre = pad.zoom = pad.topView = false;
-            OnionMenu();
+            OnionPrompt();
+            if (MenuOpen) MenuInput();
+            pad.confirm = pad.cancel = false;
 
             if (SimMoves && placed && Active)
             {
@@ -160,6 +165,10 @@ namespace OlimarTest
         {
             if (PikminWorld.Instance) PikminWorld.Instance.Unregister(this);
             ReleaseCamera();
+            if (interaction && interaction.interactableOverride && interaction.interactableOverride.GetComponent<OnionInteractable>())
+                interaction.interactableOverride = null;
+            if (panelTex) Destroy(panelTex);
+            if (stripeTex) Destroy(stripeTex);
         }
 
         void FindLocalUser()
@@ -224,6 +233,12 @@ namespace OlimarTest
                 // Something else moved the body: put the captain where it is now.
                 if (!placed || (transform.position - written).sqrMagnitude > 1f)
                     Pose(ref i, feet, Vector3.zero, Yaw());
+                // The Onion window has the stick and buttons.
+                if (MenuOpen)
+                {
+                    i.stick_x = i.stick_y = i.swarm_x = i.swarm_y = 0f;
+                    i.throw_ = i.whistle = i.dismiss = 0;
+                }
             }
             else
             {
@@ -237,13 +252,14 @@ namespace OlimarTest
                 i.throw_ = B(input.skill1.down);
                 i.whistle = B(input.skill2.down);
                 i.dismiss = B(input.skill3.down);
-                if (input.skill4.down)
+                if (input.skill4.down && !MenuOpen)
                 {
                     var to = aim - feet;
                     var s = new Vector2(to.x, to.z).normalized;
                     i.swarm_x = s.x;
                     i.swarm_y = s.y;
                 }
+                if (MenuOpen) i.throw_ = i.whistle = i.dismiss = 0;
             }
             return i;
         }
@@ -286,25 +302,98 @@ namespace OlimarTest
         static byte B(bool v) => v ? (byte)1 : (byte)0;
 
         // ------------------------------------------------------------------------------------
-        // The Onion menu: stand under an Onion; d-pad (or arrow keys) left/right picks a
-        // colour, up calls Pikmin out, down puts the squad's away. Pikmin pauses the game for
-        // its window; this doesn't.
+        // The Onion menu (NaviContainerState, naviState.cpp). Under an Onion RoR2 shows its own
+        // interact prompt (OnionInteractable, as his InteractionDriver's override), and the
+        // interact button opens a window: up/down sets how many Pikmin come out of the Onion
+        // (or go in), left/right the colour of a shared Onion, A confirms, B cancels. Pikmin
+        // pauses the game for it; RoR2 can't (others keep playing), so Olimar stands still and
+        // his Pikmin keep going meanwhile.
 
-        void OnionMenu()
+        InteractionDriver Interaction()
+        {
+            if (!interaction && Body) interaction = Body.GetComponent<InteractionDriver>();
+            return interaction;
+        }
+
+        // Points RoR2's interact prompt at the Onion in reach, or takes it back.
+        void OnionPrompt()
+        {
+            var it = Interaction();
+            if (!it) return;
+            var world = PikminWorld.Instance;
+            GameObject want = null;
+            if (!MenuOpen && world && localUser != null && Active)
+            {
+                int o = world.OnionInReach(captain);
+                if (o >= 0) want = world.OnionTarget(o);
+            }
+            var cur = it.interactableOverride;
+            if (want) it.interactableOverride = want;
+            else if (cur && cur.GetComponent<OnionInteractable>()) it.interactableOverride = null;
+        }
+
+        /// Onion `onion` can be opened by him now (OnionInteractable's prompt).
+        public bool CanOpenOnion(int onion) =>
+            !MenuOpen && Active && PikminWorld.Instance && PikminWorld.Instance.OnionInReach(captain) == onion;
+
+        /// The interact button on Onion `onion`.
+        public void OpenOnionMenu(int onion)
+        {
+            if (!CanOpenOnion(onion)) return;
+            menuOnion = onion;
+            menuDelta = 0;
+            lastV = lastH = 0;
+            pad.confirm = pad.cancel = false;
+        }
+
+        void CloseMenu()
+        {
+            menuOnion = -1;
+            menuDelta = 0;
+            pad.Swallow();
+        }
+
+        void MenuInput()
         {
             var world = PikminWorld.Instance;
-            menuOnion = world && localUser != null ? world.OnionInReach(captain) : -1;
-            if (menuOnion < 0)
+            if (!world || !Active || world.OnionInReach(captain) != menuOnion)
             {
-                pad.menuUp = pad.menuDown = pad.menuLeft = pad.menuRight = false;
+                CloseMenu();
                 return;
             }
             uint colours = world.OnionColours(menuOnion);
-            if ((colours & (1u << (int)menuColour)) == 0 || pad.menuRight) menuColour = NextColour(colours, menuColour, 1);
-            if (pad.menuLeft) menuColour = NextColour(colours, menuColour, 2);
-            if (pad.menuUp) world.CallOut(captain, menuOnion, menuColour, MenuStep);
-            if (pad.menuDown) world.PutAway(captain, menuOnion, menuColour, MenuStep);
-            pad.menuUp = pad.menuDown = pad.menuLeft = pad.menuRight = false;
+            if ((colours & (1u << (int)menuColour)) == 0) menuColour = NextColour(colours, menuColour, 1);
+            int h = pad.menuH;
+            if (h != 0 && lastH == 0)
+            {
+                uint next = NextColour(colours, menuColour, h > 0 ? 1 : 2);
+                if (next != menuColour) menuDelta = 0;
+                menuColour = next;
+            }
+            lastH = h;
+            // One step a press; held, after a moment, quickly (the viewer's window does the same).
+            int v = pad.menuV;
+            if (v != 0 && (v != lastV || Time.unscaledTime >= repeatAt))
+            {
+                repeatAt = Time.unscaledTime + (v != lastV ? 0.35f : 0.06f);
+                menuDelta += v;
+            }
+            lastV = v;
+            if (world.OnionCounts(menuOnion, captain, menuColour, out var n))
+            {
+                int canOut = (int)Math.Min(n.in_onion, n.max_on_field > n.on_field ? n.max_on_field - n.on_field : 0);
+                menuDelta = Mathf.Clamp(menuDelta, -(int)n.in_squad, canOut);
+            }
+            if (pad.confirm)
+            {
+                if (menuDelta > 0) world.CallOut(captain, menuOnion, menuColour, (uint)menuDelta);
+                else if (menuDelta < 0) world.PutAway(captain, menuOnion, menuColour, (uint)-menuDelta);
+                CloseMenu();
+            }
+            else if (pad.cancel)
+            {
+                CloseMenu();
+            }
         }
 
         // Red → Yellow → Blue, skipping colours the Onion doesn't take.
@@ -322,20 +411,84 @@ namespace OlimarTest
         }
 
         static readonly string[] ColourNames = { "Blue", "Red", "Yellow" };
-        GUIStyle menuStyle;
+        static readonly Color[] MenuColours =
+        {
+            new Color(0.35f, 0.55f, 1f), // Blue
+            new Color(1f, 0.3f, 0.25f),  // Red
+            new Color(1f, 0.85f, 0.2f),  // Yellow
+        };
+        GUIStyle titleStyle, labelStyle, countStyle, noteStyle, hintStyle;
+        Texture2D panelTex, stripeTex;
 
+        void MenuStyles()
+        {
+            if (titleStyle != null) return;
+            titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleLeft };
+            labelStyle.normal.textColor = new Color(0.85f, 0.85f, 0.85f);
+            countStyle = new GUIStyle(GUI.skin.label) { fontSize = 40, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight };
+            countStyle.normal.textColor = Color.white;
+            noteStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
+            hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+            hintStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+            panelTex = Solid(new Color(0.05f, 0.06f, 0.08f, 0.88f));
+            stripeTex = Solid(Color.white);
+        }
+
+        static Texture2D Solid(Color c)
+        {
+            var t = new Texture2D(1, 1) { hideFlags = HideFlags.DontSave };
+            t.SetPixel(0, 0, c);
+            t.Apply();
+            return t;
+        }
+
+        // The window, in the middle of the screen, laid out for 1080 lines and scaled.
         void OnGUI()
         {
-            if (menuOnion < 0 || localUser == null || !PikminWorld.Instance) return;
+            if (!MenuOpen || localUser == null || !PikminWorld.Instance) return;
             if (!PikminWorld.Instance.OnionCounts(menuOnion, captain, menuColour, out var n)) return;
-            if (menuStyle == null)
-                menuStyle = new GUIStyle(GUI.skin.box) { fontSize = 18, alignment = TextAnchor.MiddleCenter, wordWrap = true };
-            string keys = pad.usingPad ? "d-pad" : "arrow keys";
-            string text = $"Onion: {ColourNames[menuColour]} Pikmin\n" +
-                          $"{n.in_onion} inside, {n.in_squad} in your squad, {n.on_field}/{n.max_on_field} in the field\n" +
-                          $"{keys}: up calls {MenuStep} out, down puts {MenuStep} away, left/right colour";
-            float w = 560f, h = 90f;
-            GUI.Box(new Rect((Screen.width - w) / 2f, Screen.height - h - 140f, w, h), text, menuStyle);
+            MenuStyles();
+            float k = Screen.height / 1080f;
+            var saved = GUI.matrix;
+            GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
+            float sw = Screen.width / k;
+            const float w = 520f, h = 330f;
+            var r = new Rect((sw - w) / 2f, 1080f * 0.5f - h / 2f, w, h);
+            var colour = MenuColours[menuColour];
+            var savedColour = GUI.color;
+            GUI.DrawTexture(r, panelTex);
+            GUI.color = colour;
+            GUI.DrawTexture(new Rect(r.x, r.y, w, 6f), stripeTex);
+            GUI.color = savedColour;
+
+            float x = r.x + 40f, cw = w - 80f, y = r.y + 18f;
+            titleStyle.normal.textColor = colour;
+            bool shared = (PikminWorld.Instance.OnionColours(menuOnion) & (PikminWorld.Instance.OnionColours(menuOnion) - 1)) != 0;
+            GUI.Label(new Rect(r.x, y, w, 40f), shared ? $"< {ColourNames[menuColour]} Pikmin >" : $"{ColourNames[menuColour]} Onion", titleStyle);
+            y += 56f;
+            Row(x, y, cw, "In the Onion", (int)n.in_onion - menuDelta);
+            y += 52f;
+            noteStyle.normal.textColor = menuDelta == 0 ? new Color(0.6f, 0.6f, 0.6f) : colour;
+            string move = menuDelta > 0 ? $"calling {menuDelta} out" : menuDelta < 0 ? $"putting {-menuDelta} away" : "-";
+            GUI.Label(new Rect(r.x, y, w, 30f), move, noteStyle);
+            y += 38f;
+            Row(x, y, cw, "With Olimar", (int)n.in_squad + menuDelta);
+            y += 56f;
+            noteStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
+            GUI.Label(new Rect(r.x, y, w, 28f), $"Pikmin on the field: {n.on_field + (uint)Math.Max(menuDelta, 0)} / {n.max_on_field}", noteStyle);
+            y += 38f;
+            string hint = pad.usingPad
+                ? "Up: call out   Down: put away" + (shared ? "   Left/right: colour" : "") + "   A: OK   B: cancel"
+                : "W: call out   S: put away" + (shared ? "   A/D: colour" : "") + "   Click: OK   Right-click: cancel";
+            GUI.Label(new Rect(r.x + 20f, y, w - 40f, 44f), hint, hintStyle);
+            GUI.matrix = saved;
+        }
+
+        void Row(float x, float y, float w, string label, int count)
+        {
+            GUI.Label(new Rect(x, y, w, 46f), label, labelStyle);
+            GUI.Label(new Rect(x, y, w, 46f), count.ToString(), countStyle);
         }
     }
 }

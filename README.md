@@ -35,8 +35,9 @@ What works:
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
   `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
 - **Onion**: one Onion for all three colours is placed where Olimar lands (or one per colour,
-  `OnionPerColour`). Stand under it for its menu: d-pad / arrow keys up calls 5 Pikmin out,
-  down puts 5 away, left/right picks the colour.
+  `OnionPerColour`). Under it RoR2's interact prompt says "Open the Onion"; interact opens
+  its window: up/down sets how many Pikmin come out (or go in), left/right picks the colour of
+  a shared Onion, A (left click) confirms, B (right click) cancels.
 - **Stages**: the squad and the Onion's stock come along to the next stage; Pikmin left
   anywhere else stay behind, as at sunset.
 - **First run**: if `assets/` isn't there, the plugin builds it from your own disc
@@ -60,7 +61,7 @@ position, so your RoR2 binds don't change it:
 | L / left bumper  | jump                | swing the camera behind him  |
 | R                | sprint              | zoom (three levels)          |
 | right bumper (Z) |                     | top view                     |
-| d-pad            | arrow keys          | Onion menu                   |
+| X under an Onion | interact            | open the Onion's window      |
 
 The camera is a stand-in for Pikmin's: it looks down from behind and only turns when told
 to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
@@ -133,7 +134,8 @@ and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 15 models; 
 - Enemies don't target Pikmin or shake them off; only hits that land on something hurt them.
 - Hazards (fire, water, electricity), so colours only differ in attack and carrying.
 - Carry paths are straight lines; corpses get stuck on walls between them and the Onion.
-- The Onion menu works in steps of 5 and doesn't pause the game.
+- The Onion window doesn't pause the game (Olimar just stands still while it's open), and it's
+  RoR2's IMGUI, not Pikmin's own window art. It only opens for the host's Olimar.
 - The baked materials, see-through helmet, carried corpses and particles haven't been run in
   the game yet.
 

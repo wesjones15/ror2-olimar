@@ -35,6 +35,8 @@ namespace OlimarTest
         readonly Dictionary<CharacterMaster, int> captainOf = new Dictionary<CharacterMaster, int>();
         readonly Dictionary<int, OlimarDriver> driverOf = new Dictionary<int, OlimarDriver>();
         readonly List<int> onionIds = new List<int>();
+        // Each Onion's RoR2 interactable (the Onion menu's prompt).
+        readonly Dictionary<int, OnionInteractable> onionTargets = new Dictionary<int, OnionInteractable>();
 
         // What survives a stage change: per colour, squad Pikmin and Onion stock.
         readonly int[] carrySquad = new int[3];
@@ -128,6 +130,9 @@ namespace OlimarTest
             captainOf.Clear();
             driverOf.Clear();
             onionIds.Clear();
+            foreach (var t in onionTargets.Values)
+                if (t) Destroy(t.gameObject);
+            onionTargets.Clear();
             bodies.Clear();
             creatureIndex.Clear();
             thrownAt.Clear();
@@ -244,8 +249,14 @@ namespace OlimarTest
         {
             var p = UnityHost.ToSim(UnityHost.Snap(at));
             int id = Native.pik_sim_add_onion(sim, ref p, colours);
-            if (id >= 0) onionIds.Add(id);
+            if (id < 0) return;
+            onionIds.Add(id);
+            onionTargets[id] = OnionInteractable.Make(id, UnityHost.ToUnity(p), transform);
         }
+
+        /// Onion `onion`'s interactable, for the interact prompt; null if there's none.
+        public GameObject OnionTarget(int onion) =>
+            onionTargets.TryGetValue(onion, out var t) && t ? t.gameObject : null;
 
         // The squad and Onion stock from the last stage, or the configured start of a run.
         void BringPikmin(int captain, OlimarDriver d)
