@@ -7,7 +7,7 @@ namespace OlimarTest
 {
     // The Pikmin control scheme's input: a GameCube-style pad read by button position through
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
-    // B: whistle, X: dismiss, Y: next colour to throw, right stick: swarm (the C-stick),
+    // B: whistle, X: dismiss, d-pad left or right: next colour to throw, right stick: swarm (the C-stick),
     // L: recentre the camera, R: zoom, Z (right bumper): top view. On keyboard and mouse it
     // falls back to RoR2's actions: move, primary throw, secondary whistle, utility dismiss,
     // special swarm toward the cursor, jump recentre, sprint zoom, and the mouse wheel for
@@ -17,7 +17,8 @@ namespace OlimarTest
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap
     // between two 30 Hz ticks still registers. X is also RoR2's interact button: a press made
     // while an interact prompt is on screen (leaving the drop pod, a chest) goes to RoR2 only,
-    // and doesn't dismiss until it's let go.
+    // and doesn't dismiss until it's let go. Y is left alone: it's RoR2's equipment button,
+    // which still works for Olimar.
     internal class Pad
     {
         public Vector2 move, swarm;
@@ -52,7 +53,7 @@ namespace OlimarTest
                 throwNow = gp.a.value;
                 whistleNow = gp.b.value;
                 dismissNow = interact.Claim(gp.x.value, interactPrompt);
-                cycleNow = gp.y.value;
+                cycleNow = gp.dPad.left.value || gp.dPad.right.value;
                 recentre |= gp.leftBumper.justPressed || Pressed(gp.leftTrigger);
                 zoom |= Pressed(gp.rightTrigger);
                 topView |= gp.rightBumper.justPressed;

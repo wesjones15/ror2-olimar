@@ -437,7 +437,7 @@ namespace OlimarTest
         readonly int[] squadCounts = new int[3];
 
         // The squad by colour, above the skill bar: a chip per colour he has, the one he
-        // throws next outlined (Y or the mouse wheel moves it on).
+        // throws next outlined (the d-pad or the mouse wheel moves it on).
         void SquadHud()
         {
             var world = PikminWorld.Instance;

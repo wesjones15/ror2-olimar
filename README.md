@@ -47,8 +47,8 @@ What works:
 - **Size**: Olimar is two thirds of Commando's height (`Scale.OlimarHeight`; try 0.75), and
   the Pikmin, Onion and pellets scale with him. His body's collision capsule and hurtboxes
   shrink to match.
-- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`). Y (or the
-  mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
+- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`). D-pad left
+  or right (or the mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
   in the squad, as in Pikmin 2. The chips above the skill bar show the squad by colour, the
   picked one outlined; until you pick, he throws the nearest Pikmin, as in Pikmin 1.
 - **Rejoining**: Pikmin that get separated (done carrying or fighting, thrown with nothing
@@ -73,7 +73,8 @@ position, so your RoR2 binds don't change it:
 | A                | primary             | throw, pluck                 |
 | B                | secondary           | whistle                      |
 | X                | utility             | dismiss                      |
-| Y                | mouse wheel         | next colour to throw         |
+| d-pad left/right | mouse wheel         | next colour to throw         |
+| Y                | equipment           | RoR2's equipment, as usual   |
 | right stick      | special (held)      | swarm (toward the cursor)    |
 | L / left bumper  | jump                | swing the camera behind him  |
 | R                | sprint              | zoom (three levels)          |
