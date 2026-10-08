@@ -1,5 +1,6 @@
 using System;
 using RoR2;
+using Ror2Common;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -109,16 +110,8 @@ namespace OlimarTest
 
         InteractionDriver interaction;
 
-        // Whether RoR2 shows an interact prompt (`ContextManager` asks the same question): the
-        // drop pod's exit, a chest, a shrine...
-        bool InteractPrompt()
-        {
-            if (!Interaction()) return false;
-            var target = interaction.FindBestInteractableObject();
-            if (!target) return false;
-            var it = target.GetComponent<IInteractable>();
-            return it == null || it.GetInteractability(interaction.interactor) != Interactability.Disabled;
-        }
+        // Whether RoR2 shows an interact prompt: the drop pod's exit, a chest, a shrine...
+        bool InteractPrompt() => InteractGuard.PromptShown(Interaction());
 
         void Update()
         {
@@ -165,8 +158,7 @@ namespace OlimarTest
         {
             if (PikminWorld.Instance) PikminWorld.Instance.Unregister(this);
             ReleaseCamera();
-            if (interaction && interaction.interactableOverride && interaction.interactableOverride.GetComponent<OnionInteractable>())
-                interaction.interactableOverride = null;
+            InteractTarget.Override(interaction, null);
             if (panelTex) Destroy(panelTex);
             if (stripeTex) Destroy(stripeTex);
         }
@@ -303,7 +295,7 @@ namespace OlimarTest
 
         // ------------------------------------------------------------------------------------
         // The Onion menu (NaviContainerState, naviState.cpp). Under an Onion RoR2 shows its own
-        // interact prompt (OnionInteractable, as his InteractionDriver's override), and the
+        // interact prompt (an InteractTarget, as his InteractionDriver's override), and the
         // interact button opens a window: up/down sets how many Pikmin come out of the Onion
         // (or go in), left/right the colour of a shared Onion, A confirms, B cancels. Pikmin
         // pauses the game for it; RoR2 can't (others keep playing), so Olimar stands still and
@@ -318,21 +310,17 @@ namespace OlimarTest
         // Points RoR2's interact prompt at the Onion in reach, or takes it back.
         void OnionPrompt()
         {
-            var it = Interaction();
-            if (!it) return;
             var world = PikminWorld.Instance;
-            GameObject want = null;
+            InteractTarget want = null;
             if (!MenuOpen && world && localUser != null && Active)
             {
                 int o = world.OnionInReach(captain);
                 if (o >= 0) want = world.OnionTarget(o);
             }
-            var cur = it.interactableOverride;
-            if (want) it.interactableOverride = want;
-            else if (cur && cur.GetComponent<OnionInteractable>()) it.interactableOverride = null;
+            InteractTarget.Override(Interaction(), want);
         }
 
-        /// Onion `onion` can be opened by him now (OnionInteractable's prompt).
+        /// Onion `onion` can be opened by him now (its InteractTarget's prompt).
         public bool CanOpenOnion(int onion) =>
             !MenuOpen && Active && PikminWorld.Instance && PikminWorld.Instance.OnionInReach(captain) == onion;
 

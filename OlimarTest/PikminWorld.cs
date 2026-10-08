@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using RoR2;
+using Ror2Common;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -36,7 +37,7 @@ namespace OlimarTest
         readonly Dictionary<int, OlimarDriver> driverOf = new Dictionary<int, OlimarDriver>();
         readonly List<int> onionIds = new List<int>();
         // Each Onion's RoR2 interactable (the Onion menu's prompt).
-        readonly Dictionary<int, OnionInteractable> onionTargets = new Dictionary<int, OnionInteractable>();
+        readonly Dictionary<int, InteractTarget> onionTargets = new Dictionary<int, InteractTarget>();
 
         // What survives a stage change: per colour, squad Pikmin and Onion stock.
         readonly int[] carrySquad = new int[3];
@@ -251,12 +252,20 @@ namespace OlimarTest
             int id = Native.pik_sim_add_onion(sim, ref p, colours);
             if (id < 0) return;
             onionIds.Add(id);
-            onionTargets[id] = OnionInteractable.Make(id, UnityHost.ToUnity(p), transform);
+            // Standing under it shows RoR2's prompt; the button opens the Onion menu
+            // (NaviContainerState, naviState.cpp: the action button within reach of the
+            // Onion's 'cont' sphere). Opening it isn't a chest: no on-interact items.
+            onionTargets[id] = InteractTarget.Make($"Onion {id} (interact)", transform, UnityHost.ToUnity(p),
+                "Open the Onion",
+                who => Driver(who) is OlimarDriver d && d.CanOpenOnion(id),
+                who => { if (Driver(who) is OlimarDriver d) d.OpenOnionMenu(id); });
         }
 
+        static OlimarDriver Driver(Interactor who) => who ? who.GetComponent<OlimarDriver>() : null;
+
         /// Onion `onion`'s interactable, for the interact prompt; null if there's none.
-        public GameObject OnionTarget(int onion) =>
-            onionTargets.TryGetValue(onion, out var t) && t ? t.gameObject : null;
+        public InteractTarget OnionTarget(int onion) =>
+            onionTargets.TryGetValue(onion, out var t) && t ? t : null;
 
         // The squad and Onion stock from the last stage, or the configured start of a run.
         void BringPikmin(int captain, OlimarDriver d)

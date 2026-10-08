@@ -1,5 +1,6 @@
 using Rewired;
 using Action = RewiredConsts.Action;
+using Ror2Common;
 using UnityEngine;
 
 namespace OlimarTest
@@ -22,8 +23,8 @@ namespace OlimarTest
         public bool swarmToCursor;
         // Down now, and pressed at some point since the sim last ran a tick.
         bool throwNow, whistleNow, dismissNow, throwTap, whistleTap, dismissTap;
-        // The current X press belongs to an interact prompt.
-        bool dismissForPrompt;
+        // X presses that belong to an interact prompt.
+        readonly InteractGuard interact = new InteractGuard();
         public bool Throw => throwNow || throwTap;
         public bool Whistle => whistleNow || whistleTap;
         public bool Dismiss => dismissNow || dismissTap;
@@ -48,10 +49,7 @@ namespace OlimarTest
                 swarmToCursor = false;
                 throwNow = gp.a.value;
                 whistleNow = gp.b.value;
-                bool x = gp.x.value;
-                if (x && interactPrompt && !dismissNow) dismissForPrompt = true;
-                if (!x) dismissForPrompt = false;
-                dismissNow = x && !dismissForPrompt;
+                dismissNow = interact.Claim(gp.x.value, interactPrompt);
                 recentre |= gp.leftBumper.justPressed || Pressed(gp.leftTrigger);
                 zoom |= Pressed(gp.rightTrigger);
                 topView |= gp.rightBumper.justPressed;
