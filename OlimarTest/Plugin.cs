@@ -43,7 +43,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> OnionPerColour, OnionItems, AutoRejoin;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
-        internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach;
+        internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach, ShakeProtection;
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> CarryBodies;
@@ -90,6 +90,10 @@ namespace OlimarTest
                 "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
                 "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +
                 "Off: Pikmin 1, where they wait to be whistled.");
+            ShakeProtection = Config.Bind("Pikmin", "ShakeProtection", 2f,
+                "Seconds a Pikmin holds on after latching onto an enemy. When the enemy attacks, " +
+                "Pikmin latched for longer are shaken off and the rest stay on. 0: every attack " +
+                "shakes off every Pikmin, as Pikmin 1's flick does.");
             OnionItems = Config.Bind("Pikmin", "OnionItems", true,
                 "Each Onion is Olimar's minion and gets his items, so items that work where you " +
                 "stand still (Bustling Fungus) work around it. It can't be hurt or targeted.");

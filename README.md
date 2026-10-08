@@ -54,6 +54,10 @@ What works:
 - **Rejoining**: Pikmin that get separated (done carrying or fighting, thrown with nothing
   to do, left behind) run back to Olimar by themselves (`Pikmin.AutoRejoin`). Dismissed
   Pikmin still wait to be whistled.
+- **Shake-off**: when an enemy starts an attack (any of its combat skills), the Pikmin on it
+  fly off, fall, get up and rejoin; Pikmin latched for less than 2 s hold on
+  (`Pikmin.ShakeProtection`) and stay on until a later attack. RoR2's enemies have no
+  shake-off move, so their attacks stand in for Pikmin 1's flick.
 - **Stages**: the squad and the Onion's stock come along to the next stage; Pikmin left
   anywhere else stay behind, as at sunset.
 - **First run**: if `assets/` isn't there, the plugin builds it from your own disc

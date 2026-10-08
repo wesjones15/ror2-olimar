@@ -121,6 +121,8 @@ static class Program
             $"5 pellet from the disc: {pellets[1].min_carriers}-{pellets[1].max_carriers} carriers, radius {pellets[1].radius}");
         Check(Native.pik_sim_captain_throw_color(sim, (uint)c) == -1, "no throw colour picked yet");
         Native.pik_sim_set_auto_rejoin(sim, 1);
+        Native.pik_sim_set_shake_protection(sim, 2f);
+        Native.pik_sim_shake_off(sim, 12345);
         Native.pik_sim_set_captain_reach(sim, (uint)c, 2f);
         var centre = new Native.Vec3(cap.pos.x, 0, 0);
         Native.pik_sim_attack_pikis_in_sphere(sim, ref centre, 1000f, 1000f);

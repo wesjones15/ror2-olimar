@@ -140,6 +140,9 @@ namespace OlimarTest
             onionMinions.Clear();
             bodies.Clear();
             creatureIndex.Clear();
+            foreach (var b in attackWatched)
+                if (b) b.onSkillActivatedServer -= EnemyAttacked;
+            attackWatched.Clear();
             thrownAt.Clear();
             PikiCount = PelletCount = OnionCount = SproutCount = 0;
             Corpses.Clear();
@@ -201,6 +204,7 @@ namespace OlimarTest
             simStage = Stage.instance;
             reportedPoison = false;
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
+            Native.pik_sim_set_shake_protection(sim, Plugin.ShakeProtection.Value);
             Plugin.Log.LogInfo($"Pikmin sim started ({Native.Utf8(Native.pik_sim_params_source(sim))})");
             view.StartModels();
             return true;
@@ -457,6 +461,7 @@ namespace OlimarTest
             PartCount = 0;
             bodies.Clear();
             creatureIndex.Clear();
+            attackWatched.RemoveWhere(Gone);
             foreach (var b in CharacterBody.readOnlyInstancesList)
             {
                 if (!b || !b.healthComponent || !b.healthComponent.alive) continue;
@@ -482,6 +487,7 @@ namespace OlimarTest
                     AddPart(b.corePosition, Mathf.Max(0.3f, b.bestFitRadius));
 
                 bodies[id] = b;
+                if (attackWatched.Add(b)) b.onSkillActivatedServer += EnemyAttacked;
                 creatureIndex[id] = creatureCount;
                 creatures[creatureCount++] = new Native.Creature
                 {
@@ -603,6 +609,7 @@ namespace OlimarTest
                     what = $"Pikmin {e.a} latched onto {Name(e)}" + (off >= 0f ? $", {off:F1} m from the cursor" : "");
                     break;
                 }
+                case Native.EventKind.KnockedOff: what = $"Pikmin {e.a} shaken off {Name(e)}"; break;
                 case Native.EventKind.PikiDied: what = $"Pikmin {e.a} died ({(new[] { "attacked", "crushed", "eaten", "killed" })[Mathf.Clamp(e.c, 0, 3)]})"; break;
                 case Native.EventKind.Swallowed: what = $"Pikmin {e.a} swallowed by {Name(e)}"; break;
                 case Native.EventKind.PelletLifted: what = $"corpse {e.a} lifted, heading for Onion {e.b}"; break;
@@ -719,6 +726,35 @@ namespace OlimarTest
             float full = Mathf.Max(1f, Plugin.PikminHealth.Value * NearestOlimarHealth(at));
             Native.pik_sim_attack_pikis_in_sphere(sim, ref centre,
                 Plugin.PikminHurtRadius.Value / UnityHost.Scale, r.damageDealt / full * 100f);
+        }
+
+        // Enemies whose attacks are watched (EnemyAttacked).
+        readonly HashSet<CharacterBody> attackWatched = new HashSet<CharacterBody>();
+        static readonly Predicate<CharacterBody> Gone = b => !b;
+
+        // An enemy starting an attack shakes off its Pikmin (Pikmin 1's flick, InteractFlick).
+        // RoR2's enemies have no shake-off move, so any combat skill they use counts. Pikmin
+        // latched for less than Pikmin.ShakeProtection hold on (the sim checks each one's
+        // latch time); the next attack after that can take them.
+        void EnemyAttacked(GenericSkill skill)
+        {
+            if (sim == IntPtr.Zero || !NetworkServer.active || !skill || !skill.isCombatSkill) return;
+            if (stepping)
+            {
+                afterStep.Add(() => EnemyAttacked(skill));
+                return;
+            }
+            var b = skill.characterBody;
+            if (!b) return;
+            ulong id = Id(b);
+            int on = 0;
+            for (int i = 0; i < PikiCount; i++)
+                if (Pikis[i].state == Native.PikiState.Attack && Pikis[i].has_creature != 0 && Pikis[i].creature == id)
+                    on++;
+            if (on == 0) return;
+            if (Plugin.LogEvents.Value)
+                Plugin.Log.LogInfo($"{b.GetDisplayName()} attacks ({(skill.skillDef ? skill.skillDef.skillName : "?")}) with {on} Pikmin fighting it");
+            Native.pik_sim_shake_off(sim, id);
         }
 
         // A dead enemy leaves a corpse for the Pikmin to carry home (BTeki::dieSoon →
