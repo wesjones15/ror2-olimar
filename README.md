@@ -18,7 +18,12 @@ What works:
   follow in Pikmin's formation, get whistled, thrown and dismissed.
 - **Fighting**: RoR2's enemies are creatures to the sim, their hurtboxes the parts Pikmin
   latch onto. Pikmin hits are RoR2 damage from Olimar: attack power x `DamageCoefficient`
-  x Olimar's damage stat, with on-hit items at a low proc coefficient.
+  x Olimar's damage stat, with on-hit items at a low proc coefficient. A Pikmin's hit is
+  measured from the Pikmin, not Olimar (Focus Crystal's range).
+- **Items**: Olimar's move speed items (Goat Hoof, Energy Drink...) speed up his run in the
+  sim. Each Onion is his minion with his items (`OnionItems`): it can't be hurt or targeted,
+  and items that work while you stand still (Bustling Fungus) work around it. Tesla Coil and
+  Mired Urn are left off it.
 - **Getting hurt**: an enemy's hit on anything also hurts the Pikmin around where it landed.
   A Pikmin's health is `PikminHealth` (half) of Olimar's max health, so it grows with his
   level and health items. Olimar has twice Commando's health (`OlimarHealth`,
@@ -28,7 +33,8 @@ What works:
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
   Pikmin that die. The game's sound effects play for whistles, throws, Pikmin and the Onion at
   RoR2's sound effects volume (`Sound.Enabled`, `Sound.Volume`). Pikmin's music never plays.
-  On the character select screen Olimar stands idle in place of Commando (once your disc's
+  On the character select screen Olimar stands idle in place of Commando, with a red, a
+  yellow and a blue Pikmin, and his portrait is rendered from that model (once your disc's
   files are extracted).
 - **Corpses**: a dead enemy leaves a 1, 5, 10 or 20 pellet by its size (`CarriersPerMetre`),
   red, yellow or blue at random, with the disc's size, carriers and seeds. Pikmin carry it to the
@@ -133,6 +139,7 @@ and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 15 models; 
 - With `CarryBodies`, clients see a corpse lie where it fell, not carried.
 - Enemies don't target Pikmin or shake them off; only hits that land on something hurt them.
 - Hazards (fire, water, electricity), so colours only differ in attack and carrying.
+- Attack speed items don't change how fast Pikmin swing.
 - Carry paths are straight lines; corpses get stuck on walls between them and the Onion.
 - The Onion window doesn't pause the game (Olimar just stands still while it's open), and it's
   RoR2's IMGUI, not Pikmin's own window art. It only opens for the host's Olimar.
