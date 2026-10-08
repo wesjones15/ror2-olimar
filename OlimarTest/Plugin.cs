@@ -60,6 +60,7 @@ namespace OlimarTest
             Log = Logger;
             CommonLog.Log = Logger;
             string here = Path.GetDirectoryName(Info.Location);
+            SpawnMusic.Initialize(Config, here);
 
             var assets = Config.Bind("Paths", "AssetsDir", "",
                 "libpikmin's assets/ folder (extracted from your own Pikmin disc). Empty: read " +
@@ -120,7 +121,7 @@ namespace OlimarTest
                 "CarryBodies, the Pikmin needed to lift the body.");
             Sound = Config.Bind("Sound", "Enabled", true,
                 "Play Pikmin's sound effects (from your disc) for whistles, throws, Pikmin and the " +
-                "Onion. Pikmin's music never plays; RoR2's soundtrack stays.");
+                "Onion. Arrival music has separate SpawnMusic settings; RoR2's soundtrack stays.");
             SoundVolume = Config.Bind("Sound", "Volume", 1f,
                 "Pikmin sound volume, on top of RoR2's master and sound effects volume (0 to 2).");
             LogEvents = Config.Bind("Debug", "LogEvents", true,

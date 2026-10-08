@@ -32,7 +32,7 @@ What works:
   sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
   Pikmin that die. The game's sound effects play for whistles, throws, Pikmin and the Onion at
-  RoR2's sound effects volume (`Sound.Enabled`, `Sound.Volume`). Pikmin's music never plays.
+  RoR2's sound effects volume (`Sound.Enabled`, `Sound.Volume`). A short Impact Site sting plays at Dolphin touchdown; RoR2 keeps its soundtrack.
   On the character select screen Olimar stands idle in place of Commando, with a red, a
   yellow and a blue Pikmin, and his portrait is rendered from that model (once your disc's
   files are extracted).
@@ -207,3 +207,7 @@ clip. Models, motions and effects come from the existing extracted user-disc ass
 Regression checks verify changing vertex poses for all Onion colours and the Dolphin,
 finite geometry through the follow-loop seam, bounded cinematic displacement, rocket
 particles, and rocket sound start/stop. In-game visual acceptance is still manual.
+
+## Arrival music
+
+Phase 6: the first 3.5 seconds of Impact Site (tutorial.jam) play once per local body when DolphinArrival ends. Stage arrivals and respawns can play it again. SpawnMusic.Enabled and SpawnMusic.Volume control it; master and music volume also apply. The build synthesizes spawn.wav from your extracted disc audio into the ignored dist folder. Rebuild after extracting assets if the clip is missing. No music data is committed.

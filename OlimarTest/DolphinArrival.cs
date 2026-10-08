@@ -43,6 +43,7 @@ namespace OlimarTest
 
         public override void OnExit()
         {
+            Ror2Common.SpawnMusic.PlayOnce(characterBody);
             if (driver) driver.Arriving = false;
             if (protectedBody && characterBody) characterBody.RemoveBuff(RoR2Content.Buffs.HiddenInvincibility);
             base.OnExit();

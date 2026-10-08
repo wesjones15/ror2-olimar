@@ -23,6 +23,13 @@ if ($LASTEXITCODE) { throw "dotnet build failed" }
 
 $dist = Join-Path $PSScriptRoot "dist\OlimarTest"
 New-Item -ItemType Directory -Force $dist | Out-Null
+# piki_scene.c maps the Impact Site to BGM_Tutorial (4, tutorial.jam).
+Push-Location $LibPikmin
+try {
+    & $cargo run --offline --release -p libpikmin-audio --example render -- $dist 4 3.5 --bgm-only
+    if ($LASTEXITCODE) { throw "spawn music render failed" }
+    Move-Item -LiteralPath (Join-Path $dist "bgm_4.wav") -Destination (Join-Path $dist "spawn.wav") -Force
+} finally { Pop-Location }
 Copy-Item (Join-Path $PSScriptRoot "OlimarTest\bin\Release\netstandard2.0\OlimarTest.dll") $dist -Force
 Copy-Item (Join-Path $LibPikmin "target\release\pikmin.dll") $dist -Force
 # Where the assets extracted from your own disc live (libpikmin/assets). If it isn't there
