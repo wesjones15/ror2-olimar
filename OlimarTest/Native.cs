@@ -190,10 +190,10 @@ namespace OlimarTest
 
         // Draw kinds (libpikmin_present::view::kinds).
         public const byte KindCaptain = 0, KindPiki = 1, KindHappa = 2, KindOnion = 3, KindPellet = 4,
-            KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8;
+            KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8, KindShip = 9, KindBeam = 10;
 
         // Models' info, batches, textures and draws are ror2-common's ViewModelInfo, ViewBatch
-        // (blends: ViewBlend; libpikmin_present::view::blend has no additive), ViewTexture and
+        // (blends: ViewBlend; libpikmin_present::view::blend's additive is the Onions' light cones), ViewTexture and
         // ViewDraw.
 
         /// A camera-facing quad: corners top-left, top-right, bottom-right, bottom-left (texture

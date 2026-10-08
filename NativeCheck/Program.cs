@@ -176,7 +176,7 @@ static class Program
                     }
                 if (!ok) badModels++;
             }
-            Check(models == 16 && badModels == 0, $"{models} models read back ({badModels} bad)");
+            Check(models == 19 && badModels == 0, $"{models} models read back ({badModels} bad)");
             var frame = new Native.ViewFrame
             {
                 dt = 1f / 60f, forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0), listener = c, volume = 1f,

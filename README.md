@@ -31,7 +31,10 @@ What works:
 - **Looks and sounds**: Olimar, the Pikmin (with leaf, bud or flower), the Onion, pellets,
   sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
-  Pikmin that die. The game's sound effects play for whistles, throws, Pikmin and the Onion at
+  Pikmin that die. A landed Onion stands in its light cone (it closes as the Onion lifts off
+  and opens after it lands); standing at it lights its rings with the game's chime, and a
+  pellet arriving draws light up into it. Swarming plays Olimar's formation trumpet. The
+  game's sound effects play for whistles, throws, Pikmin and the Onion at
   RoR2's sound effects volume (`Sound.Enabled`, `Sound.Volume`). A short Impact Site sting plays at Dolphin touchdown; RoR2 keeps its soundtrack.
   On the character select screen Olimar stands idle in place of Commando, with a red, a
   yellow and a blue Pikmin, and his portrait is rendered from that model (once your disc's
