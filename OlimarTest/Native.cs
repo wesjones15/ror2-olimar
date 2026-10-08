@@ -41,7 +41,7 @@ namespace OlimarTest
             public Vec3 pose_pos, pose_vel;
             public float pose_face;
             public Vec3 cursor;
-            public byte whistle, throw_, dismiss, use_pose, use_cursor, _p0, _p1, _p2;
+            public byte whistle, throw_, dismiss, use_pose, use_cursor, cycle, _p1, _p2;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -271,6 +271,9 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern ulong pik_sim_tick(IntPtr sim);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_shake_off(IntPtr sim, ulong creature);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_captain_throw_color(IntPtr sim, uint captain);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_rejoin(IntPtr sim, byte on);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_reach(IntPtr sim, uint captain, float scale);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_speed(IntPtr sim, uint captain, float scale);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_attack_pikis_in_sphere(IntPtr sim, ref Vec3 centre, float radius, float damage);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_kill_piki(IntPtr sim, uint piki);

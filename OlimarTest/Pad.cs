@@ -7,10 +7,11 @@ namespace OlimarTest
 {
     // The Pikmin control scheme's input: a GameCube-style pad read by button position through
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
-    // B: whistle, X: dismiss, right stick: swarm (the C-stick), L: recentre the camera,
-    // R: zoom, Z (right bumper): top view. On keyboard and mouse it falls back to RoR2's
-    // actions: move, primary throw, secondary whistle, utility dismiss, special swarm toward
-    // the cursor, jump recentre, sprint zoom. The Onion window takes the stick or d-pad (WASD
+    // B: whistle, X: dismiss, Y: next colour to throw, right stick: swarm (the C-stick),
+    // L: recentre the camera, R: zoom, Z (right bumper): top view. On keyboard and mouse it
+    // falls back to RoR2's actions: move, primary throw, secondary whistle, utility dismiss,
+    // special swarm toward the cursor, jump recentre, sprint zoom, and the mouse wheel for
+    // the next colour. The Onion window takes the stick or d-pad (WASD
     // or arrow keys), A or a left click to confirm and B or a right click to cancel.
     //
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap
@@ -22,12 +23,13 @@ namespace OlimarTest
         public Vector2 move, swarm;
         public bool swarmToCursor;
         // Down now, and pressed at some point since the sim last ran a tick.
-        bool throwNow, whistleNow, dismissNow, throwTap, whistleTap, dismissTap;
+        bool throwNow, whistleNow, dismissNow, cycleNow, throwTap, whistleTap, dismissTap, cycleTap;
         // X presses that belong to an interact prompt.
         readonly InteractGuard interact = new InteractGuard();
         public bool Throw => throwNow || throwTap;
         public bool Whistle => whistleNow || whistleTap;
         public bool Dismiss => dismissNow || dismissTap;
+        public bool Cycle => cycleNow || cycleTap;
         public bool recentre, zoom, topView;
         // The Onion window: directions held now (-1, 0, 1; up and right positive), and presses.
         public int menuV, menuH;
@@ -50,6 +52,7 @@ namespace OlimarTest
                 throwNow = gp.a.value;
                 whistleNow = gp.b.value;
                 dismissNow = interact.Claim(gp.x.value, interactPrompt);
+                cycleNow = gp.y.value;
                 recentre |= gp.leftBumper.justPressed || Pressed(gp.leftTrigger);
                 zoom |= Pressed(gp.rightTrigger);
                 topView |= gp.rightBumper.justPressed;
@@ -67,6 +70,8 @@ namespace OlimarTest
                 throwNow = player.GetButton(Action.PrimarySkill);
                 whistleNow = player.GetButton(Action.SecondarySkill);
                 dismissNow = player.GetButton(Action.UtilitySkill);
+                // A wheel notch is a press for this frame.
+                cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
                 recentre |= player.GetButtonDown(Action.Jump);
                 zoom |= player.GetButtonDown(Action.Sprint);
                 menuV = Key(KeyCode.UpArrow) || move.y > 0.5f ? 1 : Key(KeyCode.DownArrow) || move.y < -0.5f ? -1 : 0;
@@ -88,6 +93,7 @@ namespace OlimarTest
             throwTap |= throwNow;
             whistleTap |= whistleNow;
             dismissTap |= dismissNow;
+            cycleTap |= cycleNow;
             if (move.sqrMagnitude > 1f) move.Normalize();
             if (swarm.sqrMagnitude > 1f) swarm.Normalize();
         }
@@ -97,8 +103,8 @@ namespace OlimarTest
         public void Swallow()
         {
             swallowThrow = swallowWhistle = true;
-            throwNow = whistleNow = dismissNow = false;
-            throwTap = whistleTap = dismissTap = false;
+            throwNow = whistleNow = dismissNow = cycleNow = false;
+            throwTap = whistleTap = dismissTap = cycleTap = false;
         }
 
         static bool Key(KeyCode k) => UnityEngine.Input.GetKey(k);
@@ -106,7 +112,7 @@ namespace OlimarTest
         /// Clears the taps once the sim has run a tick with them.
         public void Ticked()
         {
-            throwTap = whistleTap = dismissTap = false;
+            throwTap = whistleTap = dismissTap = cycleTap = false;
         }
 
         static bool Pressed(IControllerTemplateAxis axis) => axis.value > 0.6f && axis.valuePrev <= 0.6f;

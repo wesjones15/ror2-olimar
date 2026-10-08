@@ -13,6 +13,9 @@ namespace OlimarTest
     {
         public static float Scale = 0.04f;
 
+        /// Olimar's model stands 25.1 units tall in its bind pose (navi's model on the disc).
+        public const float NaviHeight = 25.1f;
+
         // Faces steeper than this (|normal.y| below it) are walls; the rest is ground the sim
         // snaps to.
         const float WallNormalY = 0.5f;

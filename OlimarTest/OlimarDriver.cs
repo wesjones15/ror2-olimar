@@ -222,6 +222,7 @@ namespace OlimarTest
                 i.throw_ = B(pad.Throw);
                 i.whistle = B(pad.Whistle);
                 i.dismiss = B(pad.Dismiss);
+                i.cycle = B(pad.Cycle);
                 // Something else moved the body: put the captain where it is now.
                 if (!placed || (transform.position - written).sqrMagnitude > 1f)
                     Pose(ref i, feet, Vector3.zero, Yaw());
@@ -229,7 +230,7 @@ namespace OlimarTest
                 if (MenuOpen)
                 {
                     i.stick_x = i.stick_y = i.swarm_x = i.swarm_y = 0f;
-                    i.throw_ = i.whistle = i.dismiss = 0;
+                    i.throw_ = i.whistle = i.dismiss = i.cycle = 0;
                 }
             }
             else
@@ -405,7 +406,7 @@ namespace OlimarTest
             new Color(1f, 0.3f, 0.25f),  // Red
             new Color(1f, 0.85f, 0.2f),  // Yellow
         };
-        GUIStyle titleStyle, labelStyle, countStyle, noteStyle, hintStyle;
+        GUIStyle titleStyle, labelStyle, countStyle, noteStyle, hintStyle, hudStyle;
         Texture2D panelTex, stripeTex;
 
         void MenuStyles()
@@ -419,6 +420,7 @@ namespace OlimarTest
             noteStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
             hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, alignment = TextAnchor.MiddleCenter, wordWrap = true };
             hintStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+            hudStyle = new GUIStyle(GUI.skin.label) { fontSize = 28, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             panelTex = Solid(new Color(0.05f, 0.06f, 0.08f, 0.88f));
             stripeTex = Solid(Color.white);
         }
@@ -432,8 +434,53 @@ namespace OlimarTest
         }
 
         // The window, in the middle of the screen, laid out for 1080 lines and scaled.
+        readonly int[] squadCounts = new int[3];
+
+        // The squad by colour, above the skill bar: a chip per colour he has, the one he
+        // throws next outlined (Y or the mouse wheel moves it on).
+        void SquadHud()
+        {
+            var world = PikminWorld.Instance;
+            if (localUser == null || !world || !Active || captain < 0) return;
+            world.SquadCounts(captain, squadCounts);
+            int pick = world.ThrowColour(captain);
+            MenuStyles();
+            float k = Screen.height / 1080f;
+            var saved = GUI.matrix;
+            GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
+            float sw = Screen.width / k;
+            const float chip = 64f, gap = 10f;
+            float x = sw - 3 * (chip + gap) - 40f, y = 1080f - 250f;
+            var savedColour = GUI.color;
+            foreach (var c in MenuOrder)
+            {
+                int n = squadCounts[c];
+                var r = new Rect(x, y, chip, chip);
+                x += chip + gap;
+                bool picked = pick == (int)c;
+                GUI.color = new Color(1f, 1f, 1f, n > 0 ? 1f : 0.35f);
+                GUI.DrawTexture(r, panelTex);
+                GUI.color = MenuColours[c] * new Color(1f, 1f, 1f, n > 0 ? 1f : 0.35f);
+                GUI.DrawTexture(new Rect(r.x, r.yMax - 6f, r.width, 6f), stripeTex);
+                if (picked)
+                {
+                    GUI.color = MenuColours[c];
+                    GUI.DrawTexture(new Rect(r.x - 3f, r.y - 3f, r.width + 6f, 3f), stripeTex);
+                    GUI.DrawTexture(new Rect(r.x - 3f, r.yMax, r.width + 6f, 3f), stripeTex);
+                    GUI.DrawTexture(new Rect(r.x - 3f, r.y, 3f, r.height), stripeTex);
+                    GUI.DrawTexture(new Rect(r.xMax, r.y, 3f, r.height), stripeTex);
+                }
+                GUI.color = savedColour;
+                hudStyle.normal.textColor = n > 0 ? MenuColours[c] : new Color(0.5f, 0.5f, 0.5f);
+                GUI.Label(new Rect(r.x, r.y, r.width, r.height - 6f), n.ToString(), hudStyle);
+            }
+            GUI.color = savedColour;
+            GUI.matrix = saved;
+        }
+
         void OnGUI()
         {
+            SquadHud();
             if (!MenuOpen || localUser == null || !PikminWorld.Instance) return;
             if (!PikminWorld.Instance.OnionCounts(menuOnion, captain, menuColour, out var n)) return;
             MenuStyles();

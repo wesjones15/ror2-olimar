@@ -119,6 +119,9 @@ static class Program
         Check(Native.pik_sim_pellets(sim, pellets, 3) == 2 && pellets[0].min_carriers == 1, "pellet read back");
         Check(pellets[1].min_carriers == 5 && pellets[1].max_carriers == 10 && pellets[1].radius == 20f,
             $"5 pellet from the disc: {pellets[1].min_carriers}-{pellets[1].max_carriers} carriers, radius {pellets[1].radius}");
+        Check(Native.pik_sim_captain_throw_color(sim, (uint)c) == -1, "no throw colour picked yet");
+        Native.pik_sim_set_auto_rejoin(sim, 1);
+        Native.pik_sim_set_captain_reach(sim, (uint)c, 2f);
         var centre = new Native.Vec3(cap.pos.x, 0, 0);
         Native.pik_sim_attack_pikis_in_sphere(sim, ref centre, 1000f, 1000f);
         Check(Native.pik_sim_poisoned(sim) == 0, "not poisoned");
@@ -172,6 +175,9 @@ static class Program
                 if (Native.pik_view_texture(view, (uint)id, out var t, null, 0) == 0 || t.width == 0) badTextures++;
             }
             Check(tc == cc && textured > 0 && badTextures == 0, $"{textured} textured batches drawn ({badTextures} bad)");
+            var navi = Array.Find(draws, d => d.kind == Native.KindCaptain);
+            Native.pik_view_model(view, navi.model, out var ni);
+            Console.WriteLine($"  Olimar's model: {ni.hi.y - ni.lo.y:F1} units tall (bind pose)");
             var last = draws[nd - 1];
             Native.pik_view_model(view, last.model, out var li);
             Check(Array.Exists(draws, d => d.kind == Native.KindCaptain) && Array.Exists(draws, d => d.kind == Native.KindOnion)

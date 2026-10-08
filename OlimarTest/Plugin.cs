@@ -40,9 +40,10 @@ namespace OlimarTest
 
         internal static ControlScheme Scheme;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue;
-        internal static ConfigEntry<bool> OnionPerColour, OnionItems;
+        internal static ConfigEntry<bool> OnionPerColour, OnionItems, AutoRejoin;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
+        internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach;
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> CarryBodies;
@@ -66,8 +67,15 @@ namespace OlimarTest
             var disc = Config.Bind("Paths", "Disc", "",
                 "Your Pikmin (GameCube) disc image (.iso/.gcm/.ciso), used once to build AssetsDir " +
                 "if it's missing. Empty: look in the plugin folder and next to AssetsDir.");
-            UnityHost.Scale = Config.Bind("Sim", "MetresPerUnit", 0.04f,
-                "Metres per Pikmin unit. 0.04 makes Olimar run at 6.4 m/s and a whistle 3.6 m wide.").Value;
+            OlimarHeight = Config.Bind("Scale", "OlimarHeight", 0.667f,
+                "Olimar's height as a share of a standard survivor's (Commando's). Pikmin, the " +
+                "Onion and everything else from the sim scale with him. Try 0.75 too.");
+            MetresPerUnit = Config.Bind("Scale", "MetresPerUnit", 0f,
+                "Metres per Pikmin unit, overriding OlimarHeight when above 0. Olimar is 25 units " +
+                "tall.");
+            ThrowReach = Config.Bind("Controls", "ThrowReach", 2f,
+                "How far the cursor reaches (so how far Olimar throws) as a multiple of Pikmin's " +
+                "own reach, which is short for RoR2's fights.");
             var scheme = Config.Bind("Controls", "Scheme", ControlScheme.Auto,
                 "Pikmin: the sim moves Olimar, pad buttons by position (A throw/pluck, B whistle, " +
                 "X dismiss, right stick swarm, L recentre camera, R zoom). Aim: RoR2 moves the body " +
@@ -78,6 +86,10 @@ namespace OlimarTest
             StartBlue = Config.Bind("Pikmin", "StartBlue", 5, "Blue Pikmin at the start of a run.");
             OnionPerColour = Config.Bind("Pikmin", "OnionPerColour", false,
                 "One Onion per colour (Pikmin 1) instead of a single Onion that takes all three.");
+            AutoRejoin = Config.Bind("Pikmin", "AutoRejoin", true,
+                "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
+                "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +
+                "Off: Pikmin 1, where they wait to be whistled.");
             OnionItems = Config.Bind("Pikmin", "OnionItems", true,
                 "Each Onion is Olimar's minion and gets his items, so items that work where you " +
                 "stand still (Bustling Fungus) work around it. It can't be hurt or targeted.");
@@ -214,6 +226,52 @@ namespace OlimarTest
     // drawing Olimar himself (OlimarDisplay) once the disc's files are there.
     internal static class Content
     {
+        // Sets the sim's scale from Olimar's height against Commando's, and shrinks the body
+        // (its collision capsule, and the hidden model that carries its hurtboxes, core and
+        // camera pivot) to match.
+        static void Size(GameObject body)
+        {
+            var cap = body.GetComponent<CapsuleCollider>();
+            float survivor = cap ? cap.height * body.transform.lossyScale.y : 1.82f;
+            UnityHost.Scale = Plugin.MetresPerUnit.Value > 0f
+                ? Plugin.MetresPerUnit.Value
+                : Mathf.Clamp(Plugin.OlimarHeight.Value, 0.2f, 2f) * survivor / UnityHost.NaviHeight;
+            float tall = UnityHost.NaviHeight * UnityHost.Scale;
+            float r = tall / survivor;
+            Plugin.Log.LogInfo($"Olimar is {tall:F2} m tall, {r:P0} of Commando's {survivor:F2} m " +
+                               $"({UnityHost.Scale:F4} m per unit)");
+            if (cap)
+            {
+                var motor = body.GetComponent<KinematicCharacterController.KinematicCharacterMotor>();
+                bool done = false;
+                if (motor)
+                {
+                    try
+                    {
+                        motor.SetCapsuleDimensions(cap.radius * r, cap.height * r, cap.center.y * r);
+                        done = true;
+                    }
+                    catch (Exception e)
+                    {
+                        Plugin.Log.LogWarning($"resizing Olimar's capsule through his motor: {e.Message}");
+                    }
+                }
+                if (!done)
+                {
+                    cap.radius *= r;
+                    cap.height *= r;
+                    cap.center *= r;
+                }
+            }
+            var ml = body.GetComponent<ModelLocator>();
+            var model = ml ? (ml.modelBaseTransform ? ml.modelBaseTransform : ml.modelTransform) : null;
+            if (model)
+            {
+                model.localPosition *= r;
+                model.localScale *= r;
+            }
+        }
+
         internal static Minions.Kind OnionMinion;
 
         // An Onion doesn't fight: no items that would make it a turret.
@@ -231,6 +289,7 @@ namespace OlimarTest
             }
 
             var body = Prefabs.Clone(commando, "OlimarTestBody", Plugin.Guid);
+            Size(body);
             var cb = body.GetComponent<CharacterBody>();
             cb.baseNameToken = "OLIMARTEST_BODY_NAME";
             cb.subtitleNameToken = "OLIMARTEST_BODY_SUBTITLE";

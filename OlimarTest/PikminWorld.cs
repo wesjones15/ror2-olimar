@@ -200,6 +200,7 @@ namespace OlimarTest
             }
             simStage = Stage.instance;
             reportedPoison = false;
+            Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
             Plugin.Log.LogInfo($"Pikmin sim started ({Native.Utf8(Native.pik_sim_params_source(sim))})");
             view.StartModels();
             return true;
@@ -327,6 +328,23 @@ namespace OlimarTest
         // ------------------------------------------------------------------------------------
         // The Onion menu, for the driver's UI.
 
+        /// `captain`'s squad by colour (formed up, walking to his hand or held), into `counts`
+        /// (indexed by Native colour).
+        public void SquadCounts(int captain, int[] counts)
+        {
+            Array.Clear(counts, 0, counts.Length);
+            for (int i = 0; i < PikiCount; i++)
+            {
+                var p = Pikis[i];
+                if (p.alive != 0 && p.captain == captain && p.color < counts.Length && InSquad(p.state))
+                    counts[p.color]++;
+            }
+        }
+
+        /// The colour `captain` throws next, or -1 for the nearest (he hasn't picked one).
+        public int ThrowColour(int captain) =>
+            sim == IntPtr.Zero ? -1 : Native.pik_sim_captain_throw_color(sim, (uint)captain);
+
         public int OnionInReach(int captain) =>
             sim == IntPtr.Zero ? -1 : Native.pik_sim_onion_in_reach(sim, (uint)captain);
 
@@ -383,6 +401,7 @@ namespace OlimarTest
                 // His move speed items (Goat Hoof, Energy Drink...) speed up Navi's run.
                 if (kv.Value && kv.Value.Body)
                     Native.pik_sim_set_captain_speed(sim, (uint)kv.Key, MinionStats.Of(kv.Value.Body).moveSpeed);
+                Native.pik_sim_set_captain_reach(sim, (uint)kv.Key, Plugin.ThrowReach.Value);
             }
             // With no Olimar about (all dead, or mid-load) the Pikmin wait.
             if (!anyone) return;

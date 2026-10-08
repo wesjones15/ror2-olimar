@@ -44,6 +44,16 @@ What works:
   `OnionPerColour`). Under it RoR2's interact prompt says "Open the Onion"; interact opens
   its window: up/down sets how many Pikmin come out (or go in), left/right picks the colour of
   a shared Onion, A (left click) confirms, B (right click) cancels.
+- **Size**: Olimar is two thirds of Commando's height (`Scale.OlimarHeight`; try 0.75), and
+  the Pikmin, Onion and pellets scale with him. His body's collision capsule and hurtboxes
+  shrink to match.
+- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`). Y (or the
+  mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
+  in the squad, as in Pikmin 2. The chips above the skill bar show the squad by colour, the
+  picked one outlined; until you pick, he throws the nearest Pikmin, as in Pikmin 1.
+- **Rejoining**: Pikmin that get separated (done carrying or fighting, thrown with nothing
+  to do, left behind) run back to Olimar by themselves (`Pikmin.AutoRejoin`). Dismissed
+  Pikmin still wait to be whistled.
 - **Stages**: the squad and the Onion's stock come along to the next stage; Pikmin left
   anywhere else stay behind, as at sunset.
 - **First run**: if `assets/` isn't there, the plugin builds it from your own disc
@@ -63,6 +73,7 @@ position, so your RoR2 binds don't change it:
 | A                | primary             | throw, pluck                 |
 | B                | secondary           | whistle                      |
 | X                | utility             | dismiss                      |
+| Y                | mouse wheel         | next colour to throw         |
 | right stick      | special (held)      | swarm (toward the cursor)    |
 | L / left bumper  | jump                | swing the camera behind him  |
 | R                | sprint              | zoom (three levels)          |
