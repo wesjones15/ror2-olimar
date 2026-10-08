@@ -123,6 +123,7 @@ namespace OlimarTest
 
             if (cam != null)
             {
+                if (!MenuOpen && !Arriving) cam.Pan(pad.look);
                 if (pad.recentre && HasState) cam.Recentre(State.face);
                 if (pad.zoom) cam.CycleZoom();
                 if (pad.topView) cam.ToggleTop();

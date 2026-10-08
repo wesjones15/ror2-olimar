@@ -14,9 +14,11 @@ namespace OlimarTest
     internal class PikminCamera : MonoBehaviour, ICameraStateProvider
     {
         // (distance m, pitch deg) per zoom level, and the top view.
-        static readonly Vector2[] Zooms = { new Vector2(9f, 38f), new Vector2(14f, 48f), new Vector2(21f, 58f) };
-        static readonly Vector2 TopView = new Vector2(24f, 82f);
-        const float Fov = 55f;
+        static Vector2 Preset(int zoom, bool top)
+        {
+            Native.pik_camera_preset((uint)zoom, (byte)(top ? 1 : 0), out var preset);
+            return new Vector2(preset.x, preset.y);
+        }
         const float TurnSmooth = 0.25f;
 
         Transform target;
@@ -24,13 +26,14 @@ namespace OlimarTest
         int zoom = 1;
         bool top;
         float dist, pitch, distVel, pitchVel;
+        float orbitPitch;
 
         public void Init(Transform target, float startYaw)
         {
             this.target = target;
             yaw = yawGoal = startYaw;
-            dist = Zooms[zoom].x;
-            pitch = Zooms[zoom].y;
+            dist = Preset(zoom, false).x;
+            pitch = orbitPitch = Preset(zoom, false).y;
         }
 
         /// The camera's facing on the ground plane, for turning the stick into a world direction.
@@ -41,10 +44,17 @@ namespace OlimarTest
         public void CycleZoom()
         {
             top = false;
-            zoom = (zoom + 1) % Zooms.Length;
+            zoom = (zoom + 1) % 3;
         }
 
         public void ToggleTop() => top = !top;
+
+        public void Pan(Vector2 stick)
+        {
+            var a = new Native.Vec3(yawGoal, orbitPitch, 0f);
+            Native.pik_camera_pan((uint)Plugin.Camera.Value, ref a, stick.x, stick.y, Time.deltaTime);
+            yawGoal = a.x; orbitPitch = a.y;
+        }
 
         /// World XZ direction for a stick held at `s`, relative to the camera.
         public Vector2 StickToWorld(Vector2 s)
@@ -59,15 +69,20 @@ namespace OlimarTest
             if (!target) return;
             float dt = Time.deltaTime;
             yaw = Mathf.SmoothDamp(yaw, yawGoal, ref yawVel, TurnSmooth, Mathf.Infinity, dt);
-            var goal = top ? TopView : Zooms[zoom];
+            var goal = Preset(zoom, top);
+            if (Plugin.Camera.Value == CameraMode.Orbit) goal.y = orbitPitch;
             dist = Mathf.SmoothDamp(dist, goal.x, ref distVel, 0.3f, Mathf.Infinity, dt);
             pitch = Mathf.SmoothDamp(pitch, goal.y, ref pitchVel, 0.3f, Mathf.Infinity, dt);
 
             var rot = Quaternion.Euler(pitch, yaw * Mathf.Rad2Deg, 0f);
             var focus = target.position + Vector3.up * 0.5f;
             state.position = focus - rot * Vector3.forward * dist;
+            // Keep the camera in front of terrain instead of inside slopes or walls.
+            if (Physics.SphereCast(focus, 0.2f, (state.position - focus).normalized,
+                out var hit, dist, UnityHost.Mask, QueryTriggerInteraction.Ignore))
+                state.position = focus + (state.position - focus).normalized * Mathf.Max(0.3f, hit.distance - 0.1f);
             state.rotation = rot;
-            state.fov = Fov;
+            state.fov = 55f;
         }
 
         public bool IsUserLookAllowed(CameraRigController rig) => false;

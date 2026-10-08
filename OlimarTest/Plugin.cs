@@ -14,6 +14,7 @@ using Path = System.IO.Path;
 
 namespace OlimarTest
 {
+    public enum CameraMode { Vanilla, Orbit }
     public enum ControlScheme
     {
         /// Pikmin with VRMod running in VR, Aim otherwise.
@@ -39,6 +40,7 @@ namespace OlimarTest
         static volatile bool assetsBusy;
 
         internal static ControlScheme Scheme;
+        internal static ConfigEntry<CameraMode> Camera;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue;
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
@@ -62,6 +64,8 @@ namespace OlimarTest
             string here = Path.GetDirectoryName(Info.Location);
             SpawnMusic.Initialize(Config, here);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
+            Camera = Config.Bind("Controls", "CameraMode", CameraMode.Orbit,
+                "Orbit: right stick pans, LB + right stick swarms, LT recentres, RT locks, RB cycles targets (or zoom when unlocked). Vanilla preserves the old camera and controls.");
 
             var assets = Config.Bind("Paths", "AssetsDir", "",
                 "libpikmin's assets/ folder (extracted from your own Pikmin disc). Empty: read " +

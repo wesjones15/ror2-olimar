@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 7). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 8). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -13,7 +13,9 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 7;
+        public const uint AbiVersion = 8;
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_camera_preset(uint zoom, byte top, out Vec3 settings);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_camera_pan(uint mode, ref Vec3 angles, float x, float y, float dt);
 
         // Colour indices (PikiColor::index, the decomp's order).
         public const uint Blue = 0, Red = 1, Yellow = 2;

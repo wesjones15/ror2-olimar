@@ -22,6 +22,8 @@ namespace OlimarTest
     internal class Pad
     {
         public Vector2 move, swarm;
+        public Vector2 look, targetDirection;
+        public bool lockHeld, cycleTarget;
         public bool swarmToCursor;
         // Down now, and pressed at some point since the sim last ran a tick.
         bool throwNow, whistleNow, dismissNow, cycleNow, throwTap, whistleTap, dismissTap, cycleTap;
@@ -57,6 +59,19 @@ namespace OlimarTest
                 recentre |= gp.leftBumper.justPressed || Pressed(gp.leftTrigger);
                 zoom |= Pressed(gp.rightTrigger);
                 topView |= gp.rightBumper.justPressed;
+                if (Plugin.Camera.Value == CameraMode.Orbit)
+                {
+                    look = gp.leftBumper.value ? Vector2.zero : gp.rightStick.value;
+                    swarm = gp.leftBumper.value ? gp.rightStick.value : Vector2.zero;
+                    recentre = Pressed(gp.leftTrigger);
+                    lockHeld = gp.rightTrigger.value > 0.6f;
+                    cycleTarget |= lockHeld && gp.rightBumper.justPressed;
+                    targetDirection = gp.rightStick.value;
+                    zoom = !lockHeld && gp.rightBumper.justPressed;
+                    topView = false;
+                    if (cycleTarget) look = Vector2.zero;
+                }
+                else { look = Vector2.zero; lockHeld = cycleTarget = false; }
                 var ls = gp.leftStick.value;
                 menuV = gp.dPad.up.value || ls.y > 0.5f ? 1 : gp.dPad.down.value || ls.y < -0.5f ? -1 : 0;
                 menuH = gp.dPad.right.value || ls.x > 0.5f ? 1 : gp.dPad.left.value || ls.x < -0.5f ? -1 : 0;
@@ -68,6 +83,8 @@ namespace OlimarTest
             {
                 move = new Vector2(player.GetAxis(Action.MoveHorizontal), player.GetAxis(Action.MoveVertical));
                 swarm = Vector2.zero;
+                look = Vector2.zero;
+                lockHeld = cycleTarget = false;
                 swarmToCursor = player.GetButton(Action.SpecialSkill);
                 throwNow = player.GetButton(Action.PrimarySkill);
                 whistleNow = player.GetButton(Action.SecondarySkill);
