@@ -31,6 +31,7 @@ namespace OlimarTest
 
         int captain = -1;
         bool warnedClient;
+        internal bool Arriving;
 
         // Body origin minus feet: the sim tracks Olimar's feet.
         Vector3 feetToOrigin;
@@ -49,7 +50,8 @@ namespace OlimarTest
         // to call out (> 0) or put away (< 0) on confirm.
         int menuOnion = -1;
         uint menuColour = Native.Red;
-        int menuDelta;
+        int menuDelta, menuChoice;
+        bool onionPressClaimed;
         int lastV, lastH;
         float repeatAt;
         public bool MenuOpen => menuOnion >= 0;
@@ -59,7 +61,7 @@ namespace OlimarTest
                                 && PikminWorld.Instance && PikminWorld.Instance.Healthy;
 
         /// Alive, ours to steer, and a captain in the sim.
-        public bool Active => captain >= 0 && Body && Body.hasEffectiveAuthority && !Body.currentVehicle
+        public bool Active => !Arriving && captain >= 0 && Body && Body.hasEffectiveAuthority && !Body.currentVehicle
                               && (!health || health.alive);
 
         public int Captain => captain;
@@ -85,7 +87,7 @@ namespace OlimarTest
             }
             if (captain < 0)
             {
-                // Out of the drop pod first: the Onion goes down where he lands.
+                // Register during the Dolphin arrival so the ship and airborne Onion draw together.
                 if (Body.currentVehicle || (health && !health.alive)) return;
                 captain = PikminWorld.Ensure().Register(this);
                 if (captain < 0) return;
@@ -93,7 +95,7 @@ namespace OlimarTest
                 prev = cur = written = transform.position;
                 placed = false;
             }
-            bool steer = SimMoves && Active;
+            bool steer = Arriving || (SimMoves && Active);
             // The sim has him, or hands him back to RoR2 (Aim scheme, the sim stopped).
             if (motor && motor.Motor.enabled == steer && (steer || (health && health.alive)))
                 motor.Motor.enabled = !steer;
@@ -126,8 +128,11 @@ namespace OlimarTest
                 if (pad.topView) cam.ToggleTop();
             }
             pad.recentre = pad.zoom = pad.topView = false;
+            bool openingMenu = !MenuOpen && pad.onionMenu && Active && PikminWorld.Instance;
+            if (openingMenu) OpenOnionMenu(PikminWorld.Instance.OnionInReach(captain));
+            pad.onionMenu = false;
             OnionPrompt();
-            if (MenuOpen) MenuInput();
+            if (MenuOpen && !openingMenu) MenuInput();
             pad.confirm = pad.cancel = false;
 
             if (SimMoves && placed && Active)
@@ -254,6 +259,16 @@ namespace OlimarTest
                 }
                 if (MenuOpen) i.throw_ = i.whistle = i.dismiss = 0;
             }
+            // A utility/X press places a following Onion and stays consumed until release.
+            // RoR2 interactions have first claim on the button.
+            bool dismiss = Plugin.Scheme == ControlScheme.Pikmin ? pad.Dismiss : input.skill3.down;
+            if (!dismiss) onionPressClaimed = false;
+            if (!MenuOpen && dismiss && !InteractPrompt() && PikminWorld.Instance.OnionFlying(captain))
+            {
+                if (!onionPressClaimed) PikminWorld.Instance.CommandOnion(captain, false);
+                onionPressClaimed = true;
+            }
+            if (onionPressClaimed || InteractPrompt()) i.dismiss = 0;
             return i;
         }
 
@@ -313,7 +328,10 @@ namespace OlimarTest
         {
             var world = PikminWorld.Instance;
             InteractTarget want = null;
-            if (!MenuOpen && world && localUser != null && Active)
+            // Chests, shrines and other RoR2 interactions keep priority over our prompt.
+            var driver = Interaction();
+            InteractTarget.Override(driver, null);
+            if (!InteractGuard.PromptShown(driver) && !MenuOpen && world && localUser != null && Active)
             {
                 int o = world.OnionInReach(captain);
                 if (o >= 0) want = world.OnionTarget(o);
@@ -323,13 +341,15 @@ namespace OlimarTest
 
         /// Onion `onion` can be opened by him now (its InteractTarget's prompt).
         public bool CanOpenOnion(int onion) =>
-            !MenuOpen && Active && PikminWorld.Instance && PikminWorld.Instance.OnionInReach(captain) == onion;
+            onion >= 0 && !MenuOpen && Active && PikminWorld.Instance && PikminWorld.Instance.OnionInReach(captain) == onion;
 
         /// The interact button on Onion `onion`.
         public void OpenOnionMenu(int onion)
         {
             if (!CanOpenOnion(onion)) return;
             menuOnion = onion;
+            menuChoice = 0;
+            menuColour = Native.Red;
             menuDelta = 0;
             lastV = lastH = 0;
             pad.confirm = pad.cancel = false;
@@ -350,16 +370,20 @@ namespace OlimarTest
                 CloseMenu();
                 return;
             }
-            uint colours = world.OnionColours(menuOnion);
-            if ((colours & (1u << (int)menuColour)) == 0) menuColour = NextColour(colours, menuColour, 1);
             int h = pad.menuH;
             if (h != 0 && lastH == 0)
             {
-                uint next = NextColour(colours, menuColour, h > 0 ? 1 : 2);
-                if (next != menuColour) menuDelta = 0;
-                menuColour = next;
+                menuChoice = (menuChoice + (h > 0 ? 1 : 4)) % 5;
+                menuDelta = 0;
+                if (menuChoice < 3) menuColour = MenuOrder[menuChoice];
             }
             lastH = h;
+            if (menuChoice >= 3)
+            {
+                if (pad.confirm && world.CommandOnion(captain, menuChoice == 3)) CloseMenu();
+                else if (pad.cancel) CloseMenu();
+                return;
+            }
             // One step a press; held, after a moment, quickly (the viewer's window does the same).
             int v = pad.menuV;
             if (v != 0 && (v != lastV || Time.unscaledTime >= repeatAt))
@@ -368,6 +392,7 @@ namespace OlimarTest
                 menuDelta += v;
             }
             lastV = v;
+            if (world.OnionFlying(captain)) menuDelta = 0;
             if (world.OnionCounts(menuOnion, captain, menuColour, out var n))
             {
                 int canOut = (int)Math.Min(n.in_onion, n.max_on_field > n.on_field ? n.max_on_field - n.on_field : 0);
@@ -385,19 +410,8 @@ namespace OlimarTest
             }
         }
 
-        // Red → Yellow → Blue, skipping colours the Onion doesn't take.
+        // The unified Onion always manages Red, Yellow and Blue.
         static readonly uint[] MenuOrder = { Native.Red, Native.Yellow, Native.Blue };
-
-        static uint NextColour(uint colours, uint from, int step)
-        {
-            int at = Array.IndexOf(MenuOrder, from);
-            for (int k = 1; k <= 3; k++)
-            {
-                uint c = MenuOrder[(at + k * step) % 3];
-                if ((colours & (1u << (int)c)) != 0) return c;
-            }
-            return from;
-        }
 
         static readonly string[] ColourNames = { "Blue", "Red", "Yellow" };
         static readonly Color[] MenuColours =
@@ -488,7 +502,7 @@ namespace OlimarTest
             var saved = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
             float sw = Screen.width / k;
-            const float w = 520f, h = 330f;
+            const float w = 620f, h = 380f;
             var r = new Rect((sw - w) / 2f, 1080f * 0.5f - h / 2f, w, h);
             var colour = MenuColours[menuColour];
             var savedColour = GUI.color;
@@ -500,8 +514,11 @@ namespace OlimarTest
             float x = r.x + 40f, cw = w - 80f, y = r.y + 18f;
             titleStyle.normal.textColor = colour;
             bool shared = (PikminWorld.Instance.OnionColours(menuOnion) & (PikminWorld.Instance.OnionColours(menuOnion) - 1)) != 0;
-            GUI.Label(new Rect(r.x, y, w, 40f), shared ? $"< {ColourNames[menuColour]} Pikmin >" : $"{ColourNames[menuColour]} Onion", titleStyle);
-            y += 56f;
+            GUI.Label(new Rect(r.x, y, w, 40f), menuChoice == 3 ? "< Follow Olimar >" : menuChoice == 4 ? "< Land Here >" : $"< {ColourNames[menuColour]} Pikmin >", titleStyle);
+            y += 44f;
+            GUI.Label(new Rect(r.x, y, w, 30f), PikminWorld.Instance.OnionFlying(captain)
+                ? "Flying — select Land Here to manage Pikmin" : "Landed — select Follow Olimar to take off", noteStyle);
+            y += 36f;
             Row(x, y, cw, "In the Onion", (int)n.in_onion - menuDelta);
             y += 52f;
             noteStyle.normal.textColor = menuDelta == 0 ? new Color(0.6f, 0.6f, 0.6f) : colour;
@@ -514,8 +531,8 @@ namespace OlimarTest
             GUI.Label(new Rect(r.x, y, w, 28f), $"Pikmin on the field: {n.on_field + (uint)Math.Max(menuDelta, 0)} / {n.max_on_field}", noteStyle);
             y += 38f;
             string hint = pad.usingPad
-                ? "Up: call out   Down: put away" + (shared ? "   Left/right: colour" : "") + "   A: OK   B: cancel"
-                : "W: call out   S: put away" + (shared ? "   A/D: colour" : "") + "   Click: OK   Right-click: cancel";
+                ? "Up: call out   Down: put away" + (shared ? "   Left/right: type / command" : "") + "   A: OK   B: cancel"
+                : "W: call out   S: put away" + (shared ? "   A/D: type / command" : "") + "   Click: OK   Right-click: cancel";
             GUI.Label(new Rect(r.x + 20f, y, w - 40f, 44f), hint, hintStyle);
             GUI.matrix = saved;
         }

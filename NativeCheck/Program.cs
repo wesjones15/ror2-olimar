@@ -48,6 +48,27 @@ static class Program
 
         var origin = new Native.Vec3(0, 0, 0);
         int c = Native.pik_sim_add_captain(sim, ref origin);
+        IntPtr arrivalSim = Native.pik_sim_new(null, 17);
+        int arrivalCaptain = Native.pik_sim_add_captain(arrivalSim, ref origin);
+        var air = new Native.Vec3(0, 600, 0);
+        int arrivalOnion = Native.pik_sim_add_onion(arrivalSim, ref origin, 7);
+        Native.pik_sim_set_onion_color(arrivalSim, (uint)arrivalOnion, Native.Yellow);
+        Native.pik_sim_store_in_onion(arrivalSim, (uint)arrivalOnion, Native.Blue, 0, 4);
+        Native.pik_sim_set_onion_pose(arrivalSim, (uint)arrivalOnion, ref air, 1);
+        Check(Native.pik_sim_onion_call_out(arrivalSim, (uint)arrivalCaptain, (uint)arrivalOnion, Native.Blue, 1) == 0, "flying Onion blocks transfers");
+        Native.pik_sim_set_onion_flight_motion(arrivalSim, (uint)arrivalOnion, 1, 0.5f);
+        int ship = Native.pik_sim_add_ship(arrivalSim, ref air, 0f);
+        Native.pik_sim_set_onion_pose(arrivalSim, (uint)ship, ref air, 1);
+        Native.pik_sim_set_onion_flight_motion(arrivalSim, (uint)ship, 1, 0.5f);
+        Check(Native.pik_sim_poisoned(arrivalSim) == 0, "host-timed Onion and Dolphin animation ABI");
+        var goals = new Native.Onion[4];
+        Check(Native.pik_sim_onions(arrivalSim, goals, 4) == 2 && goals[0].colors == 7 && goals[0].anim == 6
+            && goals[1].is_ship == 1, "one unified flying Onion alongside Dolphin");
+        Native.pik_sim_set_onion_pose(arrivalSim, (uint)arrivalOnion, ref origin, 0);
+        Native.pik_sim_set_onion_pose(arrivalSim, (uint)ship, ref origin, 0);
+        Check(Native.pik_sim_onion_counts(arrivalSim, (uint)arrivalOnion, (uint)arrivalCaptain, Native.Blue, out var stock) != 0
+            && stock.in_onion == 4, "cosmetic colour and landing preserve blue storage");
+        Native.pik_sim_free(arrivalSim);
         for (int i = 0; i < 6; i++)
         {
             var at = new Native.Vec3(-20f - 4f * i, 0, 0);
@@ -155,7 +176,7 @@ static class Program
                     }
                 if (!ok) badModels++;
             }
-            Check(models == 15 && badModels == 0, $"{models} models read back ({badModels} bad)");
+            Check(models == 16 && badModels == 0, $"{models} models read back ({badModels} bad)");
             var frame = new Native.ViewFrame
             {
                 dt = 1f / 60f, forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0), listener = c, volume = 1f,

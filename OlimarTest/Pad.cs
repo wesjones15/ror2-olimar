@@ -34,7 +34,7 @@ namespace OlimarTest
         public bool recentre, zoom, topView;
         // The Onion window: directions held now (-1, 0, 1; up and right positive), and presses.
         public int menuV, menuH;
-        public bool confirm, cancel;
+        public bool confirm, cancel, onionMenu;
         public bool usingPad;
         // Throw and whistle stay up until let go (the press that closed a window).
         bool swallowThrow, swallowWhistle;
@@ -60,6 +60,7 @@ namespace OlimarTest
                 var ls = gp.leftStick.value;
                 menuV = gp.dPad.up.value || ls.y > 0.5f ? 1 : gp.dPad.down.value || ls.y < -0.5f ? -1 : 0;
                 menuH = gp.dPad.right.value || ls.x > 0.5f ? 1 : gp.dPad.left.value || ls.x < -0.5f ? -1 : 0;
+                onionMenu |= gp.dPad.up.justPressed;
                 confirm |= gp.a.justPressed;
                 cancel |= gp.b.justPressed;
             }
@@ -77,6 +78,7 @@ namespace OlimarTest
                 zoom |= player.GetButtonDown(Action.Sprint);
                 menuV = Key(KeyCode.UpArrow) || move.y > 0.5f ? 1 : Key(KeyCode.DownArrow) || move.y < -0.5f ? -1 : 0;
                 menuH = Key(KeyCode.RightArrow) || move.x > 0.5f ? 1 : Key(KeyCode.LeftArrow) || move.x < -0.5f ? -1 : 0;
+                onionMenu |= UnityEngine.Input.GetKeyDown(KeyCode.Tab);
                 confirm |= player.GetButtonDown(Action.PrimarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Return)
                            || UnityEngine.Input.GetKeyDown(KeyCode.KeypadEnter);
                 cancel |= player.GetButtonDown(Action.SecondarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Backspace);

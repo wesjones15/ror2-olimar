@@ -119,6 +119,8 @@ namespace OlimarTest
             }
             if (models != null)
                 foreach (var d in FindObjectsOfType<OlimarDriver>()) d.HideBody(false);
+            else
+                foreach (var d in FindObjectsOfType<OlimarDriver>()) d.HideBody(d.Arriving);
             float a = world.RenderAlpha;
             DrawPikis(a);
             DrawPellets();
@@ -145,6 +147,8 @@ namespace OlimarTest
                     frame.listener = d.Captain;
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.SimHandle, ref frame, UnityHost.Scale, d =>
+                ((d.kind == Native.KindCaptain || d.kind == Native.KindCursor || d.kind == Native.KindMarker)
+                    && world.CaptainArriving(d.id)) ||
                 d.kind == Native.KindPellet &&
                 world.Corpses.Pose(d.id, new Vector3(d.pos.x, d.pos.y, d.pos.z) * UnityHost.Scale,
                     new Quaternion(d.rot_x, d.rot_y, d.rot_z, d.rot_w)));
@@ -250,11 +254,26 @@ namespace OlimarTest
                     continue;
                 }
                 var o = world.Onions[i];
-                if (!onions[i]) onions[i] = MakeOnion(o.colors);
+                if (!onions[i]) onions[i] = o.is_ship != 0 ? MakeDolphin() : MakeOnion(1u << (int)world.OnionColour((int)o.id));
                 onions[i].SetActive(true);
                 onions[i].transform.position = UnityHost.ToUnity(o.pos);
                 onions[i].transform.localScale = Vector3.one * UnityHost.Scale;
             }
+        }
+
+        GameObject MakeDolphin()
+        {
+            var go = new GameObject("Dolphin (asset fallback)");
+            go.transform.SetParent(root, false);
+            var hull = Prim(PrimitiveType.Capsule, go.transform);
+            hull.transform.localPosition = new Vector3(0f, 100f, 0f);
+            hull.transform.localScale = new Vector3(110f, 100f, 110f);
+            hull.GetComponent<Renderer>().sharedMaterial = Mat(new Color(0.8f, 0.8f, 0.75f));
+            var nose = Prim(PrimitiveType.Sphere, go.transform);
+            nose.transform.localPosition = new Vector3(0f, 190f, 0f);
+            nose.transform.localScale = Vector3.one * 110f;
+            nose.GetComponent<Renderer>().sharedMaterial = Mat(Color.red);
+            return go;
         }
 
         GameObject MakeOnion(uint colours)

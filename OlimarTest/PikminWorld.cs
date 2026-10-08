@@ -41,10 +41,30 @@ namespace OlimarTest
         // Each Onion's RoR2 body, as its Olimar's minion: his items, its own position.
         readonly Dictionary<int, Minion> onionMinions = new Dictionary<int, Minion>();
 
-        // What survives a stage change: per colour, squad Pikmin and Onion stock.
-        readonly int[] carrySquad = new int[3];
-        readonly int[] carryStored = new int[3];
-        bool carryValid;
+        sealed class Cargo
+        {
+            public readonly int[] squad = new int[3], stored = new int[3];
+            public readonly uint colour = (uint)UnityEngine.Random.Range(0, 3);
+            public bool saved;
+        }
+        sealed class OnionFlight
+        {
+            public int id, captain;
+            public CharacterMaster owner;
+            public Vector3 position, landing, transitionStart;
+            public float transitionElapsed, transitionDuration;
+            public bool following = true, airborne = true;
+        }
+        readonly Dictionary<CharacterMaster, Cargo> cargo = new Dictionary<CharacterMaster, Cargo>();
+        sealed class DolphinFlight
+        {
+            public int id, captain;
+            public Vector3 start, landing;
+            public float elapsed;
+            public bool complete, bringSquad;
+        }
+        readonly Dictionary<int, DolphinFlight> dolphins = new Dictionary<int, DolphinFlight>();
+        readonly Dictionary<int, OnionFlight> onionOf = new Dictionary<int, OnionFlight>();
 
         // This frame's creatures, and their bodies by id for the damage callback.
         Native.Creature[] creatures = new Native.Creature[64];
@@ -133,6 +153,8 @@ namespace OlimarTest
             captainOf.Clear();
             driverOf.Clear();
             onionIds.Clear();
+            onionOf.Clear();
+            dolphins.Clear();
             foreach (var t in onionTargets.Values)
                 if (t) Destroy(t.gameObject);
             onionTargets.Clear();
@@ -163,6 +185,7 @@ namespace OlimarTest
             if (sim != IntPtr.Zero && master && captainOf.TryGetValue(master, out int known))
             {
                 driverOf[known] = d;
+                SpawnDolphin(known, d, false);
                 return known;
             }
             bool first = sim == IntPtr.Zero;
@@ -174,11 +197,8 @@ namespace OlimarTest
             if (id < 0) return -1;
             if (master) captainOf[master] = id;
             driverOf[id] = d;
-            if (first)
-            {
-                PlaceOnions(d);
-                BringPikmin(id, d);
-            }
+            PlaceOnions(id, d);
+            SpawnDolphin(id, d);
             Plugin.Log.LogInfo($"captain {id} is {d.Body.GetDisplayName()} at {d.Body.footPosition}");
             return id;
         }
@@ -214,45 +234,185 @@ namespace OlimarTest
         // starts the new stage's sim.
         void NewStage()
         {
-            Array.Clear(carrySquad, 0, 3);
-            Array.Clear(carryStored, 0, 3);
-            for (int i = 0; i < PikiCount; i++)
+            foreach (var pair in captainOf)
             {
-                var p = Pikis[i];
-                if (p.alive != 0 && p.captain >= 0 && p.color < 3 && InSquad(p.state))
-                    carrySquad[p.color]++;
+                if (!cargo.TryGetValue(pair.Key, out var saved)) continue;
+                Array.Clear(saved.squad, 0, 3);
+                Array.Clear(saved.stored, 0, 3);
+                for (int i = 0; i < PikiCount; i++)
+                {
+                    var p = Pikis[i];
+                    if (p.alive != 0 && p.captain == pair.Value && p.color < 3 && InSquad(p.state))
+                        saved.squad[p.color]++;
+                }
+                if (onionOf.TryGetValue(pair.Value, out var flight))
+                    for (int i = 0; i < OnionCount; i++)
+                        if (Onions[i].id == flight.id)
+                            for (uint c = 0; c < 3; c++) saved.stored[c] = (int)Onions[i].Stored(c);
+                saved.saved = true;
             }
-            for (int i = 0; i < OnionCount; i++)
-                for (uint c = 0; c < 3; c++)
-                    carryStored[c] += (int)Onions[i].Stored(c);
-            carryValid = true;
-            Plugin.Log.LogInfo($"to the next stage: squad r{carrySquad[Native.Red]} y{carrySquad[Native.Yellow]} " +
-                               $"b{carrySquad[Native.Blue]}, Onion r{carryStored[Native.Red]} " +
-                               $"y{carryStored[Native.Yellow]} b{carryStored[Native.Blue]}");
             FreeSim();
         }
 
         static bool InSquad(byte s) =>
             s == Native.PikiState.Squad || s == Native.PikiState.Held || s == Native.PikiState.GoHang;
 
-        void PlaceOnions(OlimarDriver d)
+        void PlaceOnions(int captain, OlimarDriver d)
         {
-            var b = d.Body;
-            var fwd = Vector3.ProjectOnPlane(b.transform.forward, Vector3.up).normalized;
-            if (fwd.sqrMagnitude < 0.5f) fwd = Vector3.forward;
-            if (Plugin.OnionPerColour.Value)
+            var owner = d.Body.master;
+            if (!cargo.TryGetValue(owner, out var saved)) cargo[owner] = saved = new Cargo();
+            AddOnion(d.Body.footPosition + Vector3.up * 5f, 0b111, d.Body);
+            int id = onionIds[onionIds.Count - 1];
+            Native.pik_sim_set_onion_color(sim, (uint)id, saved.colour);
+            var flight = new OnionFlight { id = id, captain = captain, owner = owner,
+                position = d.Body.footPosition + Vector3.up * 5f };
+            onionOf[captain] = flight;
+            WriteFlight(flight);
+        }
+
+        // The ship is a presentation/carry goal only; no parts or repair objective spawn.
+        void SpawnDolphin(int captain, OlimarDriver driver, bool bringSquad = true)
+        {
+            var body = driver.Body;
+            var back = -Vector3.ProjectOnPlane(body.transform.forward, Vector3.up).normalized;
+            if (back.sqrMagnitude < 0.5f) back = Vector3.back;
+            var landing = body.footPosition;
+            if (Physics.Raycast(landing + back * 4f + Vector3.up * 2f, Vector3.down, out var floor,
+                12f, UnityHost.Mask, QueryTriggerInteraction.Ignore) && floor.normal.y > 0.5f)
+                landing = floor.point;
+            // Indoor stages shorten the approach to the space available below the roof.
+            float height = Physics.Raycast(landing + Vector3.up, Vector3.up, out var roof,
+                30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) ? Mathf.Max(1f, roof.distance - 6f) : 30f;
+            var start = landing + Vector3.up * height;
+            var pos = UnityHost.ToSim(driver.Arriving ? start : landing);
+            int id = dolphins.TryGetValue(captain, out var old) ? old.id
+                : Native.pik_sim_add_ship(sim, ref pos, UnityHost.Yaw(body.transform.forward));
+            if (id < 0) { driver.Arriving = false; if (bringSquad) BringPikmin(captain, driver); return; }
+            dolphins[captain] = new DolphinFlight { id = id, captain = captain, start = start, landing = landing, bringSquad = bringSquad };
+            if (driver.Arriving)
             {
-                uint[] colours = { Native.Red, Native.Yellow, Native.Blue };
-                for (int i = 0; i < 3; i++)
+                Native.pik_sim_set_onion_pose(sim, (uint)id, ref pos, 1);
+                Native.pik_sim_set_onion_flight_motion(sim, (uint)id, 1, 0f);
+            }
+            if (onionOf.TryGetValue(captain, out var onion))
+            {
+                onion.following = onion.airborne = true;
+                onion.transitionDuration = 0f;
+                onion.position = start + Vector3.right * 3f + Vector3.up * 4f;
+                WriteFlight(onion);
+            }
+            if (!driver.Arriving) FinishArrival(dolphins[captain], driver);
+        }
+
+        void MoveDolphins()
+        {
+            foreach (var ship in dolphins.Values)
+            {
+                if (ship.complete || !driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
+                ship.elapsed += Time.fixedDeltaTime;
+                float t = Mathf.Clamp01(ship.elapsed / 3.5f);
+                // Decelerate into a short landing, then release Olimar beside the ship.
+                float eased = 1f - (1f - t) * (1f - t);
+                var at = Vector3.Lerp(ship.start, ship.landing, eased);
+                var pos = UnityHost.ToSim(at);
+                Native.pik_sim_set_onion_pose(sim, (uint)ship.id, ref pos, t < 1f ? (byte)1 : (byte)0);
+                if (t < 1f) Native.pik_sim_set_onion_flight_motion(sim, (uint)ship.id, 1, t);
+                if (onionOf.TryGetValue(ship.captain, out var onion))
                 {
-                    var dir = Quaternion.Euler(0f, (i - 1) * 40f, 0f) * fwd;
-                    AddOnion(b.footPosition + dir * 7f, 1u << (int)colours[i], b);
+                    onion.position = at + Vector3.right * 3f + Vector3.up * 4f;
+                    WriteFlight(onion);
                 }
+                if (t >= 1f || !driver.Arriving) FinishArrival(ship, driver);
             }
-            else
+        }
+
+        void FinishArrival(DolphinFlight ship, OlimarDriver driver)
+        {
+            var pos = UnityHost.ToSim(ship.landing);
+            Native.pik_sim_set_onion_pose(sim, (uint)ship.id, ref pos, 0);
+            ship.complete = true;
+            driver.Arriving = false;
+            if (ship.bringSquad) BringPikmin(ship.captain, driver);
+            Plugin.Log.LogInfo($"Dolphin landed for captain {ship.captain}; Onion following.");
+        }
+
+        public bool CaptainArriving(uint captain) => driverOf.TryGetValue((int)captain, out var d) && d && d.Arriving;
+
+        void WriteFlight(OnionFlight flight)
+        {
+            var pos = UnityHost.ToSim(flight.position);
+            Native.pik_sim_set_onion_pose(sim, (uint)flight.id, ref pos, flight.airborne ? (byte)1 : (byte)0);
+            if (flight.airborne && flight.transitionDuration > 0f)
+                Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, flight.following ? (byte)0 : (byte)1,
+                    Mathf.Clamp01(flight.transitionElapsed / flight.transitionDuration));
+            if (onionTargets.TryGetValue(flight.id, out var target) && target)
             {
-                AddOnion(b.footPosition + fwd * 6f, 0b111, b);
+                target.context = flight.following ? "Land Onion Here" : flight.airborne ? "Onion landing" : "Open the Onion";
+                target.transform.position = flight.airborne && driverOf.TryGetValue(flight.captain, out var d) && d
+                    ? d.Body.footPosition : flight.position;
             }
+            if (onionMinions.TryGetValue(flight.id, out var minion))
+                minion.Place(flight.position, Quaternion.identity, flight.airborne, !flight.airborne);
+        }
+
+        void MoveOnions()
+        {
+            foreach (var flight in onionOf.Values)
+            {
+                if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete) continue;
+                if (flight.following && driverOf.TryGetValue(flight.captain, out var d) && d && d.Body)
+                {
+                    var at = d.Body.footPosition;
+                    // Keep the feet clear of terrain even when following uphill.
+                    var target = at - d.Body.transform.forward * 1.5f + Vector3.up * 5f;
+                    target.y = Mathf.Max(target.y, UnityHost.Snap(target).y + 3f);
+                    if (flight.transitionDuration > 0f)
+                    {
+                        flight.transitionElapsed += Time.fixedDeltaTime;
+                        float t = Mathf.Clamp01(flight.transitionElapsed / flight.transitionDuration);
+                        flight.position = Vector3.Lerp(flight.transitionStart, target, Mathf.SmoothStep(0f, 1f, t));
+                        if (t >= 1f) flight.transitionDuration = 0f;
+                    }
+                    else flight.position = (target - flight.position).sqrMagnitude > 1600f ? target
+                        : Vector3.MoveTowards(flight.position, target, Mathf.Max(12f, d.Body.moveSpeed * 1.5f) * Time.fixedDeltaTime);
+                }
+                else if (flight.airborne && !flight.following)
+                {
+                    flight.transitionElapsed += Time.fixedDeltaTime;
+                    float t = Mathf.Clamp01(flight.transitionElapsed / Mathf.Max(0.01f, flight.transitionDuration));
+                    flight.position = Vector3.Lerp(flight.transitionStart, flight.landing, Mathf.SmoothStep(0f, 1f, t));
+                    flight.airborne = t < 1f;
+                    if (!flight.airborne) flight.transitionDuration = 0f;
+                }
+                WriteFlight(flight);
+            }
+        }
+
+        public bool OnionFlying(int captain) => onionOf.TryGetValue(captain, out var f) && f.airborne;
+        public uint OnionColour(int onion)
+        {
+            foreach (var f in onionOf.Values)
+                if (f.id == onion && cargo.TryGetValue(f.owner, out var saved)) return saved.colour;
+            return Native.Red;
+        }
+        public bool CommandOnion(int captain, bool follow)
+        {
+            if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d) return false;
+            if (follow == f.following && (follow || f.airborne)) return true;
+            if (!follow)
+            {
+                // Reject placement over a void instead of dropping the Onion out of the stage.
+                if (!Physics.Raycast(d.Body.footPosition + Vector3.up * 2f, Vector3.down, out var hit,
+                    30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.5f) return false;
+                f.landing = hit.point;
+            }
+            f.transitionStart = f.position;
+            f.transitionElapsed = 0f;
+            f.transitionDuration = follow ? 1.8f : 2.5f;
+            f.following = follow;
+            f.airborne = true;
+            WriteFlight(f);
+            return true;
         }
 
         void AddOnion(Vector3 at, uint colours, CharacterBody owner)
@@ -267,7 +427,13 @@ namespace OlimarTest
             onionTargets[id] = InteractTarget.Make($"Onion {id} (interact)", transform, UnityHost.ToUnity(p),
                 "Open the Onion",
                 who => Driver(who) is OlimarDriver d && d.CanOpenOnion(id),
-                who => { if (Driver(who) is OlimarDriver d) d.OpenOnionMenu(id); });
+                who => {
+                    if (Driver(who) is OlimarDriver d)
+                    {
+                        if (OnionFlying(d.Captain)) CommandOnion(d.Captain, false);
+                        else d.OpenOnionMenu(id);
+                    }
+                });
             AddOnionMinion(id, UnityHost.ToUnity(p), owner);
         }
 
@@ -280,13 +446,6 @@ namespace OlimarTest
             else Plugin.Log.LogWarning($"Onion {id}'s minion body didn't spawn; it won't get items");
         }
 
-        void PlaceOnionMinions()
-        {
-            for (int i = 0; i < OnionCount; i++)
-                if (onionMinions.TryGetValue((int)Onions[i].id, out var m))
-                    m.Place(UnityHost.ToUnity(Onions[i].pos), Quaternion.identity);
-        }
-
         static OlimarDriver Driver(Interactor who) => who ? who.GetComponent<OlimarDriver>() : null;
 
         /// Onion `onion`'s interactable, for the interact prompt; null if there's none.
@@ -296,8 +455,9 @@ namespace OlimarTest
         // The squad and Onion stock from the last stage, or the configured start of a run.
         void BringPikmin(int captain, OlimarDriver d)
         {
-            int[] squad = carryValid
-                ? (int[])carrySquad.Clone()
+            var saved = cargo[d.Body.master];
+            int[] squad = saved.saved
+                ? saved.squad
                 : new[] { Plugin.StartBlue.Value, Plugin.StartRed.Value, Plugin.StartYellow.Value };
             var feet = d.Body.footPosition;
             var back = -Vector3.ProjectOnPlane(d.Body.transform.forward, Vector3.up).normalized;
@@ -311,22 +471,13 @@ namespace OlimarTest
                     var p = UnityHost.ToSim(UnityHost.Snap(feet + off));
                     Native.pik_sim_spawn_piki(sim, c, ref p, captain);
                 }
-            if (carryValid)
+            if (saved.saved)
                 for (uint c = 0; c < 3; c++)
                 {
-                    int onion = OnionFor(c);
-                    if (onion >= 0 && carryStored[c] > 0)
-                        Native.pik_sim_store_in_onion(sim, (uint)onion, c, 0, (uint)carryStored[c]);
+                    int onion = onionOf[captain].id;
+                    if (onion >= 0 && saved.stored[c] > 0)
+                        Native.pik_sim_store_in_onion(sim, (uint)onion, c, 0, (uint)saved.stored[c]);
                 }
-        }
-
-        int OnionFor(uint colour)
-        {
-            ReadOnions();
-            for (int i = 0; i < OnionCount; i++)
-                if ((Onions[i].colors & (1u << (int)colour)) != 0)
-                    return (int)Onions[i].id;
-            return -1;
         }
 
         // ------------------------------------------------------------------------------------
@@ -349,8 +500,13 @@ namespace OlimarTest
         public int ThrowColour(int captain) =>
             sim == IntPtr.Zero ? -1 : Native.pik_sim_captain_throw_color(sim, (uint)captain);
 
-        public int OnionInReach(int captain) =>
-            sim == IntPtr.Zero ? -1 : Native.pik_sim_onion_in_reach(sim, (uint)captain);
+        public int OnionInReach(int captain)
+        {
+            if (sim == IntPtr.Zero || !onionOf.TryGetValue(captain, out var f)
+                || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body) return -1;
+            return f.following || Vector3.Distance(d.Body.footPosition, f.airborne ? f.landing : f.position)
+                < 70f * UnityHost.Scale ? f.id : -1;
+        }
 
         public bool OnionCounts(int onion, int captain, uint colour, out Native.OnionCounts counts)
         {
@@ -396,6 +552,7 @@ namespace OlimarTest
             foreach (var kv in driverOf)
             {
                 var input = default(Native.Input);
+                if (kv.Value && kv.Value.Arriving) anyone = true;
                 if (kv.Value && kv.Value.Active)
                 {
                     input = kv.Value.BuildInput();
@@ -410,6 +567,8 @@ namespace OlimarTest
             // With no Olimar about (all dead, or mid-load) the Pikmin wait.
             if (!anyone) return;
 
+            MoveDolphins();
+            MoveOnions();
             GatherCreatures();
             Native.pik_sim_set_creatures(sim, creatures, (uint)creatureCount, parts, (uint)PartCount);
             stepping = true;
@@ -431,7 +590,6 @@ namespace OlimarTest
                 if (kv.Value && Native.pik_sim_captain(sim, (uint)kv.Key, out var cap) != 0)
                     kv.Value.Ticked(cap);
             KillFallen();
-            PlaceOnionMinions();
             DrainEvents();
             view.Snapshot();
         }

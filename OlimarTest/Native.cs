@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 5). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 7). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 5;
+        public const uint AbiVersion = 7;
 
         // Colour indices (PikiColor::index, the decomp's order).
         public const uint Blue = 0, Red = 1, Yellow = 2;
@@ -259,6 +259,10 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_input(IntPtr sim, uint captain, ref Input input);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_piki(IntPtr sim, uint color, ref Vec3 pos, int captain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_add_onion(IntPtr sim, ref Vec3 pos, uint colors);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_add_ship(IntPtr sim, ref Vec3 pos, float yaw);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_onion_pose(IntPtr sim, uint onion, ref Vec3 pos, byte flying);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_onion_flight_motion(IntPtr sim, uint onion, byte landing, float progress);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_onion_color(IntPtr sim, uint onion, uint color);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_pellet(IntPtr sim, ref PelletDesc desc);
         /// A 1, 5, 10 or 20 pellet (the largest not above `number`) in colour `color` (0-2), with
         /// the disc's carriers, seeds and size.

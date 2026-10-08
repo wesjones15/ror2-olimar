@@ -40,7 +40,7 @@ namespace OlimarTest
 
         internal static ControlScheme Scheme;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue;
-        internal static ConfigEntry<bool> OnionPerColour, OnionItems, AutoRejoin;
+        internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
         internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach, ShakeProtection;
@@ -84,8 +84,6 @@ namespace OlimarTest
             StartRed = Config.Bind("Pikmin", "StartRed", 10, "Red Pikmin in the squad at the start of a run.");
             StartYellow = Config.Bind("Pikmin", "StartYellow", 5, "Yellow Pikmin at the start of a run.");
             StartBlue = Config.Bind("Pikmin", "StartBlue", 5, "Blue Pikmin at the start of a run.");
-            OnionPerColour = Config.Bind("Pikmin", "OnionPerColour", false,
-                "One Onion per colour (Pikmin 1) instead of a single Onion that takes all three.");
             AutoRejoin = Config.Bind("Pikmin", "AutoRejoin", true,
                 "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
                 "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +
@@ -298,11 +296,16 @@ namespace OlimarTest
             cb.baseNameToken = "OLIMARTEST_BODY_NAME";
             cb.subtitleNameToken = "OLIMARTEST_BODY_SUBTITLE";
             cb.bodyColor = new Color(0.95f, 0.75f, 0.2f);
+            cb.preferredPodPrefab = null;
+            cb.preferredInitialStateType = new SerializableEntityStateType(typeof(DolphinArrival));
             cb.baseMaxHealth = Plugin.OlimarHealth.Value;
             cb.levelMaxHealth = Plugin.OlimarHealthPerLevel.Value;
             foreach (var esm in body.GetComponents<EntityStateMachine>())
                 if (esm.customName == "Body")
+                {
                     esm.mainStateType = new SerializableEntityStateType(typeof(OlimarMain));
+                    esm.initialStateType = new SerializableEntityStateType(typeof(DolphinArrival));
+                }
             body.AddComponent<OlimarDriver>();
 
             // The Onion as Olimar's minion, for his items (ror2-common's Minions).
@@ -333,7 +336,7 @@ namespace OlimarTest
 
             pack.bodyPrefabs.Add(new[] { body });
             pack.survivorDefs.Add(new[] { survivor });
-            pack.entityStateTypes.Add(new[] { typeof(OlimarMain) });
+            pack.entityStateTypes.Add(new[] { typeof(OlimarMain), typeof(DolphinArrival) });
             Plugin.Log.LogInfo("Olimar (test) registered");
         }
     }

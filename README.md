@@ -40,10 +40,22 @@ What works:
   red, yellow or blue at random, with the disc's size, carriers and seeds. Pikmin carry it to the
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
   `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
-- **Onion**: one Onion for all three colours is placed where Olimar lands (or one per colour,
-  `OnionPerColour`). Under it RoR2's interact prompt says "Open the Onion"; interact opens
-  its window: up/down sets how many Pikmin come out (or go in), left/right picks the colour of
-  a shared Onion, A (left click) confirms, B (right click) cancels.
+- **Onion (phase 8)**: one Onion per Olimar stores all three types. Its Red, Yellow or
+  Blue appearance is chosen once per run and kept across stages; it has no effect on storage.
+  It arrives airborne alongside the Dolphin and follows Olimar. X/interact places it when
+  flying; once landed, interact opens its menu. D-pad up / Tab also opens the menu, including
+  during flight. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
+  up/down adjusts transfers and A/left click confirms. Transfers and deliveries wait until
+  landed. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
+  is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
+  moving, so Bustling Fungus only activates after the Onion has landed and stood still for
+  one second, regardless of whether Olimar is moving.
+- **Dolphin arrival (phase 7)**: Olimar's drop pod is replaced by a 3.5-second S.S. Dolphin
+  landing using the extracted ship model. The Onion descends beside it, then follows Olimar;
+  Olimar and his squad appear when it lands. Olimar is protected and controls are held during
+  arrival. Indoor stages shorten the descent; stage changes and respawns reuse the same
+  lifecycle without duplicating an owner's Onion. This is independent of the future optional
+  ship-repair feature: no ship parts or repair objective are required.
 - **Size**: Olimar is two thirds of Commando's height (`Scale.OlimarHeight`; try 0.75), and
   the Pikmin, Onion and pellets scale with him. His body's collision capsule and hurtboxes
   shrink to match.
@@ -76,14 +88,15 @@ position, so your RoR2 binds don't change it:
 | left stick       | move                | walk; a light tilt aims      |
 | A                | primary             | throw, pluck                 |
 | B                | secondary           | whistle                      |
-| X                | utility             | dismiss                      |
+| X                | utility             | land flying Onion; otherwise dismiss |
 | d-pad left/right | mouse wheel         | next colour to throw         |
 | Y                | equipment           | RoR2's equipment, as usual   |
 | right stick      | special (held)      | swarm (toward the cursor)    |
 | L / left bumper  | jump                | swing the camera behind him  |
 | R                | sprint              | zoom (three levels)          |
 | right bumper (Z) |                     | top view                     |
-| X under an Onion | interact            | open the Onion's window      |
+| X under an Onion | interact            | land / open the Onion window |
+| d-pad up         | Tab                 | Onion menu (including in flight) |
 
 The camera is a stand-in for Pikmin's: it looks down from behind and only turns when told
 to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
@@ -93,7 +106,7 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
 
 ### How it works
 
-- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 1).
+- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 7).
   `Native.Load` refuses a DLL whose ABI version or struct sizes don't match.
 - `PikminWorld` owns the sim on the server, one per stage. Each `FixedUpdate` it passes every
   captain's input and RoR2's enemies, advances the 30 Hz clock, and reads back Pikmin,
@@ -139,8 +152,8 @@ Use `-RoR2Dir` for another install and `-NoInstall` to only build into `dist/`.
 dotnet run -c Release --project NativeCheck -- ..\libpikmin\target\release\pikmin.dll ..\libpikmin\assets
 ```
 
-The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 2`, `Olimar (test) registered`,
-and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 15 models; sound 48000 Hz,
+The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 7`, `Olimar (test) registered`,
+and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 16 models; sound 48000 Hz,
 2 channels`, `captain 0 is ...`, then latches, deaths, corpses and deliveries as they happen
 (turn off with `Debug.LogEvents`).
 
@@ -153,7 +166,7 @@ and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 15 models; 
   where the sim does).
 - Olimar's footsteps and voice, and particle effects other than the whistle and ghosts.
 - With `CarryBodies`, clients see a corpse lie where it fell, not carried.
-- Enemies don't target Pikmin or shake them off; only hits that land on something hurt them.
+- Enemies do not directly target Pikmin; attacks shake eligible latched Pikmin off.
 - Hazards (fire, water, electricity), so colours only differ in attack and carrying.
 - Attack speed items don't change how fast Pikmin swing.
 - Carry paths are straight lines; corpses get stuck on walls between them and the Onion.
@@ -163,3 +176,34 @@ and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 15 models; 
   the game yet.
 
 Offline / friends-only co-op only.
+
+### Phase 8 / phase 7 validation
+
+Automated checks cover flight blocking transfers, preserving all three stored colours,
+resuming transfers after landing, cosmetic colour selection, and drawing the Dolphin and
+Onion both airborne and landed without ship parts. `NativeCheck` exercises the new ABI from
+C#. Both survivor plugins compile against the installed RoR2 1.2.4.4 assemblies.
+
+In-game acceptance still needs a play session: start Olimar with Bustling Fungus, confirm
+Dolphin arrival and one airborne Onion; stop Olimar and confirm no flying healing field;
+land the Onion and move away to confirm its field appears; resume follow and confirm the
+field disappears. Test each colour's deposit/withdrawal, interact at a chest while following,
+and move to the next stage / respawn to check retained stock, colour and entity counts.
+Presentation and the Onion menu retain the existing host/single-player limitation.
+
+### Extracted flight animations (2026-10-08)
+
+Follow mode loops an airborne section of the Onion's `c_blue_t`, `c_red_t`, or `c_yell_t`
+clip, with a short blend at the loop seam. Landing uses its corresponding `pm_blu_d`,
+`pm_red_d`, or `pm_yel_d` clip over 2.5 seconds; follow from the ground plays a 1.8-second
+takeoff. The native animation supplies articulated poses while the host owns position,
+preventing the cinematic root movement from adding hundreds of metres to the follow path.
+
+The Dolphin's `pm_st_l1` rocket motion plays backward over the 3.5-second arrival, using
+`ShipAnimator`'s landing support, engine flame effects, rocket audio, and extracted landing
+dust. The normal Dolphin animation set has takeoff clips rather than a separate landing
+clip. Models, motions and effects come from the existing extracted user-disc assets.
+
+Regression checks verify changing vertex poses for all Onion colours and the Dolphin,
+finite geometry through the follow-loop seam, bounded cinematic displacement, rocket
+particles, and rocket sound start/stop. In-game visual acceptance is still manual.
