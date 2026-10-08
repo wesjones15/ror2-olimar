@@ -65,6 +65,7 @@ namespace OlimarTest
         public void StartModels()
         {
             DisposeModels();
+            if (Ror2Common.RunAudio.Ended) return;
             models = PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
             if (models != null) Plugin.Log.LogInfo($"Pikmin models: {models.Status}");
         }
@@ -80,6 +81,8 @@ namespace OlimarTest
         }
 
         void OnDestroy() => DisposeModels();
+
+        public void StopModels() => DisposeModels();
 
         public void Clear()
         {
@@ -109,6 +112,7 @@ namespace OlimarTest
 
         void LateUpdate()
         {
+            if (Ror2Common.RunAudio.Ended) return;
             if (!world || !world.Running) return;
             if (models != null && world.Healthy)
             {

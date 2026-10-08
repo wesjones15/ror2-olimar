@@ -61,6 +61,7 @@ namespace OlimarTest
             CommonLog.Log = Logger;
             string here = Path.GetDirectoryName(Info.Location);
             SpawnMusic.Initialize(Config, here);
+            RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
 
             var assets = Config.Bind("Paths", "AssetsDir", "",
                 "libpikmin's assets/ folder (extracted from your own Pikmin disc). Empty: read " +

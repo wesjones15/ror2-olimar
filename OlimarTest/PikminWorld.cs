@@ -118,6 +118,11 @@ namespace OlimarTest
             };
         }
 
+        public void StopPresentation()
+        {
+            if (view) view.StopModels();
+        }
+
         public static PikminWorld Ensure()
         {
             if (!Instance)
