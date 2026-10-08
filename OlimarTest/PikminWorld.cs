@@ -38,6 +38,8 @@ namespace OlimarTest
         readonly List<int> onionIds = new List<int>();
         // Each Onion's RoR2 interactable (the Onion menu's prompt).
         readonly Dictionary<int, InteractTarget> onionTargets = new Dictionary<int, InteractTarget>();
+        // Each Onion's RoR2 body, as its Olimar's minion: his items, its own position.
+        readonly Dictionary<int, Minion> onionMinions = new Dictionary<int, Minion>();
 
         // What survives a stage change: per colour, squad Pikmin and Onion stock.
         readonly int[] carrySquad = new int[3];
@@ -134,6 +136,8 @@ namespace OlimarTest
             foreach (var t in onionTargets.Values)
                 if (t) Destroy(t.gameObject);
             onionTargets.Clear();
+            foreach (var m in onionMinions.Values) m.Release();
+            onionMinions.Clear();
             bodies.Clear();
             creatureIndex.Clear();
             thrownAt.Clear();
@@ -237,16 +241,16 @@ namespace OlimarTest
                 for (int i = 0; i < 3; i++)
                 {
                     var dir = Quaternion.Euler(0f, (i - 1) * 40f, 0f) * fwd;
-                    AddOnion(b.footPosition + dir * 7f, 1u << (int)colours[i]);
+                    AddOnion(b.footPosition + dir * 7f, 1u << (int)colours[i], b);
                 }
             }
             else
             {
-                AddOnion(b.footPosition + fwd * 6f, 0b111);
+                AddOnion(b.footPosition + fwd * 6f, 0b111, b);
             }
         }
 
-        void AddOnion(Vector3 at, uint colours)
+        void AddOnion(Vector3 at, uint colours, CharacterBody owner)
         {
             var p = UnityHost.ToSim(UnityHost.Snap(at));
             int id = Native.pik_sim_add_onion(sim, ref p, colours);
@@ -259,6 +263,23 @@ namespace OlimarTest
                 "Open the Onion",
                 who => Driver(who) is OlimarDriver d && d.CanOpenOnion(id),
                 who => { if (Driver(who) is OlimarDriver d) d.OpenOnionMenu(id); });
+            AddOnionMinion(id, UnityHost.ToUnity(p), owner);
+        }
+
+        // The Onion's body as the owner's minion, where the sim has the Onion.
+        void AddOnionMinion(int id, Vector3 at, CharacterBody owner)
+        {
+            if (!Plugin.OnionItems.Value) return;
+            var m = Minions.Spawn(Content.OnionMinion, owner, at, Quaternion.identity);
+            if (m != null) onionMinions[id] = m;
+            else Plugin.Log.LogWarning($"Onion {id}'s minion body didn't spawn; it won't get items");
+        }
+
+        void PlaceOnionMinions()
+        {
+            for (int i = 0; i < OnionCount; i++)
+                if (onionMinions.TryGetValue((int)Onions[i].id, out var m))
+                    m.Place(UnityHost.ToUnity(Onions[i].pos), Quaternion.identity);
         }
 
         static OlimarDriver Driver(Interactor who) => who ? who.GetComponent<OlimarDriver>() : null;
@@ -387,6 +408,7 @@ namespace OlimarTest
                 if (kv.Value && Native.pik_sim_captain(sim, (uint)kv.Key, out var cap) != 0)
                     kv.Value.Ticked(cap);
             KillFallen();
+            PlaceOnionMinions();
             DrainEvents();
             view.Snapshot();
         }

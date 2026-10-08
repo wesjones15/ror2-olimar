@@ -40,7 +40,7 @@ namespace OlimarTest
 
         internal static ControlScheme Scheme;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue;
-        internal static ConfigEntry<bool> OnionPerColour;
+        internal static ConfigEntry<bool> OnionPerColour, OnionItems;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
         internal static ConfigEntry<int> MaxPellets;
@@ -78,6 +78,9 @@ namespace OlimarTest
             StartBlue = Config.Bind("Pikmin", "StartBlue", 5, "Blue Pikmin at the start of a run.");
             OnionPerColour = Config.Bind("Pikmin", "OnionPerColour", false,
                 "One Onion per colour (Pikmin 1) instead of a single Onion that takes all three.");
+            OnionItems = Config.Bind("Pikmin", "OnionItems", true,
+                "Each Onion is Olimar's minion and gets his items, so items that work where you " +
+                "stand still (Bustling Fungus) work around it. It can't be hurt or targeted.");
             DamageCoefficient = Config.Bind("Combat", "DamageCoefficient", 0.05f,
                 "RoR2 damage per point of Pikmin attack power, times Olimar's damage stat. A Red " +
                 "hits for 15 points: 0.75x Olimar's damage per swing at the default.");
@@ -201,6 +204,7 @@ namespace OlimarTest
                 "< ! > Whistle to call Pikmin back; corpses are carried to the Onion for more.\n" +
                 "< ! > Pad: A throw/pluck, B whistle, X dismiss, right stick swarm, L camera, R zoom.\n" +
                 "< ! > Keyboard: primary throw, secondary whistle, utility dismiss, special swarm.");
+            lang.SetStringByToken("OLIMARTEST_ONION_NAME", "Onion");
             lang.SetStringByToken("OLIMARTEST_BODY_OUTRO", "..and so he left, with a ship full of seeds.");
             lang.SetStringByToken("OLIMARTEST_BODY_FAIL", "..and so he vanished, his Pikmin waiting by the Onion.");
         }
@@ -210,6 +214,12 @@ namespace OlimarTest
     // drawing Olimar himself (OlimarDisplay) once the disc's files are there.
     internal static class Content
     {
+        internal static Minions.Kind OnionMinion;
+
+        // An Onion doesn't fight: no items that would make it a turret.
+        static bool OnionItem(ItemIndex i) =>
+            i != RoR2Content.Items.ShockNearby.itemIndex && i != RoR2Content.Items.SiphonOnLowHealth.itemIndex;
+
         public static void Fill(ContentPack pack)
         {
             var commando = LegacyResourcesAPI.Load<GameObject>("Prefabs/CharacterBodies/CommandoBody");
@@ -231,6 +241,16 @@ namespace OlimarTest
                 if (esm.customName == "Body")
                     esm.mainStateType = new SerializableEntityStateType(typeof(OlimarMain));
             body.AddComponent<OlimarDriver>();
+
+            // The Onion as Olimar's minion, for his items (ror2-common's Minions).
+            OnionMinion = Minions.Define(pack, Plugin.Guid, new MinionSpec
+            {
+                name = "OlimarTestOnion",
+                nameToken = "OLIMARTEST_ONION_NAME",
+                targetable = false,
+                invincible = true,
+                itemFilter = OnionItem,
+            });
 
             var display = Prefabs.Clone(commandoDisplay, "OlimarTestDisplay", Plugin.Guid);
             DisplayModel.Attach(display, Plugin.Guid, OlimarDisplay.Get);
