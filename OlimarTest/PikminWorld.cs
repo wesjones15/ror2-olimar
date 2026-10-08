@@ -947,6 +947,7 @@ namespace OlimarTest
                 // random colour, carried and sized as on the disc.
                 int colour = UnityEngine.Random.Range(0, 3);
                 int pellet = Native.pik_sim_spawn_numbered_pellet(sim, (uint)weight, (uint)colour, ref at, yaw);
+                if (pellet >= 0) Native.pik_sim_recruit_to_pellet(sim, (uint)pellet, Id(v), 8f / UnityHost.Scale);
                 if (Plugin.LogEvents.Value && pellet >= 0)
                 {
                     int n = weight >= 20 ? 20 : weight >= 10 ? 10 : weight >= 5 ? 5 : 1;
@@ -966,8 +967,10 @@ namespace OlimarTest
                 seeds_matching = Mathf.Max(1, Mathf.RoundToInt(weight * 1.5f)),
                 seeds_other = Mathf.Max(1, weight / 2),
                 color = -1,
+                ship_part = -1,
             };
             int id = Native.pik_sim_spawn_pellet(sim, ref desc);
+            if (id >= 0) Native.pik_sim_recruit_to_pellet(sim, (uint)id, Id(v), 8f / UnityHost.Scale);
             if (id >= 0) Corpses.Claim((uint)id, v);
             if (Plugin.LogEvents.Value && id >= 0)
                 Plugin.Log.LogInfo($"{v.GetDisplayName()} left corpse {id} (needs {weight} Pikmin)");

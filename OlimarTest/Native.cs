@@ -14,6 +14,7 @@ namespace OlimarTest
     {
         public const string Dll = "pikmin";
         public const uint AbiVersion = 8;
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_recruit_to_pellet(IntPtr sim, uint pellet, ulong defeated, float range);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_lock_target(IntPtr sim, uint captain, ulong target, byte enabled);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_camera_preset(uint zoom, byte top, out Vec3 settings);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_camera_pan(uint mode, ref Vec3 angles, float x, float y, float dt);
