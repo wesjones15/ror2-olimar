@@ -27,6 +27,7 @@ namespace OlimarTest
         LocalUser localUser;
         readonly Pad pad = new Pad();
         PikminCamera cam;
+        readonly EnemyLock enemyLock = new EnemyLock();
         CameraRigController camRig;
 
         int captain = -1;
@@ -270,6 +271,13 @@ namespace OlimarTest
                 onionPressClaimed = true;
             }
             if (onionPressClaimed || InteractPrompt()) i.dismiss = 0;
+            var locked = enemyLock.Update(Body,
+                Plugin.Scheme == ControlScheme.Pikmin && Plugin.Camera.Value == CameraMode.Orbit
+                    && pad.lockHeld && !MenuOpen && !Arriving,
+                pad.cycleTarget, pad.targetDirection);
+            pad.cycleTarget = false;
+            Native.pik_sim_set_lock_target(PikminWorld.Instance.SimHandle, (uint)captain,
+                locked ? unchecked((ulong)(uint)locked.GetInstanceID()) : 0, B(locked));
             return i;
         }
 
