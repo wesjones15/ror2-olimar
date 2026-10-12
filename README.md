@@ -90,12 +90,13 @@ position, so your RoR2 binds don't change it:
 |------------------|---------------------|------------------------------|
 | left stick       | move                | walk; a light tilt aims      |
 | A                | primary             | throw, pluck                 |
-| B                | secondary           | whistle                      |
+| B                | secondary           | jump                         |
+| LB (held) + B    | jump (held) + secondary | whistle; modifier blocks jumping |
 | X                | utility             | land flying Onion; otherwise dismiss |
 | d-pad left/right | mouse wheel         | next colour to throw         |
 | Y                | equipment           | RoR2's equipment, as usual   |
 | right stick      | special (held)      | swarm (toward the cursor)    |
-| L / left bumper  | jump                | swing the camera behind him  |
+| LT / left trigger | jump               | swing the camera behind him  |
 | R                | sprint              | zoom (three levels)          |
 | right bumper (Z) |                     | top view                     |
 | X under an Onion | interact            | land / open the Onion window |
@@ -104,12 +105,29 @@ position, so your RoR2 binds don't change it:
 The camera is a stand-in for Pikmin's: it looks down from behind and only turns when told
 to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
 
+With the default Orbit camera, the right stick pans and LB + right stick swarms;
+LT recentres, RT locks onto an enemy, and RB cycles locked targets (or zooms when unlocked).
+B jumps in both camera modes. Holding LB prevents Olimar from jumping; releasing LB
+with B still held does not jump. B still cancels the Onion menu and does not jump on closing it.
+
+A stationary squad jumps in place with Olimar. Moving followers remember each takeoff
+point, run to it, and jump there in order. Pikmin can also hop over low obstacles and short
+gaps while heading to a formation slot, enemy, hand, or carrying slot. They cannot jump
+while lifting or holding an item. Jump height is 40 sim units, using the disc's gravity.
+Routes expire after 15 seconds and are cleared when a Pikmin leaves its squad.
+
+Jump presentation uses Olimar's geyser `OCARRY` motion (`NaviGeyzerState::init`) and
+Pikmin's airborne `ROLLJMP` motion (`PikiFlyingState::init`). Both are inside the shared
+`pikis/bluModel.anm` bundle and `pikis/animMgr.bin`, copied by the existing first-run
+extractor from the user's disc. Existing complete extractions already contain them;
+no animation data is shipped with the mod. Normal locomotion resumes on landing.
+
 **Aim** (for VR): RoR2 moves Olimar as usual and the Pikmin cursor is wherever you aim.
 Primary throws, secondary whistles, utility dismisses, special swarms toward the cursor.
 
 ### How it works
 
-- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 7).
+- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 9).
   `Native.Load` refuses a DLL whose ABI version or struct sizes don't match.
 - `PikminWorld` owns the sim on the server, one per stage. Each `FixedUpdate` it passes every
   captain's input and RoR2's enemies, advances the 30 Hz clock, and reads back Pikmin,
@@ -155,7 +173,7 @@ Use `-RoR2Dir` for another install and `-NoInstall` to only build into `dist/`.
 dotnet run -c Release --project NativeCheck -- ..\libpikmin\target\release\pikmin.dll ..\libpikmin\assets
 ```
 
-The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 7`, `Olimar (test) registered`,
+The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 9`, `Olimar (test) registered`,
 and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 16 models; sound 48000 Hz,
 2 channels`, `captain 0 is ...`, then latches, deaths, corpses and deliveries as they happen
 (turn off with `Debug.LogEvents`).

@@ -7,10 +7,10 @@ namespace OlimarTest
 {
     // The Pikmin control scheme's input: a GameCube-style pad read by button position through
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
-    // B: whistle, X: dismiss, d-pad left or right: next colour to throw, right stick: swarm (the C-stick),
-    // L: recentre the camera, R: zoom, Z (right bumper): top view. On keyboard and mouse it
-    // falls back to RoR2's actions: move, primary throw, secondary whistle, utility dismiss,
-    // special swarm toward the cursor, jump recentre, sprint zoom, and the mouse wheel for
+    // B: jump, LB + B: whistle, X: dismiss, d-pad left or right: next colour to throw, right stick: swarm (the C-stick),
+    // LT: recentre the camera, R: zoom, Z (right bumper): top view. On keyboard and mouse it
+    // falls back to RoR2's actions: move, primary throw, secondary jump, jump + secondary whistle,
+    // utility dismiss, special swarm toward the cursor, jump recentre, sprint zoom, mouse wheel for
     // the next colour. The Onion window takes the stick or d-pad (WASD
     // or arrow keys), A or a left click to confirm and B or a right click to cancel.
     //
@@ -27,6 +27,9 @@ namespace OlimarTest
         public bool swarmToCursor;
         // Down now, and pressed at some point since the sim last ran a tick.
         bool throwNow, whistleNow, dismissNow, cycleNow, throwTap, whistleTap, dismissTap, cycleTap;
+        readonly JumpWhistleButton jumpButton = new JumpWhistleButton();
+        public bool jumpBlocked => jumpButton.Blocked;
+        public bool Jump => jumpButton.Jump;
         // X presses that belong to an interact prompt.
         readonly InteractGuard interact = new InteractGuard();
         public bool Throw => throwNow || throwTap;
@@ -53,10 +56,11 @@ namespace OlimarTest
                 swarm = gp.rightStick.value;
                 swarmToCursor = false;
                 throwNow = gp.a.value;
-                whistleNow = gp.b.value;
+                jumpButton.Read(gp.b.value, gp.leftBumper.value);
+                whistleNow = jumpButton.Whistle;
                 dismissNow = interact.Claim(gp.x.value, interactPrompt);
                 cycleNow = gp.dPad.left.value || gp.dPad.right.value;
-                recentre |= gp.leftBumper.justPressed || Pressed(gp.leftTrigger);
+                recentre |= Pressed(gp.leftTrigger);
                 zoom |= Pressed(gp.rightTrigger);
                 topView |= gp.rightBumper.justPressed;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
@@ -87,7 +91,8 @@ namespace OlimarTest
                 lockHeld = cycleTarget = false;
                 swarmToCursor = player.GetButton(Action.SpecialSkill);
                 throwNow = player.GetButton(Action.PrimarySkill);
-                whistleNow = player.GetButton(Action.SecondarySkill);
+                jumpButton.Read(player.GetButton(Action.SecondarySkill), player.GetButton(Action.Jump));
+                whistleNow = jumpButton.Whistle;
                 dismissNow = player.GetButton(Action.UtilitySkill);
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
@@ -123,6 +128,7 @@ namespace OlimarTest
         public void Swallow()
         {
             swallowThrow = swallowWhistle = true;
+            jumpButton.Swallow();
             throwNow = whistleNow = dismissNow = cycleNow = false;
             throwTap = whistleTap = dismissTap = cycleTap = false;
         }
@@ -133,6 +139,7 @@ namespace OlimarTest
         public void Ticked()
         {
             throwTap = whistleTap = dismissTap = cycleTap = false;
+            jumpButton.Ticked();
         }
 
         static bool Pressed(IControllerTemplateAxis axis) => axis.value > 0.6f && axis.valuePrev <= 0.6f;

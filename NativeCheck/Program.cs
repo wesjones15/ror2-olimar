@@ -22,6 +22,34 @@ static class Program
     };
     static readonly Native.DamageFn damageFn = (u, creature, amount, part, source, id) => { hits.Add((creature, amount, source)); return 1; };
 
+    static void CheckJumpButton()
+    {
+        var b = new JumpWhistleButton();
+        b.Read(true, false);
+        b.Read(false, false);
+        Check(b.Jump && !b.Whistle, "brief B press survives until sim tick");
+        b.Ticked();
+        Check(!b.Jump, "jump press consumed after tick");
+        b.Read(true, true);
+        Check(b.Blocked && b.Whistle && !b.Jump, "LB + B whistles and blocks jumping");
+        b.Read(true, false);
+        Check(!b.Jump && !b.Whistle, "releasing LB with B held does not jump");
+        b.Read(false, false);
+        b.Read(true, false);
+        Check(b.Jump, "fresh B press jumps after modifier release");
+        b.Read(true, true);
+        b.Read(false, false);
+        Check(!b.Jump, "LB cancels a jump pending between ticks");
+        b.Swallow();
+        b.Read(true, false);
+        Check(!b.Jump, "closing Onion menu cannot trigger jump");
+        b.Read(true, true);
+        Check(!b.Jump && !b.Whistle, "closing Onion menu cannot trigger whistle chord");
+        b.Read(false, false);
+        b.Read(true, false);
+        Check(b.Jump, "menu suppression clears after release");
+    }
+
     static void Check(bool ok, string what)
     {
         Console.WriteLine($"{(ok ? "ok  " : "FAIL")} {what}");
@@ -30,6 +58,7 @@ static class Program
 
     static int Main(string[] args)
     {
+        CheckJumpButton();
         string dll = Path.GetFullPath(args.Length > 0 ? args[0] : "pikmin.dll");
         Check(Native.Load(dll, out string err), $"load {dll} {err}");
         if (err != null) return 1;
@@ -69,6 +98,31 @@ static class Program
         Check(Native.pik_sim_onion_counts(arrivalSim, (uint)arrivalOnion, (uint)arrivalCaptain, Native.Blue, out var stock) != 0
             && stock.in_onion == 4, "cosmetic colour and landing preserve blue storage");
         Native.pik_sim_free(arrivalSim);
+        IntPtr jumpSim = Native.pik_sim_new(null, 31);
+        int jumper = Native.pik_sim_add_captain(jumpSim, ref origin);
+        var followerAt = new Native.Vec3(-60, 0, 0);
+        Native.pik_sim_spawn_piki(jumpSim, Native.Red, ref followerAt, jumper);
+        Native.pik_sim_advance(jumpSim, ref host, 0.04f);
+        var jumpInput = new Native.Input { jump = 1, jump_blocked = 1 };
+        Native.pik_sim_set_input(jumpSim, (uint)jumper, ref jumpInput);
+        Native.pik_sim_advance(jumpSim, ref host, 0.04f);
+        Native.pik_sim_captain(jumpSim, (uint)jumper, out var jumpCaptain);
+        Check(jumpCaptain.on_ground == 1, "jump modifier crosses ABI and blocks takeoff");
+        jumpInput = new Native.Input();
+        Native.pik_sim_set_input(jumpSim, (uint)jumper, ref jumpInput);
+        jumpInput.jump = 1;
+        Native.pik_sim_set_input(jumpSim, (uint)jumper, ref jumpInput);
+        Native.pik_sim_advance(jumpSim, ref host, 0.04f);
+        Native.pik_sim_captain(jumpSim, (uint)jumper, out jumpCaptain);
+        var jumpPikis = new Native.Piki[2];
+        Native.pik_sim_pikis(jumpSim, jumpPikis, 2);
+        Check(jumpCaptain.on_ground == 0 && jumpCaptain.pos.y > 0 && jumpPikis[0].pos.y > 0,
+            "B jump crosses ABI and stationary squad hops with Olimar");
+        for (int i = 0; i < 90; i++) Native.pik_sim_advance(jumpSim, ref host, 0.04f);
+        Native.pik_sim_captain(jumpSim, (uint)jumper, out jumpCaptain);
+        Check(jumpCaptain.on_ground == 1 && jumpCaptain.pos.y == 0,
+            "holding B lands without repeating jump");
+        Native.pik_sim_free(jumpSim);
         for (int i = 0; i < 6; i++)
         {
             var at = new Native.Vec3(-20f - 4f * i, 0, 0);

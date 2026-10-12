@@ -65,7 +65,7 @@ namespace OlimarTest
             SpawnMusic.Initialize(Config, here);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
             Camera = Config.Bind("Controls", "CameraMode", CameraMode.Orbit,
-                "Orbit: right stick pans, LB + right stick swarms, LT recentres, RT locks, RB cycles targets (or zoom when unlocked). Vanilla preserves the old camera and controls.");
+                "Orbit: right stick pans, LB + right stick swarms, LT recentres, RT locks, RB cycles targets (or zoom when unlocked). Vanilla uses the fixed camera. Both use B to jump and LB + B to whistle.");
 
             var assets = Config.Bind("Paths", "AssetsDir", "",
                 "libpikmin's assets/ folder (extracted from your own Pikmin disc). Empty: read " +
@@ -83,8 +83,8 @@ namespace OlimarTest
                 "How far the cursor reaches (so how far Olimar throws) as a multiple of Pikmin's " +
                 "own reach, which is short for RoR2's fights.");
             var scheme = Config.Bind("Controls", "Scheme", ControlScheme.Auto,
-                "Pikmin: the sim moves Olimar, pad buttons by position (A throw/pluck, B whistle, " +
-                "X dismiss, right stick swarm, L recentre camera, R zoom). Aim: RoR2 moves the body " +
+                "Pikmin: the sim moves Olimar, pad buttons by position (A throw/pluck, B jump, LB + B whistle, " +
+                "X dismiss, LB blocks jumping, LT recentres). Keyboard: secondary jumps; hold jump + secondary to whistle. Aim: RoR2 moves the body " +
                 "and the cursor is where you aim (primary throw, secondary whistle, utility " +
                 "dismiss, special swarm). Auto: Aim in VR (VRMod), Pikmin otherwise.");
             StartRed = Config.Bind("Pikmin", "StartRed", 10, "Red Pikmin in the squad at the start of a run.");
@@ -222,8 +222,8 @@ namespace OlimarTest
                 "Commando's body leading a squad of Pikmin from libpikmin.\n\n" +
                 "< ! > Throw Pikmin onto enemies; they latch on and fight.\n" +
                 "< ! > Whistle to call Pikmin back; corpses are carried to the Onion for more.\n" +
-                "< ! > Pad: A throw/pluck, B whistle, X dismiss, right stick swarm, L camera, R zoom.\n" +
-                "< ! > Keyboard: primary throw, secondary whistle, utility dismiss, special swarm.");
+                "< ! > Pad: A throw/pluck, B jump, hold LB + B whistle, X dismiss. LB blocks jumping.\n" +
+                "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility dismiss.");
             lang.SetStringByToken("OLIMARTEST_ONION_NAME", "Onion");
             lang.SetStringByToken("OLIMARTEST_BODY_OUTRO", "..and so he left, with a ship full of seeds.");
             lang.SetStringByToken("OLIMARTEST_BODY_FAIL", "..and so he vanished, his Pikmin waiting by the Onion.");

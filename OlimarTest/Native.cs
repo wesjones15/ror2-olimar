@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 8). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 9). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 8;
+        public const uint AbiVersion = 9;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_recruit_to_pellet(IntPtr sim, uint pellet, ulong defeated, float range);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_lock_target(IntPtr sim, uint captain, ulong target, byte enabled);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_camera_preset(uint zoom, byte top, out Vec3 settings);
@@ -45,7 +45,7 @@ namespace OlimarTest
             public Vec3 pose_pos, pose_vel;
             public float pose_face;
             public Vec3 cursor;
-            public byte whistle, throw_, dismiss, use_pose, use_cursor, cycle, _p1, _p2;
+            public byte whistle, throw_, dismiss, use_pose, use_cursor, cycle, jump, jump_blocked;
         }
 
         [StructLayout(LayoutKind.Sequential)]

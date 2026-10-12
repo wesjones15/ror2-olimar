@@ -230,6 +230,8 @@ namespace OlimarTest
                 i.whistle = B(pad.Whistle);
                 i.dismiss = B(pad.Dismiss);
                 i.cycle = B(pad.Cycle);
+                i.jump = B(pad.Jump);
+                i.jump_blocked = B(pad.jumpBlocked);
                 // Something else moved the body: put the captain where it is now.
                 if (!placed || (transform.position - written).sqrMagnitude > 1f)
                     Pose(ref i, feet, Vector3.zero, Yaw());
@@ -237,7 +239,7 @@ namespace OlimarTest
                 if (MenuOpen)
                 {
                     i.stick_x = i.stick_y = i.swarm_x = i.swarm_y = 0f;
-                    i.throw_ = i.whistle = i.dismiss = i.cycle = 0;
+                    i.throw_ = i.whistle = i.dismiss = i.cycle = i.jump = 0;
                 }
             }
             else
