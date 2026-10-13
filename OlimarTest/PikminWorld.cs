@@ -369,7 +369,8 @@ namespace OlimarTest
                 {
                     var at = d.Body.footPosition;
                     // Keep the feet clear of terrain even when following uphill.
-                    var target = at - d.Body.transform.forward * 1.5f + Vector3.up * 5f;
+                    var forward = d.HasState ? UnityHost.Forward(d.State.face) : d.Body.transform.forward;
+                    var target = at - forward * 3f + Vector3.up * 5f;
                     target.y = Mathf.Max(target.y, UnityHost.Snap(target).y + 3f);
                     if (flight.transitionDuration > 0f)
                     {
@@ -378,8 +379,15 @@ namespace OlimarTest
                         flight.position = Vector3.Lerp(flight.transitionStart, target, Mathf.SmoothStep(0f, 1f, t));
                         if (t >= 1f) flight.transitionDuration = 0f;
                     }
-                    else flight.position = (target - flight.position).sqrMagnitude > 1600f ? target
-                        : Vector3.MoveTowards(flight.position, target, Mathf.Max(12f, d.Body.moveSpeed * 1.5f) * Time.fixedDeltaTime);
+                    else
+                    {
+                        // Trail the squad, slowing into the hover point instead of chasing
+                        // Olimar at a flat 12+ m/s. Still catch up after speed items or teleports.
+                        float distance = Vector3.Distance(target, flight.position);
+                        float eased = distance * (1f - Mathf.Exp(-Time.fixedDeltaTime / 0.65f));
+                        float travel = Mathf.Min(eased, Mathf.Max(5f, d.Body.moveSpeed * 1.15f) * Time.fixedDeltaTime);
+                        flight.position = distance > 40f ? target : Vector3.MoveTowards(flight.position, target, travel);
+                    }
                 }
                 else if (flight.airborne && !flight.following)
                 {
