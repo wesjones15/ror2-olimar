@@ -10,20 +10,17 @@ namespace OlimarTest
     // floor at the display's root, drawn through a view with no cursor. Each time he's picked
     // he plays an intro, as RoR2's survivors do (Commando's "Display" clip, MUL-T's
     // "PoseForLobby"): Pikmin stand scattered in front of him, he whistles (FUE, and the
-    // whistle's SE_GATHER), they answer and run to him. Then, for his idle, they run circles
-    // around him (his squad swarming round and round). Views take a moment to build (the
-    // bakes), so released ones wait in a pool for the next lobby; the sim starts afresh each
-    // time.
+    // whistle's SE_GATHER), they answer and run to him, and fall in behind him where they
+    // stay. Views take a moment to build (the bakes), so released ones wait in a pool for the
+    // next lobby; the sim starts afresh each time.
     internal sealed class OlimarDisplay : IDisplayActor
     {
         static readonly Stack<OlimarDisplay> spare = new Stack<OlimarDisplay>();
         static readonly Native.GroundFn floorFn = Floor;
         static Native.Host floor = new Native.Host { ground_height = Marshal.GetFunctionPointerForDelegate(floorFn) };
 
-        // The intro: when he starts and stops whistling, and when the squad starts circling.
-        const float WhistleFrom = 0.35f, WhistleUntil = 1.6f, CircleFrom = 2.8f;
-        // One lap of the squad around him, seconds; how hard the swarm pushes (0..1).
-        const float LapSeconds = 7f, CirclePush = 0.75f;
+        // The intro: when he starts and stops whistling, and when the squad has gathered.
+        const float WhistleFrom = 0.35f, WhistleUntil = 1.6f, GatheredFrom = 2.8f;
         // Where the Pikmin wait before he calls them (sim units; +Z faces the camera, all
         // inside his whistle's reach).
         static readonly (uint colour, float x, float z)[] Scattered =
@@ -109,7 +106,7 @@ namespace OlimarTest
                 up = new Native.Vec3(0f, 1f, 0f),
                 // He's the listener through the whistle (its sound is his own); after that the
                 // camera is, so the squad's swarming trumpet stays quiet.
-                listener = time < CircleFrom ? 0 : -1,
+                listener = time < GatheredFrom ? 0 : -1,
                 volume = GameSettings.SfxVolume() * Mathf.Clamp(Plugin.SoundVolume.Value, 0f, 2f),
             };
             // The camera in the display's space, for the helmet's reflection and the sounds.
@@ -126,14 +123,10 @@ namespace OlimarTest
             view.Pose(sim, ref frame);
         }
 
-        // The intro's buttons: the whistle, then the swarm stick turning round and round.
-        void Buttons(ref Native.Input input, bool whistling)
+        // The intro's only button is the whistle; the squad then holds its formation behind him.
+        static void Buttons(ref Native.Input input, bool whistling)
         {
             input.whistle = (byte)(whistling ? 1 : 0);
-            if (time < CircleFrom) return;
-            float a = (time - CircleFrom) / LapSeconds * 2f * Mathf.PI;
-            input.swarm_x = Mathf.Sin(a) * CirclePush;
-            input.swarm_y = Mathf.Cos(a) * CirclePush;
         }
 
         public void Release()
