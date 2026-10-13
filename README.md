@@ -11,7 +11,7 @@ which must sit next to this folder to build.
 
 ## OlimarTest (first test character)
 
-A survivor called **Olimar (test)**: Commando's body and HUD leading a squad of Pikmin from
+A survivor called **Olimar**: Commando's body and HUD leading a squad of Pikmin from
 libpikmin, drawn with Pikmin's own models and animations from your disc. Commando's skills
 never fire; Olimar fights with Pikmin.
 
@@ -202,7 +202,7 @@ This includes render-clock checks at 60, 120 and 165 Hz, facing interpolation, a
 frame and invalid lag. In-game verification is manual: walk, jump and turn while watching
 Olimar, Pikmin, enemies and stationary scenery, then check pause/resume and a stage change.
 
-The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 11`, `Olimar (test) registered`,
+The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 11`, `Olimar registered`,
 and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 19 models; sound 48000 Hz,
 2 channels`, `captain 0 is ...`, then latches, deaths, corpses and deliveries as they happen
 (turn off with `Debug.LogEvents`).

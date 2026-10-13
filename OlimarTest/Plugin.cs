@@ -29,7 +29,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar (test)", "0.1.0")]
+    [BepInPlugin(Guid, "Olimar", "0.1.0")]
     public class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.libpikmin.olimartest";
@@ -264,7 +264,7 @@ namespace OlimarTest
         {
             var lang = Language.currentLanguage;
             if (lang == null) return;
-            lang.SetStringByToken("OLIMARTEST_BODY_NAME", "Olimar (test)");
+            lang.SetStringByToken("OLIMARTEST_BODY_NAME", "Olimar");
             lang.SetStringByToken("OLIMARTEST_BODY_SUBTITLE", "Captain of the S.S. Dolphin");
             lang.SetStringByToken("OLIMARTEST_BODY_DESCRIPTION",
                 "Commando's body leading a squad of Pikmin from libpikmin.\n\n" +
@@ -408,7 +408,7 @@ namespace OlimarTest
             pack.bodyPrefabs.Add(new[] { body });
             pack.survivorDefs.Add(new[] { survivor });
             pack.entityStateTypes.Add(new[] { typeof(OlimarMain), typeof(DolphinArrival) });
-            Plugin.Log.LogInfo("Olimar (test) registered");
+            Plugin.Log.LogInfo("Olimar registered");
         }
     }
 
