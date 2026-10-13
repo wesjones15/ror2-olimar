@@ -30,6 +30,24 @@ What works:
   A Pikmin's health is `PikminHealth` (half) of Olimar's max health, so it grows with his
   level and health items. Olimar has twice Commando's health (`OlimarHealth`,
   `OlimarHealthPerLevel`). Pikmin that fall into a void are lost.
+- **Fall damage** (`Items.FallDamage`): the sim moves Olimar, so RoR2's motor never sees him land.
+  The sim reports each landing with how far he fell from his highest point; the plugin turns that into
+  the speed RoR2's gravity would give (`sqrt(2gh)`) and hands it to RoR2's own landing hook, which
+  charges the excess over `jumpPower + 20` as a share of max health and applies fall immunity
+  (H3AD-5T), armour, Frailty and Eclipse. Stomps are safe. Teleports and VR/aim-scheme play (RoR2
+  moves him) are untouched.
+- **Growth** (`Growth.*`): a planted sprout is a leaf, then a bud after `SecondsPerStage` (20 s), then a
+  flower after another 20 s, and a flower wilts after `FlowerSeconds` (40 s). The timer starts when it
+  can be plucked and restarts at each stage, so the Onion's plucker (60 s) finds a flower. Growth-rate
+  (cooldown) items speed the stages up. Pikmin also grow a stage per `KillsPerStage` (2) kills, up to a
+  flower: when any enemy dies, each living Pikmin that attacked it earns one credit, whoever struck
+  the last blow. Sprouts, and Pikmin that stood by, don't. The decomp's growth sparkles, burst and
+  sounds play for both, and the petals when a knocked-down Pikmin gets up a stage lower.
+- **Lock-on cursor**: while locked on, the cursor stands up in front of the enemy, on its surface toward
+  Olimar and clear of its other parts, facing him and turning slowly. It is drawn up to 6x larger on
+  big enemies. Throws and the whistle still go to the part's centre.
+- **Trumpet** (`Sound.TrumpetGain`, 1.4): the swarming trumpet is louder than the disc's level so it
+  carries over combat.
 - **Looks and sounds**: Olimar, the Pikmin (with leaf, bud or flower), the Onion, pellets,
   sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
