@@ -127,7 +127,7 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
 
 ### How it works
 
-- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 9).
+- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 10).
   `Native.Load` refuses a DLL whose ABI version or struct sizes don't match.
 - `PikminWorld` owns the sim on the server, one per stage. Each `FixedUpdate` it passes every
   captain's input and RoR2's enemies, advances the 30 Hz clock, and reads back Pikmin,
@@ -135,7 +135,13 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
   that kills) wait until the step is done.
 - `OlimarDriver` (on the body) is a captain. In the Pikmin scheme it turns off the
   KinematicCharacterMotor and puts the body where the sim has Olimar, interpolated between
-  ticks, the way MarioTest does for Mario. RoR2's own network transform shows that to others.
+  ticks with ror2-common's `StepSmoother`, before RoR2 updates its camera. After a sim tick
+  the body stays at the previous position until that frame's blend, so the camera never
+  reads ahead of the drawn Olimar. RoR2's own network transform shows that to others.
+  The native view receives `ViewFrame.lag = StepSmoother.LagTicks(RenderAlpha, 1)` on
+  the same 30 Hz clock: positions, facing and sim-driven animation frames blend together.
+  This prevents camera stutter across the scene and model ghosting at high refresh rates.
+  The lobby supplies its own sim fraction. Install both DLLs together; ABI 9 is incompatible.
 - `UnityHost` answers the sim's ground and wall queries with raycasts against RoR2's world
   layer. 1 Pikmin unit = 4 cm (`Sim.MetresPerUnit`): Olimar runs at 6.4 m/s.
 - `PikminModels` draws with libpikmin's view (`pik_view_*`, from `libpikmin-present`) through
@@ -173,8 +179,12 @@ Use `-RoR2Dir` for another install and `-NoInstall` to only build into `dist/`.
 dotnet run -c Release --project NativeCheck -- ..\libpikmin\target\release\pikmin.dll ..\libpikmin\assets
 ```
 
-The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 9`, `Olimar (test) registered`,
-and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 16 models; sound 48000 Hz,
+This includes render-clock checks at 60, 120 and 165 Hz, facing interpolation, a paused
+frame and invalid lag. In-game verification is manual: walk, jump and turn while watching
+Olimar, Pikmin, enemies and stationary scenery, then check pause/resume and a stage change.
+
+The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 10`, `Olimar (test) registered`,
+and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 19 models; sound 48000 Hz,
 2 channels`, `captain 0 is ...`, then latches, deaths, corpses and deliveries as they happen
 (turn off with `Debug.LogEvents`).
 

@@ -56,6 +56,63 @@ static class Program
         if (!ok) failures++;
     }
 
+    static void CheckRenderClock(IntPtr view, IntPtr sim, ref Native.Host host, int captain)
+    {
+        var frame = new Native.ViewFrame
+        {
+            forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0), listener = -1,
+        };
+        ViewDraw[] Draw(float lag)
+        {
+            frame.lag = lag;
+            Native.pik_view_update(view, sim, ref frame);
+            var draws = new ViewDraw[Native.pik_view_draws(view, null, 0)];
+            Native.pik_view_draws(view, draws, (uint)draws.Length);
+            return draws;
+        }
+        Native.pik_sim_captain(sim, (uint)captain, out var state);
+        var pose = new Native.Input
+        {
+            use_pose = 1, pose_pos = new Native.Vec3(state.pos.x + 40, state.pos.y, state.pos.z),
+            pose_face = state.face + 0.5f,
+        };
+        Draw(0); // Seed the view's previous snapshot.
+        Native.pik_sim_set_input(sim, (uint)captain, ref pose);
+        Native.pik_sim_advance(sim, ref host, 1f / 30f);
+        var first = Draw(1);
+        var last = Draw(0);
+        var startNavi = Array.Find(first, d => d.kind == Native.KindCaptain && d.id == captain);
+        var endNavi = Array.Find(last, d => d.kind == Native.KindCaptain && d.id == captain);
+        Check(Math.Abs(endNavi.pos.x - startNavi.pos.x) > 1, "render clock has a moving captain");
+        foreach (int hz in new[] { 60, 120, 165 })
+        {
+            bool ok = true;
+            for (int i = 0; i < hz / 30f; i++)
+            {
+                float alpha = i * 30f / hz;
+                foreach (var d in Draw(1 - alpha))
+                {
+                    var a = Array.Find(first, p => p.key == d.key);
+                    var b = Array.Find(last, p => p.key == d.key);
+                    ok &= Math.Abs(d.pos.x - (a.pos.x + (b.pos.x - a.pos.x) * alpha)) < 0.001f
+                       && Math.Abs(d.pos.y - (a.pos.y + (b.pos.y - a.pos.y) * alpha)) < 0.001f
+                       && Math.Abs(d.pos.z - (a.pos.z + (b.pos.z - a.pos.z) * alpha)) < 0.001f;
+                }
+            }
+            Check(ok, $"all model positions follow the render clock at {hz} Hz without a sim tick");
+        }
+        var mid = Array.Find(Draw(0.5f), d => d.key == startNavi.key);
+        float sign = startNavi.rot_y * endNavi.rot_y + startNavi.rot_w * endNavi.rot_w < 0 ? -1 : 1;
+        float y = startNavi.rot_y + sign * endNavi.rot_y, w = startNavi.rot_w + sign * endNavi.rot_w;
+        float norm = (float)Math.Sqrt(y * y + w * w);
+        Check(Math.Abs(mid.rot_y * y / norm + mid.rot_w * w / norm) > 0.99999f,
+            "captain facing follows the same half-tick blend");
+        var paused = Array.Find(Draw(0.5f), d => d.key == mid.key);
+        Check(paused.pos.x == mid.pos.x && paused.rot_y == mid.rot_y, "paused render fraction stays still");
+        var invalid = Array.Find(Draw(float.NaN), d => d.key == endNavi.key);
+        Check(Math.Abs(invalid.pos.x - endNavi.pos.x) < 0.001f, "invalid lag safely draws the newest state");
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -260,6 +317,8 @@ static class Program
             Check(Array.Exists(draws, d => d.kind == Native.KindCaptain) && Array.Exists(draws, d => d.kind == Native.KindOnion)
                   && last.first_vertex + li.vertex_count == vc && last.first_color + li.batch_count == cc,
                 $"{nd} draws, {vc} vertices, {cc} colours");
+
+            CheckRenderClock(view, sim, ref host, c);
 
             // Whistling makes particles, each with a texture.
             var whistle = new Native.Input { whistle = 1 };
