@@ -37,7 +37,7 @@ What works:
   (H3AD-5T), armour, Frailty and Eclipse. Stomps are safe. Teleports and VR/aim-scheme play (RoR2
   moves him) are untouched.
 - **Growth** (`Growth.*`): a planted sprout is a leaf, then a bud after `SecondsPerStage` (20 s), then a
-  flower after another 20 s, and a flower wilts after `FlowerSeconds` (40 s). The timer starts when it
+  flower after another 20 s, and a flower wilts after `FlowerSeconds` (300 s). The timer starts when it
   can be plucked and restarts at each stage, so the Onion's plucker (60 s) finds a flower. Growth-rate
   (cooldown) items speed the stages up. Pikmin also grow a stage per `KillsPerStage` (2) kills, up to a
   flower: when any enemy dies, each living Pikmin that attacked it earns one credit, whoever struck

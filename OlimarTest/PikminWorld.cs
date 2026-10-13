@@ -609,6 +609,11 @@ namespace OlimarTest
                     if (onion >= 0 && saved.stored[c] > 0)
                         Native.pik_sim_store_in_onion(sim, (uint)onion, c, 0, (uint)saved.stored[c]);
                 }
+            // An Onion never starts empty: its plucker (Items.AutoPluckDelay) is a Pikmin inside it.
+            int home = onionOf[captain].id;
+            int inside = saved.saved ? saved.stored[0] + saved.stored[1] + saved.stored[2] : 0;
+            if (home >= 0 && inside == 0)
+                Native.pik_sim_store_in_onion(sim, (uint)home, Native.Red, 0, 1);
         }
 
         // ------------------------------------------------------------------------------------

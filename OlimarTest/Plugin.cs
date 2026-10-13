@@ -108,9 +108,10 @@ namespace OlimarTest
                 "Seconds a planted sprout is a leaf, then a bud, before it is a flower (15 to 30 suggested). The " +
                 "timer starts when the sprout can be plucked and starts over at each stage, so one left alone " +
                 "for Items.AutoPluckDelay (60 s) is plucked as a flower. 0: the disc's pace.");
-            FlowerSeconds = Config.Bind("Growth", "FlowerSeconds", 40f,
-                "Seconds a planted flower stands before it wilts back to a leaf. Keep it longer than the gap " +
-                "between flowering and the auto-pluck, or the plucker finds a wilted sprout. 0: the disc's.");
+            FlowerSeconds = Config.Bind("Growth", "FlowerSeconds", 300f,
+                "Seconds a planted flower stands before it wilts back to a leaf (5 minutes). Keep it well " +
+                "longer than the gap between flowering and the auto-pluck, or the plucker finds a wilted sprout. " +
+                "0: the disc's (a few seconds).");
             KillsPerStage = Config.Bind("Growth", "KillsPerStage", 2,
                 "Kills it takes to raise a Pikmin one stage (leaf, bud, flower). Only the Pikmin that attacked " +
                 "the enemy earn the kill, whoever lands the last blow. 0: off.");
