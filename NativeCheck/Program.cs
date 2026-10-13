@@ -180,6 +180,34 @@ static class Program
         Check(jumpCaptain.on_ground == 1 && jumpCaptain.pos.y == 0,
             "holding B lands without repeating jump");
         Native.pik_sim_free(jumpSim);
+        IntPtr padSim = Native.pik_sim_new(null, 32);
+        int padCaptain = Native.pik_sim_add_captain(padSim, ref origin);
+        Native.pik_sim_spawn_piki(padSim, Native.Red, ref followerAt, padCaptain);
+        var heldInput = new Native.Input { stick_y = 1, jump = 1, throw_ = 1, dismiss = 1 };
+        Native.pik_sim_set_captain_hold(padSim, (uint)padCaptain, 2);
+        Native.pik_sim_set_input(padSim, (uint)padCaptain, ref heldInput);
+        Native.pik_sim_advance(padSim, ref host, 1f / 30f);
+        Native.pik_sim_captain(padSim, (uint)padCaptain, out var padState);
+        Check(padState.pos.y == 0 && padState.pos.z == 0, "NativeBody stun holds movement and jumping through ABI");
+        var padVelocity = new Native.Vec3(0, 400, 180);
+        Native.pik_sim_launch_captain(padSim, (uint)padCaptain, ref padVelocity, 200f, 1);
+        Native.pik_sim_advance(padSim, ref host, 1f / 30f);
+        Native.pik_sim_captain(padSim, (uint)padCaptain, out padState);
+        Check(Math.Abs(padState.pos.z - 6f) < 0.01f && padState.pos.y > 13f,
+            "pad launch crosses ABI and continues while stunned");
+        Native.pik_sim_set_captain_hold(padSim, (uint)padCaptain, 0);
+        heldInput = default;
+        Native.pik_sim_set_input(padSim, (uint)padCaptain, ref heldInput);
+        float followerApex = 0;
+        for (int t = 0; t < 160; t++)
+        {
+            Native.pik_sim_advance(padSim, ref host, 1f / 30f);
+            Native.pik_sim_pikis(padSim, jumpPikis, 2);
+            followerApex = Math.Max(followerApex, jumpPikis[0].pos.y);
+        }
+        Check(followerApex > 395f, "Pikmin repeat the full pad launch, exceeding voluntary jump height");
+        Check(Native.pik_sim_poisoned(padSim) == 0, "NativeBody and jump-pad ABI stays healthy");
+        Native.pik_sim_free(padSim);
         for (int i = 0; i < 6; i++)
         {
             var at = new Native.Vec3(-20f - 4f * i, 0, 0);

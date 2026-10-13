@@ -145,6 +145,7 @@ namespace OlimarTest
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
+            ItemHooks.Install();
 
             ContentProvider.Register(Guid, Content.Fill);
             Language.onCurrentLanguageChanged += AddTokens;
@@ -312,6 +313,8 @@ namespace OlimarTest
                     esm.mainStateType = new SerializableEntityStateType(typeof(OlimarMain));
                     esm.initialStateType = new SerializableEntityStateType(typeof(DolphinArrival));
                 }
+            // Aim/VR retains RoR2's motor and its motor-driven item states.
+            if (Plugin.Scheme == ControlScheme.Pikmin) body.AddComponent<NativeBody>();
             body.AddComponent<OlimarDriver>();
 
             // The Onion as Olimar's minion, for his items (ror2-common's Minions).

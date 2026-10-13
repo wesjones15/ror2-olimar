@@ -25,6 +25,8 @@ namespace OlimarTest
         InputBankTest input;
         CharacterDirection direction;
         HealthComponent health;
+        NativeBody native;
+        bool sprintPressed;
 
         LocalUser localUser;
         readonly Pad pad = new Pad();
@@ -74,6 +76,7 @@ namespace OlimarTest
             input = GetComponent<InputBankTest>();
             direction = GetComponent<CharacterDirection>();
             health = GetComponent<HealthComponent>();
+            native = GetComponent<NativeBody>();
             smoother = new StepSmoother(transform);
         }
 
@@ -103,12 +106,13 @@ namespace OlimarTest
                 motor.Motor.enabled = !steer;
             if (steer)
             {
-                Body.isSprinting = false;
+                if (Arriving && native) native.UpdateSprint(false, false, false);
                 EnsureCamera();
             }
             else
             {
                 smoother.Reset();
+                if (native) native.ForgetVelocity();
                 placed = false;
                 ReleaseCamera();
             }
@@ -123,6 +127,7 @@ namespace OlimarTest
         {
             FindLocalUser();
             if (localUser != null) pad.Read(localUser.inputPlayer, InteractPrompt());
+            sprintPressed |= input && input.sprint.down;
             if (captain < 0) return;
 
             if (SimMoves && placed && Active)
@@ -209,6 +214,9 @@ namespace OlimarTest
         /// This tick's controls, called by PikminWorld just before it advances the sim.
         public Native.Input BuildInput()
         {
+            var world = PikminWorld.Instance;
+            var hold = native ? native.Control() : NativeBody.Hold.None;
+            Native.pik_sim_set_captain_hold(world.SimHandle, (uint)captain, (uint)hold);
             var feet = transform.position - feetToOrigin;
             var i = new Native.Input();
             if (Plugin.Scheme == ControlScheme.Pikmin)
@@ -234,7 +242,15 @@ namespace OlimarTest
                 if (!placed || smoother.MovedElsewhere)
                 {
                     smoother.Reset();
+                    if (native) native.ForgetVelocity();
                     Pose(ref i, feet, Vector3.zero, Yaw());
+                }
+                else if (native && native.TakeExternalVelocity(out var thrown, 2f))
+                {
+                    bool padLaunch = native.JumpPadLaunch;
+                    var v = UnityHost.ToSim(thrown);
+                    Native.pik_sim_launch_captain(world.SimHandle, (uint)captain, ref v,
+                        padLaunch ? Mathf.Abs(Physics.gravity.y) / UnityHost.Scale : 0f, B(padLaunch));
                 }
                 // The Onion window has the stick and buttons.
                 if (MenuOpen)
@@ -264,11 +280,25 @@ namespace OlimarTest
                 }
                 if (MenuOpen) i.throw_ = i.whistle = i.dismiss = 0;
             }
+            if (hold != NativeBody.Hold.None)
+            {
+                i.stick_x = i.stick_y = 0f;
+                i.jump = 0;
+            }
+            if (hold == NativeBody.Hold.All)
+            {
+                i.swarm_x = i.swarm_y = 0f;
+                i.throw_ = i.whistle = i.dismiss = i.cycle = 0;
+            }
+            if (native)
+                native.UpdateSprint(sprintPressed, i.stick_x * i.stick_x + i.stick_y * i.stick_y > 0.01f,
+                    hold == NativeBody.Hold.None && !MenuOpen);
+            sprintPressed = false;
             // A utility/X press places a following Onion and stays consumed until release.
             // RoR2 interactions have first claim on the button.
             bool dismiss = Plugin.Scheme == ControlScheme.Pikmin ? pad.Dismiss : input.skill3.down;
             if (!dismiss) onionPressClaimed = false;
-            if (!MenuOpen && dismiss && !InteractPrompt() && PikminWorld.Instance.OnionFlying(captain))
+            if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !InteractPrompt() && PikminWorld.Instance.OnionFlying(captain))
             {
                 if (!onionPressClaimed) PikminWorld.Instance.CommandOnion(captain, false);
                 onionPressClaimed = true;
@@ -306,7 +336,12 @@ namespace OlimarTest
             placed = true;
 
             // Navi's velocity is per second. RoR2 reads these for animation, camera and AI.
-            motor.velocity = UnityHost.ToUnity(c.vel);
+            if (native)
+            {
+                native.WroteVelocity(UnityHost.ToUnity(c.vel));
+                if (c.on_ground != 0) native.Landed();
+            }
+            else motor.velocity = UnityHost.ToUnity(c.vel);
             motor.Motor.GroundingStatus.IsStableOnGround = c.on_ground != 0;
             motor.Motor.GroundingStatus.FoundAnyGround = c.on_ground != 0;
             if (direction)

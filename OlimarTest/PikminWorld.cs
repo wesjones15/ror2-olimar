@@ -574,7 +574,12 @@ namespace OlimarTest
                 Native.pik_sim_set_input(sim, (uint)kv.Key, ref input);
                 // His move speed items (Goat Hoof, Energy Drink...) speed up Navi's run.
                 if (kv.Value && kv.Value.Body)
-                    Native.pik_sim_set_captain_speed(sim, (uint)kv.Key, MinionStats.Of(kv.Value.Body).moveSpeed);
+                {
+                    var body = kv.Value.Body;
+                    float speed = MinionStats.Of(body).moveSpeed;
+                    if (body.isSprinting) speed *= body.sprintingSpeedMultiplier;
+                    Native.pik_sim_set_captain_speed(sim, (uint)kv.Key, speed);
+                }
                 Native.pik_sim_set_captain_reach(sim, (uint)kv.Key, Plugin.ThrowReach.Value);
             }
             // With no Olimar about (all dead, or mid-load) the Pikmin wait.
@@ -727,9 +732,18 @@ namespace OlimarTest
             do
             {
                 n = Native.pik_sim_events(sim, events, (uint)events.Length);
-                if (Plugin.LogEvents.Value)
-                    for (int i = 0; i < n; i++)
-                        LogEvent(events[i]);
+                for (int i = 0; i < n; i++)
+                {
+                    var e = events[i];
+                    int captain = e.kind == Native.EventKind.Thrown ? e.b
+                        : e.kind == Native.EventKind.Punched ? (int)e.a : -1;
+                    if (captain >= 0 && driverOf.TryGetValue(captain, out var d) && d && d.Body)
+                    {
+                        NativeBody.MarkCombat(d.Body);
+                        d.Body.GetComponent<NativeBody>()?.PulsePrimary(0.5f);
+                    }
+                    if (Plugin.LogEvents.Value) LogEvent(e);
+                }
             } while (n == events.Length);
         }
 
@@ -822,6 +836,7 @@ namespace OlimarTest
             if (!health || !health.alive) return 0;
 
             var attacker = AttackerFor(source, sourceId);
+            NativeBody.MarkCombat(attacker);
             var at = victim.corePosition;
             if (part >= 0 && creatureIndex.TryGetValue(creature, out int ci))
             {

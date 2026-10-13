@@ -10,7 +10,7 @@ namespace OlimarTest
     // B: jump, LB + B: whistle, X: dismiss, d-pad left or right: next colour to throw, right stick: swarm (the C-stick),
     // LT: recentre the camera, R: zoom, Z (right bumper): top view. On keyboard and mouse it
     // falls back to RoR2's actions: move, primary throw, secondary jump, jump + secondary whistle,
-    // utility dismiss, special swarm toward the cursor, jump recentre, sprint zoom, mouse wheel for
+    // utility dismiss, special swarm toward the cursor, jump recentre, C zoom, sprint to run, mouse wheel for
     // the next colour. The Onion window takes the stick or d-pad (WASD
     // or arrow keys), A or a left click to confirm and B or a right click to cancel.
     //
@@ -97,7 +97,7 @@ namespace OlimarTest
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
                 recentre |= player.GetButtonDown(Action.Jump);
-                zoom |= player.GetButtonDown(Action.Sprint);
+                zoom |= UnityEngine.Input.GetKeyDown(KeyCode.C);
                 menuV = Key(KeyCode.UpArrow) || move.y > 0.5f ? 1 : Key(KeyCode.DownArrow) || move.y < -0.5f ? -1 : 0;
                 menuH = Key(KeyCode.RightArrow) || move.x > 0.5f ? 1 : Key(KeyCode.LeftArrow) || move.x < -0.5f ? -1 : 0;
                 onionMenu |= UnityEngine.Input.GetKeyDown(KeyCode.Tab);

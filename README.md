@@ -99,7 +99,8 @@ position, so your RoR2 binds don't change it:
 | Y                | equipment           | RoR2's equipment, as usual   |
 | right stick      | special (held)      | swarm (toward the cursor)    |
 | LT / left trigger | jump               | swing the camera behind him  |
-| R                | sprint              | zoom (three levels)          |
+| R                | C                   | zoom (three levels)          |
+| RoR2 sprint bind | sprint              | sprint until movement stops  |
 | right bumper (Z) |                     | top view                     |
 | X under an Onion | interact            | land / open the Onion window |
 | d-pad up         | Tab                 | Onion menu (including in flight) |
@@ -118,6 +119,11 @@ gaps while heading to a formation slot, enemy, hand, or carrying slot. They cann
 while lifting or holding an item. Jump height is 40 sim units, using the disc's gravity.
 Routes expire after 15 seconds and are cleared when a Pikmin leaves its squad.
 
+Jump pads use RoR2's full launch velocity and gravity. Squad Pikmin run to Olimar's
+takeoff point and repeat the same arc; ordinary knockback does not launch the squad.
+The flying Onion follows in the air, easing toward a point 3 metres behind Olimar
+with a 0.65-second response and a speed limit slightly above his run speed.
+
 Jump presentation uses Olimar's geyser `OCARRY` motion (`NaviGeyzerState::init`) and
 Pikmin's airborne `ROLLJMP` motion (`PikiFlyingState::init`). Both are inside the shared
 `pikis/bluModel.anm` bundle and `pikis/animMgr.bin`, copied by the existing first-run
@@ -129,7 +135,7 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
 
 ### How it works
 
-- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 10).
+- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 11).
   `Native.Load` refuses a DLL whose ABI version or struct sizes don't match.
 - `PikminWorld` owns the sim on the server, one per stage. Each `FixedUpdate` it passes every
   captain's input and RoR2's enemies, advances the 30 Hz clock, and reads back Pikmin,
@@ -143,7 +149,10 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
   The native view receives `ViewFrame.lag = StepSmoother.LagTicks(RenderAlpha, 1)` on
   the same 30 Hz clock: positions, facing and sim-driven animation frames blend together.
   This prevents camera stutter across the scene and model ghosting at high refresh rates.
-  The lobby supplies its own sim fraction. Install both DLLs together; ABI 9 is incompatible.
+  The lobby supplies its own sim fraction. Install both DLLs together; older ABIs are incompatible.
+- In the Pikmin scheme, `NativeBody` imports external velocity, applies roots/stuns,
+  manages sprint state, and reports native throws/punches for combat and primary-use items.
+  Native attacks also refresh the attacker's combat clock. Aim/VR retains RoR2's motor.
 - `UnityHost` answers the sim's ground and wall queries with raycasts against RoR2's world
   layer. 1 Pikmin unit = 4 cm (`Sim.MetresPerUnit`): Olimar runs at 6.4 m/s.
 - `PikminModels` draws with libpikmin's view (`pik_view_*`, from `libpikmin-present`) through
@@ -187,7 +196,7 @@ This includes render-clock checks at 60, 120 and 165 Hz, facing interpolation, a
 frame and invalid lag. In-game verification is manual: walk, jump and turn while watching
 Olimar, Pikmin, enemies and stationary scenery, then check pause/resume and a stage change.
 
-The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 10`, `Olimar (test) registered`,
+The log, `BepInEx/LogOutput.log`, should show `libpikmin ABI 11`, `Olimar (test) registered`,
 and in a run `Pikmin sim started (disc (10 files))`, `Pikmin models: 19 models; sound 48000 Hz,
 2 channels`, `captain 0 is ...`, then latches, deaths, corpses and deliveries as they happen
 (turn off with `Debug.LogEvents`).
