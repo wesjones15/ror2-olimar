@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 11). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 12). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -13,7 +13,24 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 11;
+        public const uint AbiVersion = 12;
+        // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_attack_rate(IntPtr sim, uint captain, float rate);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_speed(IntPtr sim, uint captain, float scale);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_jumps(IntPtr sim, uint captain, uint airJumps, byte stomp);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_boost_captain_jump(IntPtr sim, uint captain, float factor);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_growth(IntPtr sim, float growthRate, float rejoinDelay);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_carry(IntPtr sim, float range);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_pluck(IntPtr sim, float seconds);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_emergency(IntPtr sim, float seconds, uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_onion_owner(IntPtr sim, uint onion, int captain);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern float pik_sim_heal_squad(IntPtr sim, uint captain, float amount);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern float pik_sim_heal_pikis_in_sphere(IntPtr sim, ref Vec3 centre, float radius, float amount);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_teleport_squad(IntPtr sim, uint captain, ref Vec3 pos);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_captain_piki_count(IntPtr sim, uint captain);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_spawn_squad(IntPtr sim, uint captain, ref Vec3 pos, uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_remove_captain_pikis(IntPtr sim, uint captain);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_down_captain(IntPtr sim, uint captain, byte down);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_hold(IntPtr sim, uint captain, uint hold);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_launch_captain(IntPtr sim, uint captain, ref Vec3 velocity, float gravity, byte squad);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_recruit_to_pellet(IntPtr sim, uint pellet, ulong defeated, float range);
@@ -96,7 +113,7 @@ namespace OlimarTest
         {
             public const byte Idle = 0, Squad = 1, GoHang = 2, Held = 3, Flying = 4, Attack = 5,
                 Knocked = 6, Carry = 7, Pressed = 8, Swallowed = 9, Dying = 10, Fading = 11,
-                Absorb = 12, GrowUp = 13, Enter = 14, Exit = 15, Dead = 16;
+                Absorb = 12, GrowUp = 13, Enter = 14, Exit = 15, Dead = 16, Plucker = 17;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -107,8 +124,9 @@ namespace OlimarTest
             public float face, size;
             public uint id;
             public int captain, pellet;
+            /// Out of piki_max_health (100 by default).
+            public float health;
             public byte state, color, happa, alive, has_creature, on_ground, _p0, _p1;
-            public uint _p2;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -161,6 +179,18 @@ namespace OlimarTest
             CaptainHurt, CaptainDown, Dismissed, Punched, PelletLifted, PelletRerouted,
             PelletDropped, PelletArrived, PelletDelivered, SeedLaunched, SeedStored,
             SproutPlanted, SproutGrew, SproutWilted, Plucked,
+            // b the Onion, a its owner, c how many.
+            EmergencyPikmin,
+            // a the plucker, b its Onion.
+            PluckerOut,
+            // a the plucked Pikmin, b the captain it joins (-1 none), c the plucker.
+            PluckerPulled,
+            // a the captain, c 1 in mid-air.
+            CaptainJumped,
+            // a the captain, pos where, value the drop (sim units).
+            CaptainStomped,
+            // a the Pikmin, b its captain, pos where.
+            PikiStomped,
         }
 
         // a: the Pikmin/pellet/sprout/captain it's about; b: a second id; c: a colour, leaf stage
