@@ -63,6 +63,7 @@ namespace OlimarTest
             var frame = new Native.ViewFrame
             {
                 dt = dt,
+                lag = StepSmoother.LagTicks(Native.pik_sim_alpha(sim), 1f),
                 forward = new Native.Vec3(0f, 0f, 1f),
                 up = new Native.Vec3(0f, 1f, 0f),
                 listener = -1,

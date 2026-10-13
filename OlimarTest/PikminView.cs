@@ -136,7 +136,12 @@ namespace OlimarTest
 
         void DrawModels()
         {
-            var frame = new Native.ViewFrame { dt = Time.deltaTime, listener = -1, volume = Volume() };
+            var frame = new Native.ViewFrame
+            {
+                dt = Time.deltaTime, listener = -1, volume = Volume(),
+                // One 30 Hz tick between snapshots, even when RoR2's physics runs at 60 Hz.
+                lag = StepSmoother.LagTicks(world.RenderAlpha, 1f),
+            };
             var user = LocalUserManager.GetFirstLocalUser();
             var cam = GameSettings.PlayerCamera();
             if (cam)
