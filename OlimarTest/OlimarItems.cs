@@ -438,15 +438,19 @@ namespace OlimarTest
         {
             lang.SetStringByToken("OLIMARTEST_THROW_NAME", "Pikmin Throw");
             lang.SetStringByToken("OLIMARTEST_THROW_DESC",
-                "Throw a Pikmin; it latches on and fights. With an empty hand, punch. Attack speed speeds up Pikmin attacks.");
+                "A. Throw the nearest Pikmin; it latches onto an enemy and fights, and homes in on one you hold RT to lock " +
+                "onto. With none to throw, punch. D-pad left/right picks the colour. Attack speed speeds up Pikmin attacks.");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_NAME", "Whistle");
-            lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC", "Call Pikmin back into the squad.");
+            lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
+                "Hold LB and press B. Calls every Pikmin in the whistle's circle back into the squad, off an enemy " +
+                "or a corpse too. While LB is held Olimar doesn't jump.");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Onion Relocation");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
-                "Land the Onion under you, or lift it to follow you. Each lift or landing takes a charge.");
+                "X. Land the Onion under you, or lift it to follow you; each lift or landing takes a charge. " +
+                "With no Onion to move, X dismisses the squad.");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_NAME", "Onion Pluckers");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_DESC",
-                $"Passive. Sprouts left unplucked for {Plugin.AutoPluckDelay.Value:0} s are plucked by a Pikmin from the landed Onion, and join you. Cooldown items make it sooner.");
+                $"Passive, no button. Sprouts left unplucked for {Plugin.AutoPluckDelay.Value:0} s are plucked by a Pikmin from the landed Onion, and join you. Cooldown items make it sooner.");
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using BepInEx;
@@ -193,6 +194,17 @@ namespace OlimarTest
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
             ItemHooks.Install();
+            // With the Pikmin controls the HUD's skill icons name the pad buttons the sim reads (Pad),
+            // not RoR2's binds; the Aim scheme (VR) keeps RoR2's.
+            GlyphOverride.Install();
+            GlyphOverride.Set("OlimarTestBody", () => Scheme == ControlScheme.Pikmin, new Dictionary<SkillSlot, PadButton[]>
+            {
+                [SkillSlot.Primary] = new[] { PadButton.A },
+                [SkillSlot.Secondary] = new[] { PadButton.LB, PadButton.B },
+                [SkillSlot.Utility] = new[] { PadButton.X },
+                // Passive: no button.
+                [SkillSlot.Special] = new PadButton[0],
+            });
 
             ContentProvider.Register(Guid, Content.Fill);
             Language.onCurrentLanguageChanged += AddTokens;
@@ -270,7 +282,9 @@ namespace OlimarTest
                 "Commando's body leading a squad of Pikmin from libpikmin.\n\n" +
                 "< ! > Throw Pikmin onto enemies; they latch on and fight.\n" +
                 "< ! > Whistle to call Pikmin back; corpses are carried to the Onion for more.\n" +
-                "< ! > Pad: A throw/pluck, B jump, hold LB + B whistle, X dismiss. LB blocks jumping.\n" +
+                "< ! > Pad: A throw or pluck, B jump, LB + B whistle (LB blocks jumping), X land the Onion or dismiss, " +
+                "d-pad left/right pick the colour to throw, hold RT to lock onto an enemy (RB then cycles), " +
+                "right stick pans the camera (LB + right stick swarms), LT recentres.\n" +
                 "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility dismiss.\n" +
                 "< ! > Hopoo Feather: jump again in mid-air, and the squad does too. H3AD-5T v2: jump in mid-air with no jumps left to stomp.\n" +
                 "< ! > The utility's charges lift and land the Onion; sprouts left a minute are plucked by a Pikmin from the landed Onion.");

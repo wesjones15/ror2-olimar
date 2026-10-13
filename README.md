@@ -113,6 +113,11 @@ LT recentres, RT locks onto an enemy, and RB cycles locked targets (or zooms whe
 B jumps in both camera modes. Holding LB prevents Olimar from jumping; releasing LB
 with B still held does not jump. B still cancels the Onion menu and does not jump on closing it.
 
+The HUD's skill icons show the pad buttons the Pikmin controls use (ror2-common `GlyphOverride`): A for
+the throw, LB + B for the whistle, X for the Onion, none for the passive Pluckers. The Aim scheme and
+keyboard keep RoR2's binds. The skills' names and descriptions on the character select screen give the
+same buttons.
+
 A stationary squad jumps in place with Olimar. Moving followers remember each takeoff
 point, run to it, and jump there in order. Pikmin can also hop over low obstacles and short
 gaps while heading to a formation slot, enemy, hand, or carrying slot. They cannot jump
