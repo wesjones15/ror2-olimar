@@ -121,6 +121,9 @@ namespace OlimarTest
                     Stomp(body, UnityHost.ToUnity(e.pos), e.value * UnityHost.Scale);
                     stompFlushAt = Time.fixedTime + 0.3f;
                     break;
+                case Native.EventKind.CaptainLanded:
+                    if (e.c == 0) FallDamage(body, e.value * UnityHost.Scale);
+                    break;
                 case Native.EventKind.PikiStomped:
                     stompCount++;
                     stompSum += UnityHost.ToUnity(e.pos);
@@ -136,6 +139,26 @@ namespace OlimarTest
                     BackupMagazine(world, (uint)e.b, (uint)e.c);
                     break;
             }
+        }
+
+        // ---- fall damage --------------------------------------------------------------------
+
+        /// He touched down after falling `drop` metres. The sim moves him, so RoR2's character
+        /// motor never sees the landing; hand its server hook the speed he'd have hit the ground
+        /// at under RoR2's gravity (v = sqrt(2 g h)). The hook turns the excess over
+        /// `jumpPower + 20` into a share of max health and applies fall immunity (H3AD-5T),
+        /// armour, Frailty and Eclipse's lethal falls as for any survivor.
+        static void FallDamage(CharacterBody body, float drop)
+        {
+            if (!Plugin.FallDamageEnabled.Value || drop <= 0f) return;
+            var hc = body.healthComponent;
+            var events = GlobalEventManager.instance;
+            if (!events || !hc || !hc.alive) return;
+            float speed = Mathf.Sqrt(2f * Mathf.Abs(Physics.gravity.y) * drop);
+            if (speed <= body.jumpPower + 20f) return;
+            events.OnCharacterHitGroundServer(body, Vector3.down * speed);
+            if (Plugin.LogEvents.Value)
+                Plugin.Log.LogInfo($"Olimar landed from {drop:F1} m at {speed:F1} m/s");
         }
 
         // ---- Hopoo Feather and Wax Quail --------------------------------------------------

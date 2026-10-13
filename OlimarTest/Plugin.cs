@@ -56,7 +56,7 @@ namespace OlimarTest
             CooldownExponent, RelocationRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
             StompPikminDamage, RazorwireInterval;
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
-        internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones;
+        internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<float> SoundVolume;
 
@@ -173,6 +173,9 @@ namespace OlimarTest
             StompPikminDamage = Config.Bind("Items", "StompPikminDamage", 1f,
                 "H3AD-5T v2: damage per Pikmin (times his damage) of the one blast his squad's stomp makes.");
             StompPikminCap = Config.Bind("Items", "StompPikminCap", 25, "Most Pikmin counted in that blast.");
+            FallDamageEnabled = Config.Bind("Items", "FallDamage", true,
+                "Olimar takes RoR2's fall damage for a drop (his speed on landing as if falling at RoR2's gravity). " +
+                "Fall-damage items, armour and difficulty modifiers apply as for any survivor; stomps are safe.");
             GooboSquad = Config.Bind("Items", "GooboSquad", true,
                 "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
             GummyClones = Config.Bind("Look", "GummyClones", true,

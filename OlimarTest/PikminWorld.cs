@@ -756,6 +756,7 @@ namespace OlimarTest
                 case Native.EventKind.Whistle:
                 case Native.EventKind.CaptainJumped:
                 case Native.EventKind.CaptainStomped:
+                case Native.EventKind.CaptainLanded:
                     return (int)e.a;
                 case Native.EventKind.PikiHurt:
                     return e.a < PikiCount ? Pikis[e.a].captain : -1;
