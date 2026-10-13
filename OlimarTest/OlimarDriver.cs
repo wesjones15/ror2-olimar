@@ -16,6 +16,8 @@ namespace OlimarTest
     //   where he aims and the skill buttons are throw, whistle, dismiss and swarm.
     // Off the server (a client playing Olimar) there's no sim yet: he walks like Commando
     // without skills.
+    // RoR2 updates its camera in Update: place the smoothed body before it reads the target.
+    [DefaultExecutionOrder(-200)]
     internal class OlimarDriver : MonoBehaviour
     {
         public CharacterBody Body { get; private set; }
@@ -36,10 +38,8 @@ namespace OlimarTest
 
         // Body origin minus feet: the sim tracks Olimar's feet.
         Vector3 feetToOrigin;
-        // Body origin at the last two sim ticks, for drawing between them, and where it was
-        // last put, to notice when something else (a teleporter, an out-of-bounds rescue)
-        // moves the body.
-        Vector3 prev, cur, written;
+        // Share the camera-safe smoothing used by Mario, on Pikmin's 30 Hz clock.
+        StepSmoother smoother;
         bool placed;
 
         /// The last tick's captain, for the cursor and whistle drawing.
@@ -74,6 +74,7 @@ namespace OlimarTest
             input = GetComponent<InputBankTest>();
             direction = GetComponent<CharacterDirection>();
             health = GetComponent<HealthComponent>();
+            smoother = new StepSmoother(transform);
         }
 
         void FixedUpdate()
@@ -93,7 +94,7 @@ namespace OlimarTest
                 captain = PikminWorld.Ensure().Register(this);
                 if (captain < 0) return;
                 feetToOrigin = transform.position - Body.footPosition;
-                prev = cur = written = transform.position;
+                smoother.Reset();
                 placed = false;
             }
             bool steer = Arriving || (SimMoves && Active);
@@ -107,6 +108,8 @@ namespace OlimarTest
             }
             else
             {
+                smoother.Reset();
+                placed = false;
                 ReleaseCamera();
             }
         }
@@ -121,6 +124,9 @@ namespace OlimarTest
             FindLocalUser();
             if (localUser != null) pad.Read(localUser.inputPlayer, InteractPrompt());
             if (captain < 0) return;
+
+            if (SimMoves && placed && Active)
+                smoother.Smooth(PikminWorld.Instance.RenderAlpha);
 
             if (cam != null)
             {
@@ -137,14 +143,6 @@ namespace OlimarTest
             if (MenuOpen && !openingMenu) MenuInput();
             pad.confirm = pad.cancel = false;
 
-            if (SimMoves && placed && Active)
-            {
-                var world = PikminWorld.Instance;
-                float a = world ? world.RenderAlpha : 1f;
-                var p = Vector3.Lerp(prev, cur, a);
-                transform.position = p;
-                written = p;
-            }
         }
 
         // Commando's model is hidden while Pikmin's Olimar is drawn in his place.
@@ -233,8 +231,11 @@ namespace OlimarTest
                 i.jump = B(pad.Jump);
                 i.jump_blocked = B(pad.jumpBlocked);
                 // Something else moved the body: put the captain where it is now.
-                if (!placed || (transform.position - written).sqrMagnitude > 1f)
+                if (!placed || smoother.MovedElsewhere)
+                {
+                    smoother.Reset();
                     Pose(ref i, feet, Vector3.zero, Yaw());
+                }
                 // The Onion window has the stick and buttons.
                 if (MenuOpen)
                 {
@@ -300,10 +301,8 @@ namespace OlimarTest
             pad.Ticked();
             if (!SimMoves || !Active) return;
 
-            prev = placed ? cur : transform.position;
-            cur = UnityHost.ToUnity(c.pos) + feetToOrigin;
-            transform.position = cur;
-            written = cur;
+            // Leave the body at the start of the blend, never ahead of the drawn model.
+            smoother.Stepped(UnityHost.ToUnity(c.pos) + feetToOrigin);
             placed = true;
 
             // Navi's velocity is per second. RoR2 reads these for animation, camera and AI.
