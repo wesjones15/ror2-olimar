@@ -338,6 +338,8 @@ namespace OlimarTest
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
             Native.pik_sim_set_shake_protection(sim, Plugin.ShakeProtection.Value);
             Native.pik_sim_set_auto_carry(sim, Mathf.Max(0f, Plugin.AutoCarryMetres.Value) / UnityHost.Scale);
+            Native.pik_sim_set_sprout_stages(sim, Mathf.Max(0f, Plugin.SecondsPerStage.Value), Mathf.Max(0f, Plugin.FlowerSeconds.Value));
+            Native.pik_sim_set_kill_growth(sim, (uint)Mathf.Max(0, Plugin.KillsPerStage.Value));
             Plugin.Log.LogInfo($"Pikmin sim started ({Native.Utf8(Native.pik_sim_params_source(sim))})");
             view.StartModels();
             return true;
@@ -1007,6 +1009,8 @@ namespace OlimarTest
                 case Native.EventKind.PelletDelivered: what = $"corpse {e.a} delivered: {e.value} {Colour(e.c)} seeds"; break;
                 case Native.EventKind.Plucked: what = $"captain {e.b} plucked Pikmin {e.a}"; break;
                 case Native.EventKind.Bloomed: what = $"Pikmin {e.a} flowered"; break;
+                case Native.EventKind.PikiGrew: what = $"Pikmin {e.a} grew to a {(e.c == 2 ? "flower" : "bud")} from kills"; break;
+                case Native.EventKind.SproutGrew: what = $"sprout {e.a} grew to a {(e.c == 2 ? "flower" : "bud")}"; break;
                 case Native.EventKind.CaptainDown: what = $"captain {e.a} is down"; break;
                 case Native.EventKind.Dismissed: what = $"captain {e.a} dismissed his squad"; break;
                 case Native.EventKind.EmergencyPikmin: what = $"Onion {e.b} sent captain {e.a} {e.c} emergency Pikmin"; break;
@@ -1190,6 +1194,8 @@ namespace OlimarTest
             }
             if (!v || r.victimTeamIndex == TeamIndex.Player) return;
             if (v.isElite) affixes.EliteDied(v, r.attackerBody, Pikis, PikiCount, Id(v));
+            // The Pikmin that fought it earn the kill (growth), whoever struck the last blow.
+            Native.pik_sim_credit_kill(sim, Id(v));
             int lying = 0;
             for (int i = 0; i < PelletCount; i++)
                 if (Pellets[i].state != 3) lying++;

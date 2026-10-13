@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 13). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 14). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -13,13 +13,16 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 13;
+        public const uint AbiVersion = 14;
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_attack_rate(IntPtr sim, uint captain, float rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_speed(IntPtr sim, uint captain, float scale);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_jumps(IntPtr sim, uint captain, uint airJumps, byte stomp);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_boost_captain_jump(IntPtr sim, uint captain, float factor);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_growth(IntPtr sim, float growthRate, float rejoinDelay);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_sprout_stages(IntPtr sim, float stage, float flower);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_kill_growth(IntPtr sim, uint kills);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_credit_kill(IntPtr sim, ulong creature);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_carry(IntPtr sim, float range);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_give_onion_seeds(IntPtr sim, uint onion, uint color, uint seeds);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_pluck(IntPtr sim, float seconds);
@@ -194,6 +197,8 @@ namespace OlimarTest
             PikiStomped,
             // a the captain, value the fall (sim units), c 1 for a stomp's landing.
             CaptainLanded,
+            // a the Pikmin, c the stage it grew to (0 leaf, 1 bud, 2 flower).
+            PikiGrew,
         }
 
         // a: the Pikmin/pellet/sprout/captain it's about; b: a second id; c: a colour, leaf stage

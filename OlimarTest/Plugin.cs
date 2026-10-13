@@ -55,6 +55,9 @@ namespace OlimarTest
         internal static ConfigEntry<float> ProcInterval, MinionMoveScale, MinionHealScale, ItemEffectScale,
             CooldownExponent, RelocationRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
             StompPikminDamage, RazorwireInterval;
+        // Growth: planted sprouts ripen on a timer, Pikmin grow on kills they fought.
+        internal static ConfigEntry<float> SecondsPerStage, FlowerSeconds;
+        internal static ConfigEntry<int> KillsPerStage;
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
         internal static ConfigEntry<bool> Sound;
@@ -101,6 +104,16 @@ namespace OlimarTest
                 "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
                 "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +
                 "Off: Pikmin 1, where they wait to be whistled.");
+            SecondsPerStage = Config.Bind("Growth", "SecondsPerStage", 20f,
+                "Seconds a planted sprout is a leaf, then a bud, before it is a flower (15 to 30 suggested). The " +
+                "timer starts when the sprout can be plucked and starts over at each stage, so one left alone " +
+                "for Items.AutoPluckDelay (60 s) is plucked as a flower. 0: the disc's pace.");
+            FlowerSeconds = Config.Bind("Growth", "FlowerSeconds", 40f,
+                "Seconds a planted flower stands before it wilts back to a leaf. Keep it longer than the gap " +
+                "between flowering and the auto-pluck, or the plucker finds a wilted sprout. 0: the disc's.");
+            KillsPerStage = Config.Bind("Growth", "KillsPerStage", 2,
+                "Kills it takes to raise a Pikmin one stage (leaf, bud, flower). Only the Pikmin that attacked " +
+                "the enemy earn the kill, whoever lands the last blow. 0: off.");
             ShakeProtection = Config.Bind("Pikmin", "ShakeProtection", 2f,
                 "Seconds a Pikmin holds on after latching onto an enemy. When the enemy attacks, " +
                 "Pikmin latched for longer are shaken off and the rest stay on. 0: every attack " +
