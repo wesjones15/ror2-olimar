@@ -35,6 +35,9 @@ namespace OlimarTest
         readonly Pad pad = new Pad();
         PikminCamera cam;
         readonly EnemyLock enemyLock = new EnemyLock();
+        readonly OlimarBrain brain = new OlimarBrain();
+        // The enemy an AI Olimar's brain locked onto this tick.
+        CharacterBody brainTarget;
         CameraRigController camRig;
 
         int captain = -1;
@@ -292,6 +295,16 @@ namespace OlimarTest
                 i.throw_ = B(input.skill1.down);
                 i.whistle = B(input.skill2.down);
                 i.dismiss = B(input.skill3.down);
+                // An AI's Olimar works his own controls (OlimarBrain).
+                brainTarget = null;
+                if (IsAi)
+                {
+                    var c = brain.Think(Body, world, captain, State, HasState, 1f / Mathf.Max(1u, Native.pik_tick_hz()));
+                    i.throw_ = B(c.throw_);
+                    i.whistle = B(c.whistle);
+                    if (c.hasCursor) i.cursor = UnityHost.ToSim(c.cursor);
+                    brainTarget = c.target;
+                }
                 if (input.skill4.down && !MenuOpen)
                 {
                     var to = aim - feet;
@@ -331,7 +344,7 @@ namespace OlimarTest
                 onionPressClaimed = true;
             }
             if (onionPressClaimed || InteractPrompt()) i.dismiss = 0;
-            var locked = enemyLock.Update(Body,
+            var locked = IsAi ? brainTarget : enemyLock.Update(Body,
                 Plugin.Scheme == ControlScheme.Pikmin && Plugin.Camera.Value == CameraMode.Orbit
                     && pad.lockHeld && !MenuOpen && !Arriving,
                 pad.cycleTarget, pad.targetDirection);

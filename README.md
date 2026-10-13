@@ -153,6 +153,12 @@ Primary throws, secondary whistles, utility dismisses, special swarms toward the
 - In the Pikmin scheme, `NativeBody` imports external velocity, applies roots/stuns,
   manages sprint state, and reports native throws/punches for combat and primary-use items.
   Native attacks also refresh the attacker's combat clock. Aim/VR retains RoR2's motor.
+- Goobo Jr.'s Olimar (an AI master that only walks him: ror2-common `SurvivorAi.Drivers`) has a
+  temporary squad and is drawn in RoR2's gummy clone material (`Look.GummyClones`; the squad
+  isn't). `OlimarBrain` works his controls like MarioTest's `MarioBrain`: within throwing range
+  and in sight he locks onto the enemy (the sim homes thrown Pikmin on it) and throws one Pikmin
+  at a time, punching once close if none are left; with no enemy he whistles at his nearest
+  idle Pikmin to call them back, and never while there is one.
 - `UnityHost` answers the sim's ground and wall queries with raycasts against RoR2's world
   layer. 1 Pikmin unit = 4 cm (`Sim.MetresPerUnit`): Olimar runs at 6.4 m/s.
 - `PikminModels` draws with libpikmin's view (`pik_view_*`, from `libpikmin-present`) through

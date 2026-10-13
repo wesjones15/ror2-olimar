@@ -375,7 +375,9 @@ namespace OlimarTest
             // His actions in RoR2's skill slots, for the items that change skills.
             OlimarSkills.Add(body, pack);
             // An AI master, so Goobo Jr. (and the like) can make an Olimar.
-            SurvivorAi.Register(pack, body, "Prefabs/CharacterMasters/CommandoMonsterMaster", "OlimarTestMonsterMaster", Plugin.Guid);
+            var ai = SurvivorAi.Register(pack, body, "Prefabs/CharacterMasters/CommandoMonsterMaster", "OlimarTestMonsterMaster", Plugin.Guid);
+            // It only walks him; OlimarBrain works his controls.
+            if (ai) SurvivorAi.Drivers(ai, OlimarBrain.HoldRange);
 
             // The Onion as Olimar's minion, for his items (ror2-common's Minions).
             OnionMinion = Minions.Define(pack, Plugin.Guid, new MinionSpec
