@@ -256,14 +256,10 @@ namespace OlimarTest
         // ---- Goobo Jr. ------------------------------------------------------------------
 
         // Goobo Jr.'s gummy (its identifier item), or any AI Olimar some player owns.
-        static bool IsGooboClone(OlimarDriver d)
-        {
-            var inv = d.Body ? d.Body.inventory : null;
-            var clone = ByName.Item("GummyCloneIdentifier");
-            if (inv && clone != ItemIndex.None && inv.GetItemCount(clone) > 0) return true;
-            var master = d.Body ? d.Body.master : null;
-            return d.IsAi && master && master.minionOwnership && master.minionOwnership.ownerMaster;
-        }
+        static bool IsGooboClone(OlimarDriver d) => GummyClone.Is(d.Body);
+
+        /// A Goobo Jr. clone's captain (a temporary squad's), for drawing it as a gummy.
+        public bool IsTemporaryCaptain(int captain) => tempCaptains.Contains(captain);
 
         // The clone's squad: as many of each colour as its owner has with him now. They're new
         // Pikmin; the owner's squad and Onion lose nothing.

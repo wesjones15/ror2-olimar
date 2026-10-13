@@ -55,7 +55,7 @@ namespace OlimarTest
             CooldownExponent, RelocationRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
             StompPikminDamage, RazorwireInterval;
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
-        internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad;
+        internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<float> SoundVolume;
 
@@ -174,6 +174,8 @@ namespace OlimarTest
             StompPikminCap = Config.Bind("Items", "StompPikminCap", 25, "Most Pikmin counted in that blast.");
             GooboSquad = Config.Bind("Items", "GooboSquad", true,
                 "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
+            GummyClones = Config.Bind("Look", "GummyClones", true,
+                "Goobo Jr.'s Olimar is drawn in RoR2's gummy clone material.");
             LogEvents = Config.Bind("Debug", "LogEvents", true,
                 "Log notable sim events (latches, deaths, deliveries, plucks) to the BepInEx log.");
 

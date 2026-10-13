@@ -67,7 +67,13 @@ namespace OlimarTest
             DisposeModels();
             if (Ror2Common.RunAudio.Ended) return;
             models = PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
-            if (models != null) Plugin.Log.LogInfo($"Pikmin models: {models.Status}");
+            if (models != null)
+            {
+                Plugin.Log.LogInfo($"Pikmin models: {models.Status}");
+                // Goobo Jr.'s Olimar is a gummy, as RoR2 draws its clones.
+                models.Models.SkinFor = d => d.kind == Native.KindCaptain && Plugin.GummyClones.Value
+                    && world && world.IsTemporaryCaptain((int)d.id) ? GummyClone.Material() : null;
+            }
         }
 
         void DisposeModels()
