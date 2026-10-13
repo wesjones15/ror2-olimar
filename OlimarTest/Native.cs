@@ -21,6 +21,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_boost_captain_jump(IntPtr sim, uint captain, float factor);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_growth(IntPtr sim, float growthRate, float rejoinDelay);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_carry(IntPtr sim, float range);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_give_onion_seeds(IntPtr sim, uint onion, uint color, uint seeds);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_pluck(IntPtr sim, float seconds);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_emergency(IntPtr sim, float seconds, uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_onion_owner(IntPtr sim, uint onion, int captain);

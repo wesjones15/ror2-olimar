@@ -50,6 +50,12 @@ namespace OlimarTest
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> CarryBodies;
         internal static ConfigEntry<bool> LogEvents;
+        // Items (OlimarItems): the shared minion scaling policy and the timers items shorten.
+        internal static ConfigEntry<float> ProcInterval, MinionMoveScale, MinionHealScale, ItemEffectScale,
+            CooldownExponent, RelocationRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
+            StompPikminDamage, RazorwireInterval;
+        internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
+        internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<float> SoundVolume;
 
@@ -104,8 +110,9 @@ namespace OlimarTest
             DamageCoefficient = Config.Bind("Combat", "DamageCoefficient", 0.05f,
                 "RoR2 damage per point of Pikmin attack power, times Olimar's damage stat. A Red " +
                 "hits for 15 points: 0.75x Olimar's damage per swing at the default.");
-            ProcCoefficient = Config.Bind("Combat", "ProcCoefficient", 0.1f,
-                "Proc coefficient of a Pikmin hit (items like Ukulele). Pikmin hit often; keep it low.");
+            ProcCoefficient = Config.Bind("Combat", "PikminProcCoefficient", 0.2f,
+                "Proc coefficient of a Pikmin hit that's allowed to proc (items like Ukulele). " +
+                "Each Pikmin procs at most once per Items.ProcInterval; its hits between land at 0.");
             PikminHealth = Config.Bind("Combat", "PikminHealth", 0.5f,
                 "Each Pikmin's health as a share of Olimar's max health, so they scale with his level " +
                 "and health items. At 0.5 a Lemurian's bite (12 at level 1) takes a fifth of a " +
@@ -129,6 +136,44 @@ namespace OlimarTest
                 "Onion. Arrival music has separate SpawnMusic settings; RoR2's soundtrack stays.");
             SoundVolume = Config.Bind("Sound", "Volume", 1f,
                 "Pikmin sound volume, on top of RoR2's master and sound effects volume (0 to 2).");
+            ProcInterval = Config.Bind("Items", "ProcInterval", 0.25f,
+                "Seconds between procs for each Pikmin (its own clock, checked when it hits). A tuning " +
+                "choice: Pikmin 1 has no such rule.");
+            AttackSpeedFromItems = Config.Bind("Items", "AttackSpeedFromItems", true,
+                "Attack speed items (Soldier's Syringe) speed up his punches and plucks and his Pikmin's attacks.");
+            MinionMoveScale = Config.Bind("Items", "MinionMoveScale", 0.75f,
+                "Share of his move speed bonus his Pikmin get (Goat Hoof, Energy Drink). They always keep up with his sprint.");
+            MinionHealScale = Config.Bind("Items", "MinionHealScale", 0.5f,
+                "How strongly Pikmin take healing: his regeneration as a share of their health, and " +
+                "healing wards they stand in (Bustling Fungus).");
+            ItemEffectScale = Config.Bind("Items", "ItemEffectScale", 0.25f,
+                "Damage of item effects a Pikmin sets off (Genesis Loop, Razorwire) against Olimar's own.");
+            RazorwireInterval = Config.Bind("Items", "RazorwireInterval", 0.5f,
+                "Razorwire fires for hurt Pikmin at most once per this many seconds.");
+            CooldownExponent = Config.Bind("Items", "CooldownExponent", 1f,
+                "How strongly cooldown items (Alien Head, Purity) speed up sprouting, seeds after feeding, " +
+                "regrouping, the plucker and emergency Pikmin: times 1 / (cooldown ratio ^ this).");
+            RelocationRecharge = Config.Bind("Items", "RelocationRecharge", 8f,
+                "Seconds for an Onion relocation charge (utility) to come back. Lifting and landing each take one. " +
+                "Hardlight Afterburner adds charges; restart to apply.");
+            AutoPluckDelay = Config.Bind("Items", "AutoPluckDelay", 60f,
+                "Seconds a sprout can stand ready before a Pikmin from the landed Onion comes out to " +
+                "pluck every ready sprout (the special). Below 0: off. Restart to apply to the skill.");
+            EmergencySeconds = Config.Bind("Items", "EmergencySeconds", 15f,
+                "Seconds after Olimar has no Pikmin anywhere (field, Onion, sprouts) before the Onion sends more.");
+            EmergencyCount = Config.Bind("Items", "EmergencyCount", 10, "How many emergency Pikmin come. 0: off.");
+            AutoCarryMetres = Config.Bind("Items", "AutoCarryMetres", 3f,
+                "Pikmin in his squad (not swarming) or standing about pick up a pellet within this many " +
+                "metres of its edge and carry it home. 0: off.");
+            BackupSeedsPerStack = Config.Bind("Items", "BackupSeedsPerStack", 1,
+                "Backup Magazine: extra seeds per pellet or corpse delivered to his Onion, per stack.");
+            LarvaSquad = Config.Bind("Items", "LarvaSquad", 20,
+                "Pluripotent Larva brings Olimar back with this many Pikmin if he had none left anywhere.");
+            StompPikminDamage = Config.Bind("Items", "StompPikminDamage", 1f,
+                "H3AD-5T v2: damage per Pikmin (times his damage) of the one blast his squad's stomp makes.");
+            StompPikminCap = Config.Bind("Items", "StompPikminCap", 25, "Most Pikmin counted in that blast.");
+            GooboSquad = Config.Bind("Items", "GooboSquad", true,
+                "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
             LogEvents = Config.Bind("Debug", "LogEvents", true,
                 "Log notable sim events (latches, deaths, deliveries, plucks) to the BepInEx log.");
 
@@ -224,10 +269,13 @@ namespace OlimarTest
                 "< ! > Throw Pikmin onto enemies; they latch on and fight.\n" +
                 "< ! > Whistle to call Pikmin back; corpses are carried to the Onion for more.\n" +
                 "< ! > Pad: A throw/pluck, B jump, hold LB + B whistle, X dismiss. LB blocks jumping.\n" +
-                "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility dismiss.");
+                "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility dismiss.\n" +
+                "< ! > Hopoo Feather: jump again in mid-air, and the squad does too. H3AD-5T v2: jump in mid-air with no jumps left to stomp.\n" +
+                "< ! > The utility's charges lift and land the Onion; sprouts left a minute are plucked by a Pikmin from the landed Onion.");
             lang.SetStringByToken("OLIMARTEST_ONION_NAME", "Onion");
             lang.SetStringByToken("OLIMARTEST_BODY_OUTRO", "..and so he left, with a ship full of seeds.");
             lang.SetStringByToken("OLIMARTEST_BODY_FAIL", "..and so he vanished, his Pikmin waiting by the Onion.");
+            OlimarSkills.Tokens(lang);
         }
     }
 
@@ -283,9 +331,15 @@ namespace OlimarTest
 
         internal static Minions.Kind OnionMinion;
 
-        // An Onion doesn't fight: no items that would make it a turret.
-        static bool OnionItem(ItemIndex i) =>
-            i != RoR2Content.Items.ShockNearby.itemIndex && i != RoR2Content.Items.SiphonOnLowHealth.itemIndex;
+        // An Onion doesn't fight: passive items only, at full strength. Nothing that attacks
+        // (Tesla Coil, Mired Urn), nothing tagged as damage or on-kill (it never hits or kills).
+        static bool OnionItem(ItemIndex i)
+        {
+            if (i == RoR2Content.Items.ShockNearby.itemIndex || i == RoR2Content.Items.SiphonOnLowHealth.itemIndex)
+                return false;
+            var def = ItemCatalog.GetItemDef(i);
+            return !def || (!def.ContainsTag(ItemTag.Damage) && !def.ContainsTag(ItemTag.OnKillEffect));
+        }
 
         public static void Fill(ContentPack pack)
         {
@@ -316,6 +370,10 @@ namespace OlimarTest
             // Aim/VR retains RoR2's motor and its motor-driven item states.
             if (Plugin.Scheme == ControlScheme.Pikmin) body.AddComponent<NativeBody>();
             body.AddComponent<OlimarDriver>();
+            // His actions in RoR2's skill slots, for the items that change skills.
+            OlimarSkills.Add(body, pack);
+            // An AI master, so Goobo Jr. (and the like) can make an Olimar.
+            SurvivorAi.Register(pack, body, "Prefabs/CharacterMasters/CommandoMonsterMaster", "OlimarTestMonsterMaster", Plugin.Guid);
 
             // The Onion as Olimar's minion, for his items (ror2-common's Minions).
             OnionMinion = Minions.Define(pack, Plugin.Guid, new MinionSpec

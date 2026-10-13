@@ -15,7 +15,10 @@ namespace OlimarTest
     //   Olimar, with on-hit items at a low proc coefficient;
     // - enemy hits near Pikmin hurt them, and enemies that die leave a corpse pellet to carry;
     // - between stages the squad and the Onions' stock come along (Pikmin left elsewhere stay
-    //   behind, as at sunset in Pikmin).
+    //   behind, as at sunset in Pikmin);
+    // - items reach the sim through each Olimar's OlimarItems, and the shared parts here:
+    //   per-Pikmin proc clocks, Wake of Vultures' affixes, healing wards, cooldown-scaled
+    //   timers, Pluripotent Larva's squad, and Goobo Jr.'s temporary Olimar and squad.
     internal class PikminWorld : MonoBehaviour
     {
         public static PikminWorld Instance { get; private set; }
@@ -40,6 +43,20 @@ namespace OlimarTest
         readonly Dictionary<int, InteractTarget> onionTargets = new Dictionary<int, InteractTarget>();
         // Each Onion's RoR2 body, as its Olimar's minion: his items, its own position.
         readonly Dictionary<int, Minion> onionMinions = new Dictionary<int, Minion>();
+        // Goobo Jr.'s Olimars: captains whose squad is temporary and who have no Onion.
+        readonly HashSet<int> tempCaptains = new HashSet<int>();
+        // Pluripotent Larva uses seen per master (ExtraLifeVoidConsumed).
+        readonly Dictionary<CharacterMaster, int> larvaSeen = new Dictionary<CharacterMaster, int>();
+        // When each Pikmin may next proc (Items.ProcInterval), by Pikmin id.
+        float[] procReadyAt = new float[128];
+        readonly PikminAffixes affixes = new PikminAffixes();
+        // Keep stepping until then after an Olimar goes down, so his knockdown plays.
+        float stepUntil;
+        // Healing wards about (Bustling Fungus and the like), refreshed now and then.
+        HealingWard[] wards = new HealingWard[0];
+        float wardsFoundAt = -10f;
+        static System.Reflection.FieldInfo wardInterval;
+        static bool wardLooked;
 
         sealed class Cargo
         {
@@ -171,6 +188,9 @@ namespace OlimarTest
                 if (b) b.onSkillActivatedServer -= EnemyAttacked;
             attackWatched.Clear();
             thrownAt.Clear();
+            tempCaptains.Clear();
+            affixes.Clear();
+            Array.Clear(procReadyAt, 0, procReadyAt.Length);
             PikiCount = PelletCount = OnionCount = SproutCount = 0;
             Corpses.Clear();
             if (view) view.Clear();
@@ -190,7 +210,10 @@ namespace OlimarTest
             if (sim != IntPtr.Zero && master && captainOf.TryGetValue(master, out int known))
             {
                 driverOf[known] = d;
+                // Back from the dead (a respawn, Dio's, a Larva): on his feet again.
+                Native.pik_sim_down_captain(sim, (uint)known, 0);
                 SpawnDolphin(known, d, false);
+                Larva(known, d);
                 return known;
             }
             bool first = sim == IntPtr.Zero;
@@ -202,6 +225,16 @@ namespace OlimarTest
             if (id < 0) return -1;
             if (master) captainOf[master] = id;
             driverOf[id] = d;
+            if (master) larvaSeen[master] = LarvaUses(master);
+            if (IsGooboClone(d))
+            {
+                // Goobo Jr.'s Olimar: no ship, no Onion of his own, a temporary squad.
+                tempCaptains.Add(id);
+                d.Arriving = false;
+                CopySquad(id, d);
+                Plugin.Log.LogInfo($"captain {id} is Goobo Jr.'s {d.Body.GetDisplayName()}");
+                return id;
+            }
             PlaceOnions(id, d);
             SpawnDolphin(id, d);
             Plugin.Log.LogInfo($"captain {id} is {d.Body.GetDisplayName()} at {d.Body.footPosition}");
@@ -214,8 +247,86 @@ namespace OlimarTest
                 if (kv.Value == d)
                 {
                     driverOf.Remove(kv.Key);
+                    if (tempCaptains.Remove(kv.Key) && sim != IntPtr.Zero)
+                        EndTemporary(kv.Key, d);
                     break;
                 }
+        }
+
+        // ---- Goobo Jr. ------------------------------------------------------------------
+
+        // Goobo Jr.'s gummy (its identifier item), or any AI Olimar some player owns.
+        static bool IsGooboClone(OlimarDriver d)
+        {
+            var inv = d.Body ? d.Body.inventory : null;
+            var clone = ByName.Item("GummyCloneIdentifier");
+            if (inv && clone != ItemIndex.None && inv.GetItemCount(clone) > 0) return true;
+            var master = d.Body ? d.Body.master : null;
+            return d.IsAi && master && master.minionOwnership && master.minionOwnership.ownerMaster;
+        }
+
+        // The clone's squad: as many of each colour as its owner has with him now. They're new
+        // Pikmin; the owner's squad and Onion lose nothing.
+        void CopySquad(int captain, OlimarDriver d)
+        {
+            if (!Plugin.GooboSquad.Value) return;
+            var owner = d.Body.master && d.Body.master.minionOwnership ? d.Body.master.minionOwnership.ownerMaster : null;
+            if (!owner || !captainOf.TryGetValue(owner, out int ownerCaptain)) return;
+            var counts = new int[3];
+            SquadCounts(ownerCaptain, counts);
+            var feet = d.Body.footPosition;
+            int n = 0;
+            for (uint c = 0; c < 3; c++)
+                for (int i = 0; i < counts[c]; i++, n++)
+                {
+                    var off = Quaternion.Euler(0f, n * 37f, 0f) * Vector3.forward * (1f + 0.25f * (n / 8));
+                    var p = UnityHost.ToSim(UnityHost.Snap(feet + off));
+                    if (Native.pik_sim_spawn_piki(sim, c, ref p, captain) < 0) break;
+                }
+            Plugin.Log.LogInfo($"Goobo Jr.'s Olimar got a temporary squad of {n}");
+        }
+
+        // The clone is gone: so is its squad (what it delivered stays in the real Onion).
+        void EndTemporary(int captain, OlimarDriver d)
+        {
+            uint gone = Native.pik_sim_remove_captain_pikis(sim, (uint)captain);
+            Native.pik_sim_down_captain(sim, (uint)captain, 1);
+            foreach (var kv in captainOf)
+                if (kv.Value == captain)
+                {
+                    captainOf.Remove(kv.Key);
+                    break;
+                }
+            Plugin.Log.LogInfo($"Goobo Jr.'s Olimar (captain {captain}) left; {gone} temporary Pikmin went with him");
+        }
+
+        // ---- Pluripotent Larva -----------------------------------------------------------
+
+        static int LarvaUses(CharacterMaster master)
+        {
+            var inv = master ? master.inventory : null;
+            var used = ByName.Item("ExtraLifeVoidConsumed");
+            return inv && used != ItemIndex.None ? inv.GetItemCount(used) : 0;
+        }
+
+        // A Larva brought him back: with no Pikmin left anywhere, he comes back with a squad.
+        void Larva(int captain, OlimarDriver d)
+        {
+            var master = d.Body.master;
+            if (!master) return;
+            int uses = LarvaUses(master);
+            larvaSeen.TryGetValue(master, out int seen);
+            larvaSeen[master] = uses;
+            if (uses <= seen || Plugin.LarvaSquad.Value <= 0) return;
+            bool stocked = false;
+            if (onionOf.TryGetValue(captain, out var f))
+                for (int i = 0; i < OnionCount; i++)
+                    if (Onions[i].id == f.id && Onions[i].Stored(0) + Onions[i].Stored(1) + Onions[i].Stored(2) > 0)
+                        stocked = true;
+            if (stocked || Native.pik_sim_captain_piki_count(sim, (uint)captain) > 0) return;
+            var feet = UnityHost.ToSim(d.Body.footPosition);
+            uint n = Native.pik_sim_spawn_squad(sim, (uint)captain, ref feet, (uint)Plugin.LarvaSquad.Value);
+            Plugin.Log.LogInfo($"Pluripotent Larva: captain {captain} came back with {n} Pikmin");
         }
 
         bool StartSim()
@@ -230,6 +341,7 @@ namespace OlimarTest
             reportedPoison = false;
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
             Native.pik_sim_set_shake_protection(sim, Plugin.ShakeProtection.Value);
+            Native.pik_sim_set_auto_carry(sim, Mathf.Max(0f, Plugin.AutoCarryMetres.Value) / UnityHost.Scale);
             Plugin.Log.LogInfo($"Pikmin sim started ({Native.Utf8(Native.pik_sim_params_source(sim))})");
             view.StartModels();
             return true;
@@ -269,6 +381,7 @@ namespace OlimarTest
             AddOnion(d.Body.footPosition + Vector3.up * 5f, 0b111, d.Body);
             int id = onionIds[onionIds.Count - 1];
             Native.pik_sim_set_onion_color(sim, (uint)id, saved.colour);
+            Native.pik_sim_set_onion_owner(sim, (uint)id, captain);
             var flight = new OnionFlight { id = id, captain = captain, owner = owner,
                 position = d.Body.footPosition + Vector3.up * 5f };
             onionOf[captain] = flight;
@@ -418,6 +531,13 @@ namespace OlimarTest
                 if (!Physics.Raycast(d.Body.footPosition + Vector3.up * 2f, Vector3.down, out var hit,
                     30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.5f) return false;
                 f.landing = hit.point;
+            }
+            // Each lift and each landing takes a utility charge (Hardlight adds more).
+            var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
+            if (slot && !NativeSkills.Spend(slot, OlimarSkills.Relocate))
+            {
+                if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {captain}: no Onion relocation charge yet");
+                return false;
             }
             f.transitionStart = f.position;
             f.transitionElapsed = 0f;
@@ -581,9 +701,14 @@ namespace OlimarTest
                     Native.pik_sim_set_captain_speed(sim, (uint)kv.Key, speed);
                 }
                 Native.pik_sim_set_captain_reach(sim, (uint)kv.Key, Plugin.ThrowReach.Value);
+                if (kv.Value && kv.Value.Body && kv.Value.Active) kv.Value.Items.BeforeStep(sim, (uint)kv.Key);
             }
-            // With no Olimar about (all dead, or mid-load) the Pikmin wait.
-            if (!anyone) return;
+            // With no Olimar about (all dead, or mid-load) the Pikmin wait; a knockdown that's
+            // still playing keeps the clock going.
+            if (!anyone && Time.fixedTime > stepUntil) return;
+
+            Cooldowns();
+            HealInWards();
 
             MoveDolphins();
             MoveOnions();
@@ -620,6 +745,93 @@ namespace OlimarTest
                 catch (Exception e) { Plugin.Log.LogError(e); }
             }
             afterStep.Clear();
+        }
+
+        // Which captain an event is his, for his items: the thrower, puncher, whistler,
+        // jumper or stomper; a Pikmin's captain; an Onion's owner.
+        int EventCaptain(in Native.Event e)
+        {
+            switch (e.kind)
+            {
+                case Native.EventKind.Thrown:
+                case Native.EventKind.PikiStomped:
+                    return e.b;
+                case Native.EventKind.Punched:
+                case Native.EventKind.Whistle:
+                case Native.EventKind.CaptainJumped:
+                case Native.EventKind.CaptainStomped:
+                    return (int)e.a;
+                case Native.EventKind.PikiHurt:
+                    return e.a < PikiCount ? Pikis[e.a].captain : -1;
+                case Native.EventKind.PluckerOut:
+                case Native.EventKind.PelletDelivered:
+                    foreach (var f in onionOf.Values)
+                        if (f.id == e.b) return f.captain;
+                    return -1;
+                default:
+                    return -1;
+            }
+        }
+
+        // Cooldown items shorten the sim's timers: the fastest Olimar's boost counts for the
+        // shared ones (growth, regrouping); the plucker and emergency Pikmin follow it too.
+        void Cooldowns()
+        {
+            float boost = 1f;
+            foreach (var d in driverOf.Values)
+                if (d && d.Body) boost = Mathf.Max(boost, d.Items.CooldownBoost);
+            Native.pik_sim_set_growth(sim, boost, 0.5f / boost);
+            float pluck = Plugin.AutoPluckDelay.Value;
+            Native.pik_sim_set_auto_pluck(sim, pluck >= 0f ? pluck / boost : -1f);
+            Native.pik_sim_set_emergency(sim, Mathf.Max(0f, Plugin.EmergencySeconds.Value) / boost,
+                (uint)Mathf.Max(0, Plugin.EmergencyCount.Value));
+        }
+
+        // Pikmin standing in a healing ward (Bustling Fungus about a landed Onion or a still
+        // Olimar, and the like) heal at its rate, scaled; N'kuhana's Opinion counts it for the
+        // nearest Olimar.
+        void HealInWards()
+        {
+            if (Time.fixedTime - wardsFoundAt > 1f)
+            {
+                wardsFoundAt = Time.fixedTime;
+                wards = FindObjectsOfType<HealingWard>();
+            }
+            if (wards.Length == 0 || PikiCount == 0) return;
+            if (!wardLooked)
+            {
+                wardLooked = true;
+                wardInterval = ByName.Field(typeof(HealingWard), "interval");
+            }
+            float scale = Mathf.Max(0f, Plugin.MinionHealScale.Value);
+            foreach (var w in wards)
+            {
+                if (!w || !w.isActiveAndEnabled || w.healFraction <= 0f) continue;
+                var team = w.GetComponent<TeamFilter>();
+                if (team && team.teamIndex != TeamIndex.Player) continue;
+                float interval = wardInterval?.GetValue(w) is float iv && iv > 0f ? iv : 1f;
+                float amount = w.healFraction * 100f / interval * scale * Time.fixedDeltaTime;
+                var centre = UnityHost.ToSim(w.transform.position);
+                float healed = Native.pik_sim_heal_pikis_in_sphere(sim, ref centre, w.radius / UnityHost.Scale, amount);
+                if (healed > 0f) NearestOlimar(w.transform.position)?.Items.PikminHealed(healed);
+            }
+        }
+
+        OlimarDriver NearestOlimar(Vector3 at)
+        {
+            OlimarDriver best = null;
+            float bestD = float.MaxValue;
+            foreach (var d in driverOf.Values)
+            {
+                if (!d || !d.Body) continue;
+                float dist = (d.Body.corePosition - at).sqrMagnitude;
+                if (dist < bestD)
+                {
+                    bestD = dist;
+                    best = d;
+                }
+            }
+            return best;
         }
 
         bool AllGone()
@@ -735,13 +947,9 @@ namespace OlimarTest
                 for (int i = 0; i < n; i++)
                 {
                     var e = events[i];
-                    int captain = e.kind == Native.EventKind.Thrown ? e.b
-                        : e.kind == Native.EventKind.Punched ? (int)e.a : -1;
+                    int captain = EventCaptain(e);
                     if (captain >= 0 && driverOf.TryGetValue(captain, out var d) && d && d.Body)
-                    {
-                        NativeBody.MarkCombat(d.Body);
-                        d.Body.GetComponent<NativeBody>()?.PulsePrimary(0.5f);
-                    }
+                        d.Items.OnEvent(e, this);
                     if (Plugin.LogEvents.Value) LogEvent(e);
                 }
             } while (n == events.Length);
@@ -804,6 +1012,10 @@ namespace OlimarTest
                 case Native.EventKind.Bloomed: what = $"Pikmin {e.a} flowered"; break;
                 case Native.EventKind.CaptainDown: what = $"captain {e.a} is down"; break;
                 case Native.EventKind.Dismissed: what = $"captain {e.a} dismissed his squad"; break;
+                case Native.EventKind.EmergencyPikmin: what = $"Onion {e.b} sent captain {e.a} {e.c} emergency Pikmin"; break;
+                case Native.EventKind.PluckerOut: what = $"Pikmin {e.a} came out of Onion {e.b} to pluck forgotten sprouts"; break;
+                case Native.EventKind.PluckerPulled: what = $"the Onion's plucker {e.c} plucked Pikmin {e.a}" + (e.b >= 0 ? $" for captain {e.b}" : ""); break;
+                case Native.EventKind.CaptainStomped: what = $"captain {e.a} stomped from {e.value * UnityHost.Scale:F1} m"; break;
                 default: return;
             }
             Plugin.Log.LogInfo(what);
@@ -843,17 +1055,22 @@ namespace OlimarTest
                 var c = creatures[ci];
                 if (part < c.parts_len) at = UnityHost.ToUnity(parts[c.parts_start + part].centre);
             }
+            bool piki = source == Native.SourcePiki && sourceId < PikiCount;
+            // Each Pikmin procs at most once per Items.ProcInterval, on its own clock.
+            float proc = Plugin.ProcCoefficient.Value;
+            if (piki && !ProcReady(sourceId)) proc = 0f;
             var spec = new NativeHitSpec
             {
                 coefficient = amount * Plugin.DamageCoefficient.Value,
                 position = at,
-                procCoefficient = Plugin.ProcCoefficient.Value,
+                procCoefficient = proc,
             };
             // A Pikmin's hit is Olimar's, measured from the Pikmin (Focus Crystal's range);
             // his own punch is his.
-            bool landed = source == Native.SourcePiki && sourceId < PikiCount
+            bool landed = piki
                 ? MinionHit.Deal(attacker, MinionOf(Pikis[sourceId]), health, spec)
                 : NativeHit.Deal(attacker, health, spec);
+            if (landed && piki && proc > 0f) affixes.OnHit(sourceId, attacker, health, proc);
             return landed ? (byte)1 : (byte)0;
         }
 
@@ -862,8 +1079,18 @@ namespace OlimarTest
             position = UnityHost.ToUnity(p.pos),
             moving = p.vel.x * p.vel.x + p.vel.z * p.vel.z > 1f,
             grounded = p.on_ground != 0,
-            healthFraction = 1f,
+            healthFraction = Mathf.Clamp01(p.health / 100f),
         };
+
+        bool ProcReady(uint piki)
+        {
+            if (piki >= procReadyAt.Length)
+                Array.Resize(ref procReadyAt, Mathf.NextPowerOfTwo((int)piki + 1));
+            float now = Time.fixedTime;
+            if (now < procReadyAt[piki]) return false;
+            procReadyAt[piki] = now + Mathf.Max(0f, Plugin.ProcInterval.Value);
+            return true;
+        }
 
         /// The Olimar a Pikmin's (or captain's) hit counts as coming from.
         CharacterBody AttackerFor(uint source, uint id)
@@ -904,6 +1131,8 @@ namespace OlimarTest
                 return;
             }
             if (r.attackerTeamIndex == TeamIndex.Player || r.attackerTeamIndex == TeamIndex.None) return;
+            // A damage-over-time tick is the victim's own debuff, not a blow landing near Pikmin.
+            if ((r.damageInfo.damageType & DamageType.DoT) != 0) return;
             var at = r.damageInfo.position;
             if (at == Vector3.zero) return;
             var centre = UnityHost.ToSim(at);
@@ -954,7 +1183,16 @@ namespace OlimarTest
                 return;
             }
             var v = r.victimBody;
+            if (v && v.GetComponent<OlimarDriver>() is OlimarDriver olimar && olimar.Captain >= 0)
+            {
+                // His knockdown (ODead) in place of RoR2's ragdoll, which is on his hidden
+                // Commando model; RoR2's own death state still runs.
+                Native.pik_sim_down_captain(sim, (uint)olimar.Captain, 1);
+                stepUntil = Time.fixedTime + 3f;
+                return;
+            }
             if (!v || r.victimTeamIndex == TeamIndex.Player) return;
+            if (v.isElite) affixes.EliteDied(v, r.attackerBody, Pikis, PikiCount, Id(v));
             int lying = 0;
             for (int i = 0; i < PelletCount; i++)
                 if (Pellets[i].state != 3) lying++;

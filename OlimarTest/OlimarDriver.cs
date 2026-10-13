@@ -15,7 +15,10 @@ namespace OlimarTest
     // - Aim scheme (VR): RoR2 moves him and the sim follows his pose; the Pikmin cursor is
     //   where he aims and the skill buttons are throw, whistle, dismiss and swarm.
     // Off the server (a client playing Olimar) there's no sim yet: he walks like Commando
-    // without skills.
+    // without skills. An AI Olimar (Goobo Jr.'s) walks by RoR2's motor and throws where it
+    // aims, as in the Aim scheme.
+    //
+    // A teleport (anything that moves him far between ticks) brings his squad with him.
     // RoR2 updates its camera in Update: place the smoothed body before it reads the target.
     [DefaultExecutionOrder(-200)]
     internal class OlimarDriver : MonoBehaviour
@@ -44,6 +47,14 @@ namespace OlimarTest
         StepSmoother smoother;
         bool placed;
 
+        /// His items' part in the sim (OlimarItems).
+        public OlimarItems Items { get; private set; }
+
+        /// Further than this between ticks is a teleport: the squad comes too.
+        const float TeleportMetres = 12f;
+        Vector3 lastFeet;
+        bool lastFeetSet;
+
         /// The last tick's captain, for the cursor and whistle drawing.
         public Native.Captain State;
         public bool HasState;
@@ -59,9 +70,16 @@ namespace OlimarTest
         float repeatAt;
         public bool MenuOpen => menuOnion >= 0;
 
-        /// The sim moves the body (Pikmin scheme, running on the server, sim healthy).
-        public bool SimMoves => Plugin.Scheme == ControlScheme.Pikmin && captain >= 0
+        /// The sim moves the body (Pikmin scheme, a player's Olimar, running on the server,
+        /// sim healthy).
+        public bool SimMoves => Plugin.Scheme == ControlScheme.Pikmin && !IsAi && captain >= 0
                                 && PikminWorld.Instance && PikminWorld.Instance.Healthy;
+
+        /// Run by RoR2's AI (Goobo Jr.'s Olimar), not a player.
+        public bool IsAi => Body && Body.master && !Body.master.playerCharacterMasterController;
+
+        /// On the players' side (an umbra from Artifact of Vengeance isn't).
+        bool OnPlayersTeam => !Body.teamComponent || Body.teamComponent.teamIndex == TeamIndex.Player;
 
         /// Alive, ours to steer, and a captain in the sim.
         public bool Active => !Arriving && captain >= 0 && Body && Body.hasEffectiveAuthority && !Body.currentVehicle
@@ -78,6 +96,7 @@ namespace OlimarTest
             health = GetComponent<HealthComponent>();
             native = GetComponent<NativeBody>();
             smoother = new StepSmoother(transform);
+            Items = new OlimarItems(this);
         }
 
         void FixedUpdate()
@@ -93,7 +112,7 @@ namespace OlimarTest
             if (captain < 0)
             {
                 // Register during the Dolphin arrival so the ship and airborne Onion draw together.
-                if (Body.currentVehicle || (health && !health.alive)) return;
+                if (Body.currentVehicle || (health && !health.alive) || !OnPlayersTeam) return;
                 captain = PikminWorld.Ensure().Register(this);
                 if (captain < 0) return;
                 feetToOrigin = transform.position - Body.footPosition;
@@ -219,7 +238,7 @@ namespace OlimarTest
             Native.pik_sim_set_captain_hold(world.SimHandle, (uint)captain, (uint)hold);
             var feet = transform.position - feetToOrigin;
             var i = new Native.Input();
-            if (Plugin.Scheme == ControlScheme.Pikmin)
+            if (Plugin.Scheme == ControlScheme.Pikmin && !IsAi)
             {
                 var stick = cam != null ? cam.StickToWorld(pad.move) : pad.move;
                 i.stick_x = stick.x;
@@ -244,6 +263,7 @@ namespace OlimarTest
                     smoother.Reset();
                     if (native) native.ForgetVelocity();
                     Pose(ref i, feet, Vector3.zero, Yaw());
+                    if (placed && HasState) Teleported(world, UnityHost.ToUnity(State.pos), feet);
                 }
                 else if (native && native.TakeExternalVelocity(out var thrown, 2f))
                 {
@@ -261,6 +281,7 @@ namespace OlimarTest
             }
             else
             {
+                if (lastFeetSet) Teleported(world, lastFeet, feet);
                 Pose(ref i, feet, motor ? motor.velocity : Vector3.zero, Yaw());
                 var ray = input.GetAimRay();
                 var aim = Physics.Raycast(ray, out var h, 60f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
@@ -279,7 +300,13 @@ namespace OlimarTest
                     i.swarm_y = s.y;
                 }
                 if (MenuOpen) i.throw_ = i.whistle = i.dismiss = 0;
+                // RoR2's AI uses its utility to dodge and its special at range: no dismissing
+                // or swarming for it.
+                if (IsAi) i.dismiss = 0;
+                if (IsAi) i.swarm_x = i.swarm_y = 0f;
             }
+            lastFeet = feet;
+            lastFeetSet = true;
             if (hold != NativeBody.Hold.None)
             {
                 i.stick_x = i.stick_y = 0f;
@@ -296,7 +323,7 @@ namespace OlimarTest
             sprintPressed = false;
             // A utility/X press places a following Onion and stays consumed until release.
             // RoR2 interactions have first claim on the button.
-            bool dismiss = Plugin.Scheme == ControlScheme.Pikmin ? pad.Dismiss : input.skill3.down;
+            bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Dismiss : input.skill3.down;
             if (!dismiss) onionPressClaimed = false;
             if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !InteractPrompt() && PikminWorld.Instance.OnionFlying(captain))
             {
@@ -314,6 +341,16 @@ namespace OlimarTest
             return i;
         }
 
+        // Moved from `from` to `to` since the last tick: if that's a teleport, the squad follows.
+        void Teleported(PikminWorld world, Vector3 from, Vector3 to)
+        {
+            if ((to - from).sqrMagnitude < TeleportMetres * TeleportMetres) return;
+            var p = UnityHost.ToSim(to);
+            Native.pik_sim_teleport_squad(world.SimHandle, (uint)captain, ref p);
+            if (Plugin.LogEvents.Value)
+                Plugin.Log.LogInfo($"captain {captain} moved {(to - from).magnitude:F0} m at once; his squad came along");
+        }
+
         static void Pose(ref Native.Input i, Vector3 feet, Vector3 vel, float face)
         {
             i.use_pose = 1;
@@ -329,6 +366,7 @@ namespace OlimarTest
             State = c;
             HasState = true;
             pad.Ticked();
+            Items.Ticked(c);
             if (!SimMoves || !Active) return;
 
             // Leave the body at the start of the blend, never ahead of the drawn model.
