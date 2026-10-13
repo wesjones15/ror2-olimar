@@ -1,7 +1,9 @@
 # ror2-olimar
 
 Risk of Rain 2 host for [libpikmin](../libpikmin): Olimar and his Pikmin in RoR2.
-Targets the 2023 build (1.2.4.4, Unity 2019.4.37, BepInEx 5) in `../Risk Of Rain 2 2023`.
+Targets the 2023 build (1.2.4.4, Unity 2019.4.37, BepInEx 5). Compiles against the reference
+copy in `../Risk Of Rain 2 2023` and installs into the Steam game at
+`D:\SteamLibrary\steamapps\common\Risk of Rain 2` (falling back to the reference copy if absent).
 Modelled on [ror2-mario](../ror2-mario); the two can be installed side by side (different
 DLLs, GUIDs and tokens). Both compile in [ror2-common](../ror2-common)'s shared C# (model
 drawing, the character select display, prefab cloning, content registration, world probes),
@@ -170,7 +172,9 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 
 The script builds `pikmin.dll` and `OlimarTest.dll`, then copies them, plus an
 `assets_dir.txt` pointing at `libpikmin/assets`, into `<game>/BepInEx/plugins/OlimarTest/`.
-Use `-RoR2Dir` for another install and `-NoInstall` to only build into `dist/`.
+Use `-RoR2Dir` for different compilation references, `-InstallDir` for another deployment
+folder, and `-NoInstall` to only build into `dist/`. The reference copy and the game you
+launch can be different folders; check the installed DLLs and the launched game's log.
 
 `NativeCheck/` exercises `pikmin.dll` through the plugin's own `Native.cs` outside the game
 (struct layouts, callbacks, arrays):

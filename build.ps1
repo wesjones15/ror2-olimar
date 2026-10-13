@@ -1,13 +1,19 @@
 # Builds libpikmin's DLL and the OlimarTest plugin, and installs both into the game's
 # BepInEx/plugins/OlimarTest/ folder along with a pointer to libpikmin's extracted assets.
 #
-#   powershell -ExecutionPolicy Bypass -File build.ps1 [-RoR2Dir <game folder>] [-NoInstall]
+#   powershell -ExecutionPolicy Bypass -File build.ps1 [-RoR2Dir <game to compile against>]
+#       [-InstallDir <game to install into>] [-NoInstall]
+#
+# Compile against the 1.2.4.4 reference copy; install into the Steam copy used for play,
+# as ror2-mario does. Fall back to the reference copy if the Steam copy isn't present.
 param(
     [string]$RoR2Dir = (Join-Path $PSScriptRoot "..\Risk Of Rain 2 2023"),
+    [string]$InstallDir = "D:\SteamLibrary\steamapps\common\Risk of Rain 2",
     [string]$LibPikmin = (Join-Path $PSScriptRoot "..\libpikmin"),
     [switch]$NoInstall
 )
 $ErrorActionPreference = "Stop"
+if (-not (Test-Path (Join-Path $InstallDir "BepInEx"))) { $InstallDir = $RoR2Dir }
 
 $cargo = Join-Path $env:USERPROFILE ".cargo\bin\cargo.exe"
 if (-not (Test-Path $cargo)) { $cargo = "cargo" }
@@ -39,7 +45,7 @@ $assets = [System.IO.Path]::GetFullPath((Join-Path $LibPikmin "assets"))
 Write-Host "built $dist (assets: $assets)"
 
 if (-not $NoInstall) {
-    $plugins = Join-Path $RoR2Dir "BepInEx\plugins\OlimarTest"
+    $plugins = Join-Path $InstallDir "BepInEx\plugins\OlimarTest"
     New-Item -ItemType Directory -Force $plugins | Out-Null
     Copy-Item (Join-Path $dist "*") $plugins -Force
     Write-Host "installed into $plugins"
