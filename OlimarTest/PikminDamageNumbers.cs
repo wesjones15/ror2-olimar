@@ -16,6 +16,7 @@ namespace OlimarTest
         Texture2D atlas;
         bool tried;
         float next;
+        static bool loggedApplied;
 
         public static void Install(GameObject host, ConfigFile config)
         {
@@ -91,7 +92,11 @@ namespace OlimarTest
                 replacement = new Material(original) { name = "Pikmin damage numbers" };
                 replacement.SetTexture("_MainTex", atlas);
                 target.sharedMaterial = replacement;
-                Plugin.Log.LogInfo("Pikmin HUD digits applied to damage numbers (Look.PikminDamageNumbers)");
+                if (!loggedApplied)
+                {
+                    loggedApplied = true;
+                    Plugin.Log.LogInfo("Pikmin HUD digits applied to damage numbers (Look.PikminDamageNumbers)");
+                }
             }
             catch (Exception e)
             {

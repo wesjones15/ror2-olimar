@@ -243,8 +243,9 @@ namespace OlimarTest
                 "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
             GummyClones = Config.Bind("Look", "GummyClones", true,
                 "Goobo Jr.'s Olimar is drawn in RoR2's gummy clone material.");
-            LogEvents = Config.Bind("Debug", "LogEvents", true,
-                "Log notable sim events (latches, deaths, deliveries, plucks) to the BepInEx log.");
+            LogEvents = Config.Bind("Debug", "LogEvents", false,
+                "Log every sim event (latches, deaths, growth, deliveries, plucks, enemy attacks) to the " +
+                "BepInEx log. Off by default: it adds a line per event and floods the log in a fight.");
 
             Scheme = scheme.Value;
             if (Scheme == ControlScheme.Auto)
