@@ -260,6 +260,7 @@ namespace OlimarTest
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
             PikminDamageNumbers.Install(gameObject, Config);
+            PikminHealthGauges.Install(gameObject, Config);
             ItemHooks.Install();
             // With the Pikmin controls the HUD's skill icons name the pad buttons the sim reads (Pad),
             // not RoR2's binds; the Aim scheme (VR) keeps RoR2's.

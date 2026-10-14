@@ -91,6 +91,9 @@ What works:
 - **Arrival**: the repaired S.S. Dolphin (all 30 parts, its lights and effects; `Dolphin.ShipPartsMode` is the future
   ship-repair mode and is off) lands behind him while his Onion lands where he will stand. Its light cone opens and
   Olimar beams in inside it, the squad coming out of the Onion's legs; the Onion then lifts to follow him.
+- **Enemy health bars**: for Olimar they are Pikmin 1's life gauge (`Look.PikminHealthGauges`, on): the wheel Bulborbs wear, a pie of 32 slices from
+  12 o'clock in green, light green, yellow and red, dark grey where health is gone, in a black ring. It fades in once an enemy is hurt, its fill
+  easing to the real value, and stays while the enemy is wounded. RoR2's own bars are hidden for Olimar's HUD and back for other characters.
 - **Dolphin arrival (phase 7)**: Olimar's drop pod is replaced by a 3.5-second S.S. Dolphin
   landing using the extracted ship model. The Onion descends beside it, then follows Olimar;
   Olimar and his squad appear when it lands. Olimar is protected and controls are held during
