@@ -61,6 +61,7 @@ namespace OlimarTest
         // The dismiss strike and Pikmin pace (see PikminWorld.StartSim).
         internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
         internal static ConfigEntry<bool> CursorHoming;
+        internal static ConfigEntry<float> PunchDamage;
         internal static ConfigEntry<int> KillsPerStage;
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
@@ -117,10 +118,14 @@ namespace OlimarTest
                 "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
                 "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +
                 "Off: Pikmin 1, where they wait to be whistled.");
-            StrikeDamage = Config.Bind("Combat", "StrikeDamage", 9f,
+            StrikeDamage = Config.Bind("Combat", "StrikeDamage", 4f,
                 "The dismiss button (RB, F on keyboard) is a melee strike that no longer dismisses the squad: this many " +
-                "times Olimar's punch damage to every enemy around him. 9 is about 4.5 times his damage stat: two strikes kill a Beetle at the start " +
+                "times Olimar's punch damage to every enemy around him. 4 is about 4.5 times his damage stat: two strikes kill a Beetle at the start " +
                 "(80 health, 20 armor). 0: it dismisses the squad as in Pikmin 1.");
+            PunchDamage = Config.Bind("Combat", "PunchDamage", 22.5f,
+                "Olimar's punch, in Pikmin attack points (times Combat.DamageCoefficient and his damage stat). Pikmin 1's is 10, half " +
+                "his damage stat; 22.5 is a quarter of the dismiss strike's 4x, about 1.1 times his damage stat. 0: the disc's. " +
+                "The strike is a multiple of this.");
             StrikeReachMetres = Config.Bind("Combat", "StrikeReachMetres", 4f,
                 "How far from an enemy's edge the strike reaches, all around Olimar.");
             StrikeCooldown = Config.Bind("Combat", "StrikeCooldown", 4f, "Seconds between strikes.");
