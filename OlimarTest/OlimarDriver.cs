@@ -344,6 +344,7 @@ namespace OlimarTest
                 onionPressClaimed = true;
             }
             if (onionPressClaimed || InteractPrompt()) i.dismiss = 0;
+            enemyLock.Range = Plugin.LockRange.Value;
             var locked = IsAi ? brainTarget : enemyLock.Update(Body,
                 Plugin.Scheme == ControlScheme.Pikmin && Plugin.Camera.Value == CameraMode.Orbit
                     && pad.lockHeld && !MenuOpen && !Arriving,

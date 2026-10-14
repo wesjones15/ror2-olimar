@@ -46,7 +46,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
-        internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach, ShakeProtection;
+        internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach, ShakeProtection, LockRange;
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> CarryBodies;
@@ -92,6 +92,11 @@ namespace OlimarTest
             ThrowReach = Config.Bind("Controls", "ThrowReach", 2f,
                 "How far the cursor reaches (so how far Olimar throws) as a multiple of Pikmin's " +
                 "own reach, which is short for RoR2's fights.");
+            LockRange = Config.Bind("Controls", "LockRange", 35f,
+                new ConfigDescription("How far away, in metres, the lock-on can pick an enemy (with a clear line). " +
+                    "Past the throw (about 24 m at the default ThrowReach) a thrown Pikmin falls short, so " +
+                    "this reaches only a little beyond it: enough to lock a flyer, then close in.",
+                    new AcceptableValueRange<float>(5f, 100f)));
             var scheme = Config.Bind("Controls", "Scheme", ControlScheme.Auto,
                 "Pikmin: the sim moves Olimar, pad buttons by position (A throw/pluck, B jump, LB + B whistle, " +
                 "X dismiss, LB blocks jumping, LT recentres). Keyboard: secondary jumps; hold jump + secondary to whistle. Aim: RoR2 moves the body " +

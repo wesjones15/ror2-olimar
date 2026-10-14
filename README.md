@@ -127,7 +127,7 @@ The camera is a stand-in for Pikmin's: it looks down from behind and only turns 
 to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
 
 With the default Orbit camera, the right stick pans and LB + right stick swarms;
-LT recentres, RT locks onto an enemy, and RB cycles locked targets (or zooms when unlocked).
+LT recentres, RT locks onto an enemy, and RB cycles locked targets (or zooms when unlocked). The lock reaches `Controls.LockRange` (35 m, a little past the 24 m throw) with a clear line.
 B jumps in both camera modes. Holding LB prevents Olimar from jumping; releasing LB
 with B still held does not jump. B still cancels the Onion menu and does not jump on closing it.
 
