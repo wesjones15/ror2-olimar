@@ -69,6 +69,8 @@ namespace OlimarTest
         uint menuColour = Native.Red;
         int menuDelta, menuChoice;
         bool onionPressClaimed, strikeSwallow;
+        /// Locked onto an enemy this tick (RT held).
+        public bool LockedOn { get; private set; }
         int lastV, lastH;
         float repeatAt;
         public bool MenuOpen => menuOnion >= 0;
@@ -372,6 +374,7 @@ namespace OlimarTest
                     && pad.lockHeld && !MenuOpen && !Arriving,
                 pad.cycleTarget, pad.targetDirection);
             pad.cycleTarget = false;
+            LockedOn = locked;
             Native.pik_sim_set_lock_target(PikminWorld.Instance.SimHandle, (uint)captain,
                 locked ? unchecked((ulong)(uint)locked.GetInstanceID()) : 0, B(locked));
             return i;
@@ -576,7 +579,8 @@ namespace OlimarTest
             var world = PikminWorld.Instance;
             if (localUser == null || !world || !Active || captain < 0) return;
             world.SquadCounts(captain, squadCounts);
-            int pick = world.ThrowColour(captain);
+            // Locked on, A throws the nearest Pikmin whatever colour is picked: nothing is outlined.
+            int pick = LockedOn ? -1 : world.ThrowColour(captain);
             MenuStyles();
             float k = Screen.height / 1080f;
             var saved = GUI.matrix;

@@ -484,7 +484,7 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_THROW_NAME", "Pikmin Throw");
             lang.SetStringByToken("OLIMARTEST_THROW_DESC",
                 "A. Throw the nearest Pikmin; it latches onto an enemy and fights, and homes in on one you hold RT to lock " +
-                "onto. With none to throw, punch. D-pad left/right picks the colour. Attack speed speeds up Pikmin attacks.");
+                "onto (then it throws the nearest Pikmin, whatever colour is picked). With none to throw, punch. D-pad left/right picks the colour. Attack speed speeds up Pikmin attacks.");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_NAME", "Whistle");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
                 "Hold LB and press B. Calls every Pikmin in the whistle's circle back into the squad, off an enemy " +
