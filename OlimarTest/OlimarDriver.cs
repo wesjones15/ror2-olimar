@@ -256,7 +256,7 @@ namespace OlimarTest
                 i.swarm_y = swarm.y;
                 i.throw_ = B(pad.Throw);
                 i.whistle = B(pad.Whistle);
-                i.dismiss = B(pad.Dismiss);
+                i.dismiss = B(pad.Strike);
                 i.cycle = B(pad.Cycle);
                 i.jump = B(pad.Jump);
                 i.jump_blocked = B(pad.jumpBlocked);
@@ -336,14 +336,15 @@ namespace OlimarTest
             sprintPressed = false;
             // A utility/X press places a following Onion and stays consumed until release.
             // RoR2 interactions have first claim on the button.
-            bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Dismiss : input.skill3.down;
+            bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Relocate : input.skill3.down;
             if (!dismiss) onionPressClaimed = false;
             if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !InteractPrompt() && PikminWorld.Instance.OnionFlying(captain))
             {
                 if (!onionPressClaimed) PikminWorld.Instance.CommandOnion(captain, false);
                 onionPressClaimed = true;
             }
-            if (onionPressClaimed || InteractPrompt()) i.dismiss = 0;
+            // The Pikmin scheme's strike is its own button; only the aim scheme shares one with the Onion.
+            if (!(Plugin.Scheme == ControlScheme.Pikmin && !IsAi) && (onionPressClaimed || InteractPrompt())) i.dismiss = 0;
             enemyLock.Range = Plugin.LockRange.Value;
             var locked = IsAi ? brainTarget : enemyLock.Update(Body,
                 Plugin.Scheme == ControlScheme.Pikmin && Plugin.Camera.Value == CameraMode.Orbit

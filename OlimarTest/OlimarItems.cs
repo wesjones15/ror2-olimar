@@ -470,7 +470,7 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Onion Relocation");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
                 "X. Land the Onion under you, or lift it to follow you; each lift or landing takes a charge. " +
-                "With no Onion to move, X dismisses the squad.");
+                "RB strikes everything around Olimar for several punches' damage (4 s cooldown); it no longer dismisses the squad.");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_NAME", "Onion Pluckers");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_DESC",
                 $"Passive, no button. Sprouts left unplucked for {Plugin.AutoPluckDelay.Value:0} s are plucked by a Pikmin from the landed Onion, and join you. Cooldown items make it sooner.");

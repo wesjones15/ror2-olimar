@@ -7,17 +7,18 @@ namespace OlimarTest
 {
     // The Pikmin control scheme's input: a GameCube-style pad read by button position through
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
-    // B: jump, LB + B: whistle, X: dismiss, d-pad left or right: next colour to throw, right stick: swarm (the C-stick),
-    // LT: recentre the camera, R: zoom, Z (right bumper): top view. On keyboard and mouse it
-    // falls back to RoR2's actions: move, primary throw, secondary jump, jump + secondary whistle,
-    // utility dismiss, special swarm toward the cursor, jump recentre, C zoom, sprint to run, mouse wheel for
-    // the next colour. The Onion window takes the stick or d-pad (WASD
+    // B: jump, LB + B: whistle, X: relocate the Onion, RB: the dismiss strike (a melee blow; it no
+    // longer dismisses the squad), d-pad left or right: next colour to throw, right stick: swarm
+    // (the C-stick), LT: recentre the camera, right stick click: zoom, RT: top view (fixed camera).
+    // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,
+    // jump + secondary whistle, utility relocates the Onion, F strikes, special swarm toward the
+    // cursor, jump recentre, C zoom, sprint to run, mouse wheel for the next colour. The Onion window takes the stick or d-pad (WASD
     // or arrow keys), A or a left click to confirm and B or a right click to cancel.
     //
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap
     // between two 30 Hz ticks still registers. X is also RoR2's interact button: a press made
     // while an interact prompt is on screen (leaving the drop pod, a chest) goes to RoR2 only,
-    // and doesn't dismiss until it's let go. Y is left alone: it's RoR2's equipment button,
+    // and doesn't relocate until it's let go. Y is left alone: it's RoR2's equipment button,
     // which still works for Olimar.
     internal class Pad
     {
@@ -26,7 +27,7 @@ namespace OlimarTest
         public bool lockHeld, cycleTarget;
         public bool swarmToCursor;
         // Down now, and pressed at some point since the sim last ran a tick.
-        bool throwNow, whistleNow, dismissNow, cycleNow, throwTap, whistleTap, dismissTap, cycleTap;
+        bool throwNow, whistleNow, relocateNow, strikeNow, cycleNow, throwTap, whistleTap, relocateTap, strikeTap, cycleTap;
         readonly JumpWhistleButton jumpButton = new JumpWhistleButton();
         public bool jumpBlocked => jumpButton.Blocked;
         public bool Jump => jumpButton.Jump;
@@ -34,7 +35,8 @@ namespace OlimarTest
         readonly InteractGuard interact = new InteractGuard();
         public bool Throw => throwNow || throwTap;
         public bool Whistle => whistleNow || whistleTap;
-        public bool Dismiss => dismissNow || dismissTap;
+        public bool Relocate => relocateNow || relocateTap;
+        public bool Strike => strikeNow || strikeTap;
         public bool Cycle => cycleNow || cycleTap;
         public bool recentre, zoom, topView;
         // The Onion window: directions held now (-1, 0, 1; up and right positive), and presses.
@@ -58,11 +60,12 @@ namespace OlimarTest
                 throwNow = gp.a.value;
                 jumpButton.Read(gp.b.value, gp.leftBumper.value);
                 whistleNow = jumpButton.Whistle;
-                dismissNow = interact.Claim(gp.x.value, interactPrompt);
+                relocateNow = interact.Claim(gp.x.value, interactPrompt);
                 cycleNow = gp.dPad.left.value || gp.dPad.right.value;
                 recentre |= Pressed(gp.leftTrigger);
-                zoom |= Pressed(gp.rightTrigger);
-                topView |= gp.rightBumper.justPressed;
+                zoom |= gp.rightStick.press.justPressed;
+                topView |= Pressed(gp.rightTrigger);
+                strikeNow = gp.rightBumper.value;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
                     look = gp.leftBumper.value ? Vector2.zero : gp.rightStick.value;
@@ -71,8 +74,10 @@ namespace OlimarTest
                     lockHeld = gp.rightTrigger.value > 0.6f;
                     cycleTarget |= lockHeld && gp.rightBumper.justPressed;
                     targetDirection = gp.rightStick.value;
-                    zoom = !lockHeld && gp.rightBumper.justPressed;
+                    zoom = gp.rightStick.press.justPressed;
                     topView = false;
+                    // RB cycles targets while RT holds a lock; otherwise it strikes.
+                    strikeNow = !lockHeld && gp.rightBumper.value;
                     if (cycleTarget) look = Vector2.zero;
                 }
                 else { look = Vector2.zero; lockHeld = cycleTarget = false; }
@@ -93,7 +98,8 @@ namespace OlimarTest
                 throwNow = player.GetButton(Action.PrimarySkill);
                 jumpButton.Read(player.GetButton(Action.SecondarySkill), player.GetButton(Action.Jump));
                 whistleNow = jumpButton.Whistle;
-                dismissNow = player.GetButton(Action.UtilitySkill);
+                relocateNow = player.GetButton(Action.UtilitySkill);
+                strikeNow = UnityEngine.Input.GetKey(KeyCode.F);
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
                 recentre |= player.GetButtonDown(Action.Jump);
@@ -117,7 +123,8 @@ namespace OlimarTest
             }
             throwTap |= throwNow;
             whistleTap |= whistleNow;
-            dismissTap |= dismissNow;
+            relocateTap |= relocateNow;
+            strikeTap |= strikeNow;
             cycleTap |= cycleNow;
             if (move.sqrMagnitude > 1f) move.Normalize();
             if (swarm.sqrMagnitude > 1f) swarm.Normalize();
@@ -129,8 +136,8 @@ namespace OlimarTest
         {
             swallowThrow = swallowWhistle = true;
             jumpButton.Swallow();
-            throwNow = whistleNow = dismissNow = cycleNow = false;
-            throwTap = whistleTap = dismissTap = cycleTap = false;
+            throwNow = whistleNow = relocateNow = strikeNow = cycleNow = false;
+            throwTap = whistleTap = relocateTap = strikeTap = cycleTap = false;
         }
 
         static bool Key(KeyCode k) => UnityEngine.Input.GetKey(k);
@@ -138,7 +145,7 @@ namespace OlimarTest
         /// Clears the taps once the sim has run a tick with them.
         public void Ticked()
         {
-            throwTap = whistleTap = dismissTap = cycleTap = false;
+            throwTap = whistleTap = relocateTap = strikeTap = cycleTap = false;
             jumpButton.Ticked();
         }
 

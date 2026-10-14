@@ -340,6 +340,9 @@ namespace OlimarTest
             Native.pik_sim_set_auto_carry(sim, Mathf.Max(0f, Plugin.AutoCarryMetres.Value) / UnityHost.Scale);
             Native.pik_sim_set_sprout_stages(sim, Mathf.Max(0f, Plugin.SecondsPerStage.Value), Mathf.Max(0f, Plugin.FlowerSeconds.Value));
             Native.pik_sim_set_kill_growth(sim, (uint)Mathf.Max(0, Plugin.KillsPerStage.Value));
+            Native.pik_sim_set_dismiss_strike(sim, Mathf.Max(0f, Plugin.StrikeDamage.Value),
+                Mathf.Max(0f, Plugin.StrikeReachMetres.Value) / UnityHost.Scale, Mathf.Max(0f, Plugin.StrikeCooldown.Value));
+            Native.pik_sim_set_squad_pace(sim, Plugin.PaceLeaf.Value, Plugin.PaceBud.Value, Plugin.PaceFlower.Value);
             Plugin.Log.LogInfo($"Pikmin sim started ({Native.Utf8(Native.pik_sim_params_source(sim))})");
             view.StartModels();
             return true;
@@ -1018,6 +1021,7 @@ namespace OlimarTest
                 case Native.EventKind.SproutGrew: what = $"sprout {e.a} grew to a {(e.c == 2 ? "flower" : "bud")}"; break;
                 case Native.EventKind.CaptainDown: what = $"captain {e.a} is down"; break;
                 case Native.EventKind.Dismissed: what = $"captain {e.a} dismissed his squad"; break;
+                case Native.EventKind.StrikeStarted: what = $"captain {e.a} struck"; break;
                 case Native.EventKind.EmergencyPikmin: what = $"Onion {e.b} sent captain {e.a} {e.c} emergency Pikmin"; break;
                 case Native.EventKind.PluckerOut: what = $"Pikmin {e.a} came out of Onion {e.b} to pluck forgotten sprouts"; break;
                 case Native.EventKind.PluckerPulled: what = $"the Onion's plucker {e.c} plucked Pikmin {e.a}" + (e.b >= 0 ? $" for captain {e.b}" : ""); break;

@@ -30,6 +30,12 @@ What works:
   A Pikmin's health is `PikminHealth` (half) of Olimar's max health, so it grows with his
   level and health items. Olimar has twice Commando's health (`OlimarHealth`,
   `OlimarHealthPerLevel`). Pikmin that fall into a void are lost.
+- **Dismiss strike** (`Combat.Strike*`): RoR2 has no captain puzzles, so the dismiss button no longer sends the squad away. It
+  plays Olimar's dismissal motion and sound and hits every enemy around him (reach `StrikeReachMetres`, 4 m) for
+  `StrikeDamage` (3) times his punch, then cools down for `StrikeCooldown` (4 s). It takes Olimar's items and attack
+  speed like his punch does. Set `StrikeDamage` to 0 to get Pikmin 1's dismissal back.
+- **Pikmin pace** (`Pikmin.Pace*`): a Pikmin's top speed is a multiple of Olimar's full-tilt speed, his items and sprint
+  included: flower 1.2 (so it stays in reach for a throw), bud 0.97, leaf 0.93. Set any to 0 for the disc's speeds.
 - **Fall damage** (`Items.FallDamage`): the sim moves Olimar, so RoR2's motor never sees him land.
   The sim reports each landing with how far he fell from his highest point; the plugin turns that into
   the speed RoR2's gravity would give (`sqrt(2gh)`) and hands it to RoR2's own landing hook, which
@@ -112,14 +118,15 @@ position, so your RoR2 binds don't change it:
 | A                | primary             | throw, pluck                 |
 | B                | secondary           | jump                         |
 | LB (held) + B    | jump (held) + secondary | whistle; modifier blocks jumping |
-| X                | utility             | land flying Onion; otherwise dismiss |
+| X                | utility             | land or lift the Onion       |
+| RB               | F                   | dismiss strike: a melee blow all around him, 4 s cooldown (see below) |
 | d-pad left/right | mouse wheel         | next colour to throw         |
 | Y                | equipment           | RoR2's equipment, as usual   |
 | right stick      | special (held)      | swarm (toward the cursor)    |
 | LT / left trigger | jump               | swing the camera behind him  |
-| R                | C                   | zoom (three levels)          |
+| right stick click | C                  | zoom (three levels)          |
 | RoR2 sprint bind | sprint              | sprint until movement stops  |
-| right bumper (Z) |                     | top view                     |
+| RT (fixed camera only) |               | top view                     |
 | X under an Onion | interact            | land / open the Onion window |
 | d-pad up         | Tab                 | Onion menu (including in flight) |
 
@@ -127,7 +134,7 @@ The camera is a stand-in for Pikmin's: it looks down from behind and only turns 
 to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
 
 With the default Orbit camera, the right stick pans and LB + right stick swarms;
-LT recentres, RT locks onto an enemy, and RB cycles locked targets (or zooms when unlocked). The lock reaches `Controls.LockRange` (40 m, past the 24 m throw) with a clear line.
+LT recentres, RT locks onto an enemy, and RB cycles locked targets (or strikes when unlocked). The lock reaches `Controls.LockRange` (40 m, past the 24 m throw) with a clear line.
 B jumps in both camera modes. Holding LB prevents Olimar from jumping; releasing LB
 with B still held does not jump. B still cancels the Onion menu and does not jump on closing it.
 
@@ -154,7 +161,7 @@ extractor from the user's disc. Existing complete extractions already contain th
 no animation data is shipped with the mod. Normal locomotion resumes on landing.
 
 **Aim** (for VR): RoR2 moves Olimar as usual and the Pikmin cursor is wherever you aim.
-Primary throws, secondary whistles, utility dismisses, special swarms toward the cursor.
+Primary throws, secondary whistles, utility lifts or lands the Onion (and strikes, when there is no Onion press to make), special swarms toward the cursor.
 
 ### How it works
 

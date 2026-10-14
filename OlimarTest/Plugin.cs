@@ -57,6 +57,8 @@ namespace OlimarTest
             StompPikminDamage, RazorwireInterval;
         // Growth: planted sprouts ripen on a timer, Pikmin grow on kills they fought.
         internal static ConfigEntry<float> SecondsPerStage, FlowerSeconds;
+        // The dismiss strike and Pikmin pace (see PikminWorld.StartSim).
+        internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
         internal static ConfigEntry<int> KillsPerStage;
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
@@ -109,6 +111,17 @@ namespace OlimarTest
                 "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
                 "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +
                 "Off: Pikmin 1, where they wait to be whistled.");
+            StrikeDamage = Config.Bind("Combat", "StrikeDamage", 3f,
+                "The dismiss button (RB, F on keyboard) is a melee strike that no longer dismisses the squad: this many " +
+                "times Olimar's punch damage to every enemy around him. 0: it dismisses the squad as in Pikmin 1.");
+            StrikeReachMetres = Config.Bind("Combat", "StrikeReachMetres", 4f,
+                "How far from an enemy's edge the strike reaches, all around Olimar.");
+            StrikeCooldown = Config.Bind("Combat", "StrikeCooldown", 4f, "Seconds between strikes.");
+            PaceFlower = Config.Bind("Pikmin", "PaceFlower", 1.2f,
+                "A flower Pikmin's top speed as a multiple of Olimar's full-tilt speed (his items and sprint included), so " +
+                "it keeps up and stays in reach for a throw. 0 for any of the three: the disc's speeds.");
+            PaceBud = Config.Bind("Pikmin", "PaceBud", 0.97f, "The same for a bud Pikmin: a little slower than Olimar.");
+            PaceLeaf = Config.Bind("Pikmin", "PaceLeaf", 0.93f, "The same for a leaf Pikmin.");
             SecondsPerStage = Config.Bind("Growth", "SecondsPerStage", 20f,
                 "Seconds a planted sprout is a leaf, then a bud, before it is a flower (15 to 30 suggested). The " +
                 "timer starts when the sprout can be plucked and starts over at each stage, so one left alone " +
@@ -165,7 +178,7 @@ namespace OlimarTest
             AttackSpeedFromItems = Config.Bind("Items", "AttackSpeedFromItems", true,
                 "Attack speed items (Soldier's Syringe) speed up his punches and plucks and his Pikmin's attacks.");
             MinionMoveScale = Config.Bind("Items", "MinionMoveScale", 0.75f,
-                "Share of his move speed bonus his Pikmin get (Goat Hoof, Energy Drink). They always keep up with his sprint.");
+                "Share of his move speed bonus his Pikmin get (Goat Hoof, Energy Drink). Not used while the Pikmin.Pace settings are on, which follow his speed exactly.");
             MinionHealScale = Config.Bind("Items", "MinionHealScale", 0.5f,
                 "How strongly Pikmin take healing: his regeneration as a share of their health, and " +
                 "healing wards they stand in (Bustling Fungus).");
