@@ -343,6 +343,7 @@ namespace OlimarTest
             Native.pik_sim_set_dismiss_strike(sim, Mathf.Max(0f, Plugin.StrikeDamage.Value),
                 Mathf.Max(0f, Plugin.StrikeReachMetres.Value) / UnityHost.Scale, 0f /* RoR2's Special slot keeps the cooldown */);
             Native.pik_sim_set_squad_pace(sim, Plugin.PaceLeaf.Value, Plugin.PaceBud.Value, Plugin.PaceFlower.Value);
+            Native.pik_sim_set_cursor_homing(sim, Plugin.CursorHoming.Value ? (byte)1 : (byte)0);
             Plugin.Log.LogInfo($"Pikmin sim started ({Native.Utf8(Native.pik_sim_params_source(sim))})");
             view.StartModels();
             return true;

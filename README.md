@@ -137,6 +137,8 @@ to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
 
 With the default Orbit camera, the right stick pans (up and down tilts it from the top view to `Controls.LookUpDegrees`, 70, above level, as far up as RoR2's own camera looks) and LB + right stick swarms;
 LT recentres, RT locks onto an enemy, and RB cycles locked targets (or strikes when unlocked). The lock reaches `Controls.LockRange` (40 m, past the 24 m throw) with a clear line.
+A thrown Pikmin is steered in flight onto the cursor (`Combat.CursorHoming`, on), the way a lock-on steers it onto its enemy,
+so it lands where the cursor was whatever Olimar's speed or the cursor's height; the arc then no longer varies with how long the throw was held.
 B jumps in both camera modes. Holding LB prevents Olimar from jumping; releasing LB
 with B still held does not jump. B still cancels the Onion menu and does not jump on closing it.
 
