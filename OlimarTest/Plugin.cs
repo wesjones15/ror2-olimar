@@ -92,7 +92,7 @@ namespace OlimarTest
             ThrowReach = Config.Bind("Controls", "ThrowReach", 2f,
                 "How far the cursor reaches (so how far Olimar throws) as a multiple of Pikmin's " +
                 "own reach, which is short for RoR2's fights.");
-            LockRange = Config.Bind("Controls", "LockRange", 35f,
+            LockRange = Config.Bind("Controls", "LockRange", 40f,
                 new ConfigDescription("How far away, in metres, the lock-on can pick an enemy (with a clear line). " +
                     "Past the throw (about 24 m at the default ThrowReach) a thrown Pikmin falls short, so " +
                     "this reaches only a little beyond it: enough to lock a flyer, then close in.",
