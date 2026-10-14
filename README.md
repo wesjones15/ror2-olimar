@@ -56,6 +56,11 @@ What works:
   big enemies. Throws and the whistle still go to the part's centre.
 - **Trumpet** (`Sound.TrumpetGain`, 1.4): the swarming trumpet is louder than the disc's level so it
   carries over combat.
+- **Damage numbers** (`Look.PikminDamageNumbers`, on): the ten HUD digits from your Pikmin disc replace
+  RoR2's floating damage digits. Its colours, critical-hit effects, movement and K/M/B suffixes stay.
+  Set it to false to restore RoR2's font, including during play. This changes all floating damage
+  numbers locally, whichever survivor you use. Missing digits fall back to the original font.
+  Requires the matching ABI 24 DLLs; no font textures ship with the plugin or go into git.
 - **Looks and sounds**: Olimar, the Pikmin (with leaf, bud or flower), the Onion, pellets,
   sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of

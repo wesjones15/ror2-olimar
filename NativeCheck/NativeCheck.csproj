@@ -12,6 +12,7 @@
   <ItemGroup>
     <Compile Include="..\OlimarTest\Native.cs" Link="Native.cs" />
     <Compile Include="..\OlimarTest\JumpWhistleButton.cs" Link="JumpWhistleButton.cs" />
+    <Compile Include="..\OlimarTest\DamageNumberAtlas.cs" Link="DamageNumberAtlas.cs" />
     <!-- The view structs and native loading Native.cs uses (plain C#, no Unity). -->
     <Compile Include="..\..\ror2-common\src\ViewSource.cs" Link="Common\ViewSource.cs" />
     <Compile Include="..\..\ror2-common\src\NativeLib.cs" Link="Common\NativeLib.cs" />

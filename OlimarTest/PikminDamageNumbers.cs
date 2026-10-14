@@ -1,0 +1,117 @@
+using System;
+using BepInEx.Configuration;
+using Ror2Common;
+using RoR2;
+using UnityEngine;
+
+namespace OlimarTest
+{
+    // Keep RoR2's damage particle system, shader, colours, crit styling and motion. Only the
+    // ten digit cells change; the suffixes and exclamation mark come from its original atlas.
+    sealed class PikminDamageNumbers : MonoBehaviour
+    {
+        ConfigEntry<bool> enabledSetting;
+        ParticleSystemRenderer target;
+        Material original, replacement;
+        Texture2D atlas;
+        bool tried;
+        float next;
+
+        public static void Install(GameObject host, ConfigFile config)
+        {
+            var component = host.AddComponent<PikminDamageNumbers>();
+            component.enabledSetting = config.Bind("Look", "PikminDamageNumbers", true,
+                "Use your disc's Pikmin HUD digits for all floating RoR2 damage numbers. " +
+                "Keeps RoR2's damage colours, crit effects and K/M/B suffixes. False restores the original font; can change during play.");
+        }
+
+        void Update()
+        {
+            if (Time.unscaledTime < next) return;
+            next = Time.unscaledTime + 0.5f;
+            if (enabledSetting == null || !enabledSetting.Value)
+            {
+                Restore();
+                return;
+            }
+            if (!Plugin.AssetsSettled) return;
+            var manager = DamageNumberManager.instance;
+            var renderer = manager ? manager.GetComponent<ParticleSystemRenderer>() : null;
+            if (renderer != target)
+            {
+                Restore();
+                target = renderer;
+            }
+            if (!target || tried) return;
+            tried = true;
+            try
+            {
+                original = target.sharedMaterial;
+                if (!original || !original.HasProperty("_MainTex"))
+                    throw new InvalidOperationException("Damage number material has no number atlas");
+                var source = original.GetTexture("_MainTex");
+                if (!source || source.width != 512 || source.height != 512)
+                    throw new InvalidOperationException("Expected RoR2's 512x512 number atlas");
+                var dir = Native.CString(Plugin.AssetsDir);
+                var digits = new byte[10][];
+                for (uint digit = 0; digit < 10; digit++)
+                {
+                    if (Native.pik_number_texture(dir, digit, 0, out var info, null, 0) == 0 || info.width != 64 || info.height != 64)
+                        throw new InvalidOperationException($"Pikmin HUD digit {digit} missing or invalid");
+                    digits[digit] = new byte[64 * 64 * 4];
+                    if (Native.pik_number_texture(dir, digit, 0, out info, digits[digit], (uint)digits[digit].Length) == 0)
+                        throw new InvalidOperationException($"Could not decode Pikmin HUD digit {digit}");
+                }
+                // The bundled texture isn't CPU-readable. Copy it before replacing digit cells.
+                atlas = new Texture2D(512, 512, TextureFormat.RGBA32, false)
+                    { name = "Pikmin damage number atlas", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+                var previous = RenderTexture.active;
+                var temporary = RenderTexture.GetTemporary(512, 512, 0, RenderTextureFormat.ARGB32);
+                try
+                {
+                    Graphics.Blit(source, temporary);
+                    RenderTexture.active = temporary;
+                    atlas.ReadPixels(new Rect(0, 0, 512, 512), 0, 0, false);
+                }
+                finally
+                {
+                    RenderTexture.active = previous;
+                    RenderTexture.ReleaseTemporary(temporary);
+                }
+                var colors = atlas.GetPixels32();
+                var rgba = new byte[colors.Length * 4];
+                for (int i = 0; i < colors.Length; i++)
+                {
+                    rgba[i * 4] = colors[i].r; rgba[i * 4 + 1] = colors[i].g;
+                    rgba[i * 4 + 2] = colors[i].b; rgba[i * 4 + 3] = colors[i].a;
+                }
+                DamageNumberAtlas.ReplaceDigits(rgba, 512, 512, digits, 64, 64);
+                atlas.LoadRawTextureData(rgba);
+                atlas.Apply(false, true);
+                replacement = new Material(original) { name = "Pikmin damage numbers" };
+                replacement.SetTexture("_MainTex", atlas);
+                target.sharedMaterial = replacement;
+                Plugin.Log.LogInfo("Pikmin HUD digits applied to damage numbers (Look.PikminDamageNumbers)");
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Pikmin damage numbers: {e.Message}; keeping RoR2's font");
+                if (replacement) Destroy(replacement);
+                if (atlas) Destroy(atlas);
+                replacement = null;
+                atlas = null;
+            }
+        }
+
+        void Restore()
+        {
+            if (target && replacement && target.sharedMaterial == replacement)
+                target.sharedMaterial = original;
+            if (replacement) Destroy(replacement);
+            if (atlas) Destroy(atlas);
+            target = null; original = null; replacement = null; atlas = null; tried = false;
+        }
+
+        void OnDestroy() => Restore();
+    }
+}

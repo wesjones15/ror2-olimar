@@ -259,6 +259,7 @@ namespace OlimarTest
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
+            PikminDamageNumbers.Install(gameObject, Config);
             ItemHooks.Install();
             // With the Pikmin controls the HUD's skill icons name the pad buttons the sim reads (Pad),
             // not RoR2's binds; the Aim scheme (VR) keeps RoR2's.

@@ -120,6 +120,8 @@ static class Program
         Check(Native.Load(dll, out string err), $"load {dll} {err}");
         if (err != null) return 1;
         Check(Native.pik_tick_hz() == 30, "30 Hz");
+        if (args.Length > 1)
+            NumberAtlasCheck.Run(args[1], Check, args.Length > 3 ? args[2] : null, args.Length > 3 ? args[3] : null);
 
         var host = new Native.Host
         {
