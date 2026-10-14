@@ -256,11 +256,11 @@ as they happen only with `Debug.LogEvents` on (off by default; it floods the log
 
 ### Not there yet
 
-- **Multiplayer**: the Pikmin only exist on the host. A client playing Olimar walks like
-  Commando without skills, and clients don't see the host's Pikmin. Every player needs the
-  plugin installed anyway (it adds a survivor).
-- Clients see Commando, not Olimar's model, and hear none of Pikmin's sounds (the view runs
-  where the sim does).
+- **Multiplayer** is implemented but has never been run in a two-player game: the host's sim is
+  the only real one and other machines draw and hear a replica of it from snapshots; a client
+  playing Olimar moves on his own machine (so he feels no lag) and the host's captain follows his
+  pose. Every player needs the same plugin build and their own extracted `assets/`. See
+  [../ror2-common/MULTIPLAYER.md](../ror2-common/MULTIPLAYER.md) for how it works and the test plan.
 - Olimar's footsteps and voice, and particle effects other than the whistle and ghosts.
 - With `CarryBodies`, clients see a corpse lie where it fell, not carried.
 - Enemies do not directly target Pikmin; attacks shake eligible latched Pikmin off.
