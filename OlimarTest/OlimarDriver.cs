@@ -147,10 +147,14 @@ namespace OlimarTest
         // Whether RoR2 shows an interact prompt: the drop pod's exit, a chest, a shrine...
         bool InteractPrompt() => InteractGuard.PromptShown(Interaction());
 
+        /// RoR2 shows a prompt that isn't this Onion's own (a chest, a shrine, the pod's exit), as of
+        /// the last frame. Those keep X; the Onion's prompt doesn't.
+        bool realPrompt;
+
         void Update()
         {
             FindLocalUser();
-            if (localUser != null) pad.Read(localUser.inputPlayer, InteractPrompt());
+            if (localUser != null) pad.Read(localUser.inputPlayer, realPrompt);
             sprintPressed |= input && input.sprint.down;
             if (captain < 0) return;
 
@@ -343,12 +347,16 @@ namespace OlimarTest
             // With the Pikmin controls, when no interact prompt is up (a chest, a shrine, or this
             // Onion's own "open the menu" prompt when he stands under it) X lowers a flying Onion where
             // he stands and raises a landed one to follow him. (In the Aim scheme it only lowers.)
+            // A flying Onion is lowered by X here, not through the prompt it also shows (that one
+            // lands it too, and only once); a landed one is raised only out of its reach, since under
+            // it X opens its menu.
             bool pikminX = Plugin.Scheme == ControlScheme.Pikmin;
-            if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !InteractPrompt()
-                && (pikminX || PikminWorld.Instance.OnionFlying(captain)))
+            bool flying = PikminWorld.Instance.OnionFlying(captain);
+            if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !realPrompt
+                && (flying || (pikminX && !InteractPrompt())))
             {
                 if (!onionPressClaimed)
-                    PikminWorld.Instance.CommandOnion(captain, pikminX && !PikminWorld.Instance.OnionFlying(captain));
+                    PikminWorld.Instance.CommandOnion(captain, pikminX && !flying);
                 onionPressClaimed = true;
             }
             // The Pikmin scheme's strike is its own button; only the aim scheme shares one with the Onion.
@@ -453,7 +461,8 @@ namespace OlimarTest
             // Chests, shrines and other RoR2 interactions keep priority over our prompt.
             var driver = Interaction();
             InteractTarget.Override(driver, null);
-            if (!InteractGuard.PromptShown(driver) && !MenuOpen && world && localUser != null && Active)
+            realPrompt = InteractGuard.PromptShown(driver);
+            if (!realPrompt && !MenuOpen && world && localUser != null && Active)
             {
                 int o = world.OnionInReach(captain);
                 if (o >= 0) want = world.OnionTarget(o);

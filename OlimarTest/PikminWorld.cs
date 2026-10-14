@@ -525,13 +525,21 @@ namespace OlimarTest
         }
         public bool CommandOnion(int captain, bool follow)
         {
-            if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d) return false;
+            if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d)
+            {
+                if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {captain}: no Onion to {(follow ? "raise" : "lower")}");
+                return false;
+            }
             if (follow == f.following && (follow || f.airborne)) return true;
             if (!follow)
             {
                 // Reject placement over a void instead of dropping the Onion out of the stage.
                 if (!Physics.Raycast(d.Body.footPosition + Vector3.up * 2f, Vector3.down, out var hit,
-                    30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.5f) return false;
+                    30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.5f)
+                {
+                    if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {captain}: nowhere flat enough below him to lower the Onion");
+                    return false;
+                }
                 f.landing = hit.point;
             }
             // Each lift and each landing takes a utility charge (Hardlight adds more).

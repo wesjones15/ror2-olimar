@@ -32,7 +32,7 @@ What works:
   `OlimarHealthPerLevel`). Pikmin that fall into a void are lost.
 - **Dismiss strike** (`Combat.Strike*`): RoR2 has no captain puzzles, so the dismiss button no longer sends the squad away. It
   plays Olimar's dismissal motion and sound and hits every enemy around him (reach `StrikeReachMetres`, 4 m) for
-  `StrikeDamage` (3) times his punch, then cools down for `StrikeCooldown` (4 s). It takes Olimar's items and attack
+  `StrikeDamage` (9) times his punch (about 4.5 times his damage stat: two strikes kill a Beetle at the start), then cools down for `StrikeCooldown` (4 s). It takes Olimar's items and attack
   speed like his punch does. Set `StrikeDamage` to 0 to get Pikmin 1's dismissal back.
 - **Pikmin pace** (`Pikmin.Pace*`): a Pikmin's top speed is a multiple of Olimar's full-tilt speed, his items and sprint
   included: flower 1.2 (so it stays in reach for a throw), bud 0.97, leaf 0.93. Set any to 0 for the disc's speeds.

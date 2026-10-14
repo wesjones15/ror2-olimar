@@ -117,9 +117,10 @@ namespace OlimarTest
                 "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
                 "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +
                 "Off: Pikmin 1, where they wait to be whistled.");
-            StrikeDamage = Config.Bind("Combat", "StrikeDamage", 3f,
+            StrikeDamage = Config.Bind("Combat", "StrikeDamage", 9f,
                 "The dismiss button (RB, F on keyboard) is a melee strike that no longer dismisses the squad: this many " +
-                "times Olimar's punch damage to every enemy around him. 0: it dismisses the squad as in Pikmin 1.");
+                "times Olimar's punch damage to every enemy around him. 9 is about 4.5 times his damage stat: two strikes kill a Beetle at the start " +
+                "(80 health, 20 armor). 0: it dismisses the squad as in Pikmin 1.");
             StrikeReachMetres = Config.Bind("Combat", "StrikeReachMetres", 4f,
                 "How far from an enemy's edge the strike reaches, all around Olimar.");
             StrikeCooldown = Config.Bind("Combat", "StrikeCooldown", 4f, "Seconds between strikes.");
