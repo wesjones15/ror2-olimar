@@ -5,8 +5,10 @@ namespace OlimarTest
 {
     // A stand-in for Pikmin's camera in the Pikmin control scheme: it looks down at Olimar from
     // behind at one of three zoom levels and only turns when told to (L swings it round behind
-    // him), so the stick's directions stay put while he walks. Not a port of Pikmin's own
-    // camera (cameraMgr.cpp); its angles and distances are eyeballed.
+    // him), so the stick's directions stay put while he walks. In the Orbit mode the right stick
+    // tilts it from the top view down to Controls.LookUpDegrees above level (RoR2's own camera
+    // looks up 70 degrees). Not a port of Pikmin's own camera (cameraMgr.cpp); its angles and
+    // distances are eyeballed.
     //
     // A component on Olimar's body, not a plain object: RoR2's camera modes cast the override
     // camera to UnityEngine.Object for their null checks (CameraModePlayerBasic.
@@ -52,7 +54,10 @@ namespace OlimarTest
         public void Pan(Vector2 stick)
         {
             var a = new Native.Vec3(yawGoal, orbitPitch, 0f);
-            Native.pik_camera_pan((uint)Plugin.Camera.Value, ref a, stick.x, stick.y, Time.deltaTime);
+            // Positive pitch looks down; looking up is the config's angle negated (0: Pikmin's 10 down).
+            float up = Mathf.Clamp(Plugin.LookUpDegrees.Value, 0f, 85f);
+            Native.pik_camera_pan((uint)Plugin.Camera.Value, ref a, stick.x, stick.y, Time.deltaTime,
+                up > 0f ? -up : 10f);
             yawGoal = a.x; orbitPitch = a.y;
         }
 

@@ -46,6 +46,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
+        internal static ConfigEntry<float> LookUpDegrees;
         internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach, ShakeProtection, LockRange;
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
@@ -94,6 +95,10 @@ namespace OlimarTest
             ThrowReach = Config.Bind("Controls", "ThrowReach", 2f,
                 "How far the cursor reaches (so how far Olimar throws) as a multiple of Pikmin's " +
                 "own reach, which is short for RoR2's fights.");
+            LookUpDegrees = Config.Bind("Controls", "LookUpDegrees", 70f,
+                new ConfigDescription("How far the Orbit camera can tilt up past level when you push the right stick " +
+                    "down (RoR2's own camera looks up 70). 0 keeps Pikmin's look from above (never below 10 degrees down).",
+                    new AcceptableValueRange<float>(0f, 85f)));
             LockRange = Config.Bind("Controls", "LockRange", 40f,
                 new ConfigDescription("How far away, in metres, the lock-on can pick an enemy (with a clear line). " +
                     "Past the throw (about 24 m at the default ThrowReach) a thrown Pikmin falls short, so " +
