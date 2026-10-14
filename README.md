@@ -83,8 +83,8 @@ What works:
   charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
   its menu, and at a chest it opens the chest. D-pad up / Tab opens the menu, including during
   flight. The Aim scheme uses interact to land it and open the menu. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
-  up/down adjusts transfers and A/left click confirms. Transfers and deliveries wait until
-  landed. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
+  up/down adjusts transfers and A/left click confirms. Transfers wait until landed; a hovering Onion
+  still takes pellets, and the Pikmin they make stay inside it as leaves instead of being planted. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
   moving, so Bustling Fungus only activates after the Onion has landed and stood still for
   one second, regardless of whether Olimar is moving.
