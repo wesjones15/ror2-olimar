@@ -1025,6 +1025,7 @@ namespace OlimarTest
                 ulong id = Id(b);
                 if (creatureCount == creatures.Length) Array.Resize(ref creatures, creatures.Length * 2);
                 int start = PartCount;
+                partStart = start;
                 var group = b.hurtBoxGroup;
                 if (group && group.hurtBoxes != null)
                     foreach (var hb in group.hurtBoxes)
@@ -1033,9 +1034,8 @@ namespace OlimarTest
                         if (!hb || !hb.gameObject.activeInHierarchy) continue;
                         var col = hb.collider;
                         if (!col || !col.enabled) continue;
-                        var bounds = col.bounds;
-                        var e = bounds.extents;
-                        AddPart(bounds.center, Mathf.Max(e.x, Mathf.Max(e.y, e.z)));
+                        // Spheres that sit on the collider's real shape (HurtParts).
+                        HurtParts.For(col, partAdder ?? (partAdder = AddPartLimited));
                     }
                 if (PartCount == start)
                     AddPart(b.corePosition, Mathf.Max(0.3f, b.bestFitRadius));
@@ -1055,6 +1055,15 @@ namespace OlimarTest
                 };
             }
         }
+
+        // Adds a sphere unless this creature already has the most the sim is given.
+        void AddPartLimited(Vector3 centre, float radius)
+        {
+            if (PartCount - partStart < MaxPartsPerCreature) AddPart(centre, radius);
+        }
+
+        int partStart;
+        HurtParts.Add partAdder;
 
         void AddPart(Vector3 centre, float radius)
         {
