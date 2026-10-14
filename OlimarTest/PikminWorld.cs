@@ -463,7 +463,7 @@ namespace OlimarTest
                         ship.onionDown = true;
                         onion.following = false;
                         // Where Olimar stands (the Dolphin is further back).
-                        onion.landing = driver.Body.footPosition;
+                        onion.landing = OnionSpot(driver);
                         onion.transitionStart = onion.position;
                         onion.transitionElapsed = 0f;
                         onion.transitionDuration = OnionLanding;
@@ -496,6 +496,18 @@ namespace OlimarTest
                     if (ship.beam >= 1f) FinishArrival(ship, driver);
                 }
             }
+        }
+
+        /// Where the Onion lands for the arrival: to Olimar's right, on the ground, so he forms by the
+        /// Dolphin and the squad comes out of the Onion to him.
+        static Vector3 OnionSpot(OlimarDriver driver)
+        {
+            var feet = driver.Body.footPosition;
+            var right = Vector3.Cross(Vector3.up, Vector3.ProjectOnPlane(driver.Body.transform.forward, Vector3.up)).normalized;
+            if (right.sqrMagnitude < 0.5f) return feet;
+            var at = feet + right * 4.5f;
+            return Physics.Raycast(at + Vector3.up * 3f, Vector3.down, out var floor, 12f, UnityHost.Mask,
+                QueryTriggerInteraction.Ignore) && floor.normal.y > 0.5f ? floor.point : feet;
         }
 
         /// Olimar's beam-in progress, 0..1 while it lasts, else -1 (the presenter draws him as a column of
