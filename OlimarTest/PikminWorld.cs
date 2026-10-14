@@ -399,6 +399,10 @@ namespace OlimarTest
         }
 
         // The ship is a presentation/carry goal only; no parts or repair objective spawn.
+        /// How far behind Olimar the Dolphin lands: its goal spot is 100 units (4 m) ahead of it
+        /// (`UfoItem::getGoalPos`), so he forms on the spot the ship's rings mark.
+        const float DolphinBehind = 4f;
+
         void SpawnDolphin(int captain, OlimarDriver driver, bool bringSquad = true)
         {
             var body = driver.Body;
