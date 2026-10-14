@@ -122,7 +122,7 @@ position, so your RoR2 binds don't change it:
 | LB (held) + B    | jump (held) + secondary | whistle; modifier blocks jumping |
 | X                | utility             | lower the Onion here / raise it to follow (when no interact prompt is up) |
 | RB               | F                   | dismiss strike: a melee blow all around him, 4 s cooldown (see below) |
-| d-pad left/right | mouse wheel         | next colour to throw         |
+| d-pad left/right | mouse wheel         | colour to throw: Any (nearest), Red, Yellow, Blue |
 | Y                | equipment           | RoR2's equipment, as usual   |
 | right stick      | special (held)      | swarm (toward the cursor)    |
 | LT / left trigger | jump               | swing the camera behind him  |

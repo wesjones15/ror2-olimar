@@ -579,7 +579,8 @@ namespace OlimarTest
             var world = PikminWorld.Instance;
             if (localUser == null || !world || !Active || captain < 0) return;
             world.SquadCounts(captain, squadCounts);
-            // Locked on, A throws the nearest Pikmin whatever colour is picked: nothing is outlined.
+            // The colour to throw next, or -1 for Any: the nearest Pikmin (the default, and always while
+            // locked on), shown by a thin outline round every chip.
             int pick = LockedOn ? -1 : world.ThrowColour(captain);
             MenuStyles();
             float k = Screen.height / 1080f;
@@ -606,6 +607,15 @@ namespace OlimarTest
                     GUI.DrawTexture(new Rect(r.x - 3f, r.yMax, r.width + 6f, 3f), stripeTex);
                     GUI.DrawTexture(new Rect(r.x - 3f, r.y, 3f, r.height), stripeTex);
                     GUI.DrawTexture(new Rect(r.xMax, r.y, 3f, r.height), stripeTex);
+                }
+                else if (pick < 0)
+                {
+                    // Any: a thin outline on every chip.
+                    GUI.color = new Color(1f, 1f, 1f, 0.55f);
+                    GUI.DrawTexture(new Rect(r.x - 2f, r.y - 2f, r.width + 4f, 2f), stripeTex);
+                    GUI.DrawTexture(new Rect(r.x - 2f, r.yMax, r.width + 4f, 2f), stripeTex);
+                    GUI.DrawTexture(new Rect(r.x - 2f, r.y, 2f, r.height), stripeTex);
+                    GUI.DrawTexture(new Rect(r.xMax, r.y, 2f, r.height), stripeTex);
                 }
                 GUI.color = savedColour;
                 hudStyle.normal.textColor = n > 0 ? MenuColours[c] : new Color(0.5f, 0.5f, 0.5f);

@@ -326,7 +326,7 @@ namespace OlimarTest
                 "< ! > Throw Pikmin onto enemies; they latch on and fight.\n" +
                 "< ! > Whistle to call Pikmin back; corpses are carried to the Onion for more.\n" +
                 "< ! > Pad: A throw or pluck, B jump, LB + B whistle (LB blocks jumping), X raise or lower the Onion (or interact: under the Onion it opens its menu, as does d-pad up), RB strike (the dismiss attack), " +
-                "d-pad left/right pick the colour to throw, hold RT to lock onto an enemy (RB then cycles), " +
+                "d-pad left/right pick the colour to throw (Any is the nearest), hold RT to lock onto an enemy (RB then cycles), " +
                 "right stick pans the camera (LB + right stick swarms; click it to zoom), LT recentres.\n" +
                 "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility Onion, F strike.\n" +
                 "< ! > Hopoo Feather: jump again in mid-air, and the squad does too. H3AD-5T v2: jump in mid-air with no jumps left to stomp.\n" +
