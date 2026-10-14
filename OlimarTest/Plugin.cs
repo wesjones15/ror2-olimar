@@ -325,7 +325,7 @@ namespace OlimarTest
                 "Commando's body leading a squad of Pikmin from libpikmin.\n\n" +
                 "< ! > Throw Pikmin onto enemies; they latch on and fight.\n" +
                 "< ! > Whistle to call Pikmin back; corpses are carried to the Onion for more.\n" +
-                "< ! > Pad: A throw or pluck, B jump, LB + B whistle (LB blocks jumping), X raise or lower the Onion (d-pad up: its menu), RB strike (the dismiss attack), " +
+                "< ! > Pad: A throw or pluck, B jump, LB + B whistle (LB blocks jumping), X raise or lower the Onion (or interact: under the Onion it opens its menu, as does d-pad up), RB strike (the dismiss attack), " +
                 "d-pad left/right pick the colour to throw, hold RT to lock onto an enemy (RB then cycles), " +
                 "right stick pans the camera (LB + right stick swarms; click it to zoom), LT recentres.\n" +
                 "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility Onion, F strike.\n" +

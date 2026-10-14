@@ -491,7 +491,8 @@ namespace OlimarTest
                 "or a corpse too. While LB is held Olimar doesn't jump.");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Raise / Lower Onion");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
-                "X. Lower the Onion where you stand, or raise it to follow you; each takes a charge. D-pad up opens the Onion's menu.");
+                "X, when no interact prompt is up: lower the Onion where you stand, or raise it to follow you; each takes a charge. " +
+                "Standing under the Onion, X opens its menu (so does d-pad up).");
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
                 $"RB. Olimar blows the dismissal whistle and strikes every enemy around him for {Plugin.StrikeDamage.Value:0.#} times his " +

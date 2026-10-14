@@ -7,7 +7,7 @@ namespace OlimarTest
 {
     // The Pikmin control scheme's input: a GameCube-style pad read by button position through
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
-    // B: jump, LB + B: whistle, X: raise or lower the Onion, RB: the dismiss strike (a melee blow; it no
+    // B: jump, LB + B: whistle, X: raise or lower the Onion (interact when a prompt is up), RB: the dismiss strike (a melee blow; it no
     // longer dismisses the squad), d-pad left or right: next colour to throw, right stick: swarm
     // (the C-stick), LT: recentre the camera, right stick click: zoom, RT: top view (fixed camera).
     // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,

@@ -338,7 +338,8 @@ namespace OlimarTest
             // RoR2 interactions have first claim on the button.
             bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Relocate : input.skill3.down;
             if (!dismiss) onionPressClaimed = false;
-            // With the Pikmin controls X is the Onion's own button: it lowers a flying Onion where
+            // With the Pikmin controls, when no interact prompt is up (a chest, a shrine, or this
+            // Onion's own "open the menu" prompt when he stands under it) X lowers a flying Onion where
             // he stands and raises a landed one to follow him. (In the Aim scheme it only lowers.)
             bool pikminX = Plugin.Scheme == ControlScheme.Pikmin;
             if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !InteractPrompt()
@@ -449,10 +450,7 @@ namespace OlimarTest
             // Chests, shrines and other RoR2 interactions keep priority over our prompt.
             var driver = Interaction();
             InteractTarget.Override(driver, null);
-            // With the Pikmin controls X raises and lowers the Onion directly (BuildInput) and the
-            // d-pad opens its menu, so it offers no interact prompt.
-            if (!InteractGuard.PromptShown(driver) && !MenuOpen && world && localUser != null && Active
-                && Plugin.Scheme != ControlScheme.Pikmin)
+            if (!InteractGuard.PromptShown(driver) && !MenuOpen && world && localUser != null && Active)
             {
                 int o = world.OnionInReach(captain);
                 if (o >= 0) want = world.OnionTarget(o);

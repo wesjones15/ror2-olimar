@@ -71,10 +71,11 @@ What works:
   `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
 - **Onion (phase 8)**: one Onion per Olimar stores all three types. Its Red, Yellow or
   Blue appearance is chosen once per run and kept across stages; it has no effect on storage.
-  It arrives airborne alongside the Dolphin and follows Olimar. With the Pikmin controls X is
-  its own button: it lowers a flying Onion where he stands and raises a landed one to follow
-  him (each takes a relocation charge). D-pad up / Tab opens the menu, including during flight.
-  The Aim scheme still uses interact to land it and open the menu. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
+  It arrives airborne alongside the Dolphin and follows Olimar. With the Pikmin controls X lowers a
+  flying Onion where he stands and raises a landed one to follow him (each takes a relocation
+  charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
+  its menu, and at a chest it opens the chest. D-pad up / Tab opens the menu, including during
+  flight. The Aim scheme uses interact to land it and open the menu. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
   up/down adjusts transfers and A/left click confirms. Transfers and deliveries wait until
   landed. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
@@ -119,7 +120,7 @@ position, so your RoR2 binds don't change it:
 | A                | primary             | throw, pluck                 |
 | B                | secondary           | jump                         |
 | LB (held) + B    | jump (held) + secondary | whistle; modifier blocks jumping |
-| X                | utility             | lower the Onion here / raise it to follow |
+| X                | utility             | lower the Onion here / raise it to follow (when no interact prompt is up) |
 | RB               | F                   | dismiss strike: a melee blow all around him, 4 s cooldown (see below) |
 | d-pad left/right | mouse wheel         | next colour to throw         |
 | Y                | equipment           | RoR2's equipment, as usual   |
@@ -128,6 +129,7 @@ position, so your RoR2 binds don't change it:
 | right stick click | C                  | zoom (three levels)          |
 | RoR2 sprint bind | sprint              | sprint until movement stops  |
 | RT (fixed camera only) |               | top view                     |
+| X under an Onion | interact            | open the Onion window        |
 | d-pad up         | Tab                 | Onion menu (including in flight) |
 
 The camera is a stand-in for Pikmin's: it looks down from behind and only turns when told
