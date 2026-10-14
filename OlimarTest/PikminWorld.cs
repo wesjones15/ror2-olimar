@@ -525,6 +525,8 @@ namespace OlimarTest
                 if (f.id == onion && cargo.TryGetValue(f.owner, out var saved)) return saved.colour;
             return Native.Red;
         }
+        float relocationNoteAt;
+
         public bool CommandOnion(int captain, bool follow)
         {
             if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d)
@@ -548,9 +550,16 @@ namespace OlimarTest
             var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
             if (slot && !NativeSkills.Spend(slot, OlimarSkills.Relocate))
             {
-                if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {captain}: no Onion relocation charge yet");
+                if (Plugin.LogEvents.Value && Time.unscaledTime >= relocationNoteAt)
+                {
+                    relocationNoteAt = Time.unscaledTime + 1f;
+                    Plugin.Log.LogInfo($"captain {captain}: no Onion relocation charge yet (utility slot {(slot.skillDef ? slot.skillDef.skillName : "empty")}, " +
+                        $"{slot.stock}/{slot.maxStock} charges, {slot.cooldownRemaining:0.0} s to the next)");
+                }
                 return false;
             }
+            if (Plugin.LogEvents.Value)
+                Plugin.Log.LogInfo($"captain {captain}: Onion {(follow ? "raised to follow him" : "lowered here")}");
             f.transitionStart = f.position;
             f.transitionElapsed = 0f;
             f.transitionDuration = follow ? 1.8f : 2.5f;

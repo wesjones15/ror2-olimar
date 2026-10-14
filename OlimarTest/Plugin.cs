@@ -77,6 +77,7 @@ namespace OlimarTest
         {
             Log = Logger;
             CommonLog.Log = Logger;
+            OnionCard.Install(gameObject);
             string here = Path.GetDirectoryName(Info.Location);
             SpawnMusic.Initialize(Config, here);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
