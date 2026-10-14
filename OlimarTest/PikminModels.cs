@@ -43,6 +43,7 @@ namespace OlimarTest
                 Plugin.Log.LogWarning($"Pikmin's models didn't load from {assetsDir}; drawing stand-ins");
                 return null;
             }
+            Native.pik_view_set_captain_pikmin_jump(Plugin.PikminJump.Value ? (byte)1 : (byte)0);
             if (sound) Native.pik_view_set_trumpet_gain(v, Plugin.TrumpetGain.Value);
             var models = ModelView.Create(new PikViewSource(v), name, parent);
             if (models == null)

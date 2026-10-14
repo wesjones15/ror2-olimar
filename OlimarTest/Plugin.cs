@@ -60,7 +60,7 @@ namespace OlimarTest
         internal static ConfigEntry<float> SecondsPerStage, FlowerSeconds;
         // The dismiss strike and Pikmin pace (see PikminWorld.StartSim).
         internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
-        internal static ConfigEntry<bool> CursorHoming;
+        internal static ConfigEntry<bool> CursorHoming, PikminJump;
         internal static ConfigEntry<float> PunchDamage, StrikeChargeSeconds;
         internal static ConfigEntry<bool> StrikeStun, StrikeKillReset;
         internal static ConfigEntry<int> KillsPerStage;
@@ -137,6 +137,8 @@ namespace OlimarTest
             StrikeReachMetres = Config.Bind("Combat", "StrikeReachMetres", 4f,
                 "How far from an enemy's edge the strike reaches, all around Olimar.");
             StrikeCooldown = Config.Bind("Combat", "StrikeCooldown", 4f, "Seconds between strikes.");
+            PikminJump = Config.Bind("Pikmin", "OlimarUsesPikminJump", true,
+                "Olimar jumps with the Pikmin's own jump animation (they share the game's motion table). Off: his geyser-ride pose, tipped upright.");
             CursorHoming = Config.Bind("Combat", "CursorHoming", true,
                 "A thrown Pikmin is steered in flight onto the cursor, the way a lock-on steers it onto its enemy, so it lands where " +
                 "the cursor was whatever Olimar's speed or the cursor's height. Off: Pikmin 1's plain arc, whose height follows how long the throw was held.");
