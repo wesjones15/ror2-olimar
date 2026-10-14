@@ -79,6 +79,12 @@ namespace OlimarTest
             public Vector3 start, landing;
             public float elapsed;
             public bool complete, bringSquad;
+            // The Onion lands beside the landing Dolphin and Olimar beams out of it (BeamOut).
+            public bool onionDown, squadOut;
+            /// Seconds the Onion has stood landed; Olimar's beam-in progress 0..1 (-1 not started).
+            public float landedFor, beam = -1f;
+            /// When the Onion lifts to follow him again (Time.fixedTime), 0 for never.
+            public float liftAt;
         }
         readonly Dictionary<int, DolphinFlight> dolphins = new Dictionary<int, DolphinFlight>();
         readonly Dictionary<int, OnionFlight> onionOf = new Dictionary<int, OnionFlight>();
@@ -399,7 +405,7 @@ namespace OlimarTest
             var back = -Vector3.ProjectOnPlane(body.transform.forward, Vector3.up).normalized;
             if (back.sqrMagnitude < 0.5f) back = Vector3.back;
             var landing = body.footPosition;
-            if (Physics.Raycast(landing + back * 4f + Vector3.up * 2f, Vector3.down, out var floor,
+            if (Physics.Raycast(landing + back * 8f + Vector3.up * 2f, Vector3.down, out var floor,
                 12f, UnityHost.Mask, QueryTriggerInteraction.Ignore) && floor.normal.y > 0.5f)
                 landing = floor.point;
             // Indoor stages shorten the approach to the space available below the roof.
@@ -410,6 +416,9 @@ namespace OlimarTest
             int id = dolphins.TryGetValue(captain, out var old) ? old.id
                 : Native.pik_sim_add_ship(sim, ref pos, UnityHost.Yaw(body.transform.forward));
             if (id < 0) { driver.Arriving = false; if (bringSquad) BringPikmin(captain, driver); return; }
+            // Without the ship-parts mode (not built yet) the Dolphin is the repaired one.
+            if (!dolphins.ContainsKey(captain) && !Plugin.ShipParts.Value)
+                for (uint part = 0; part < 30; part++) Native.pik_sim_give_ship_part(sim, (uint)id, part);
             dolphins[captain] = new DolphinFlight { id = id, captain = captain, start = start, landing = landing, bringSquad = bringSquad };
             if (driver.Arriving)
             {
@@ -426,37 +435,105 @@ namespace OlimarTest
             if (!driver.Arriving) FinishArrival(dolphins[captain], driver);
         }
 
+        // Timings of the arrival, in seconds from the Dolphin's descent: the Onion starts down as the
+        // ship nears the ground and takes OnionLanding to land beside it, its light cone opens, and
+        // Olimar beams in over BeamSeconds with the squad coming out of the Onion.
+        const float DescentSeconds = 3.5f, OnionLandsAt = 1.6f, OnionLanding = 2f, BeamDelay = 0.5f,
+            BeamSeconds = 0.9f, SquadOutAt = 0.3f, LiftAfter = 2.2f;
+
         void MoveDolphins()
         {
             foreach (var ship in dolphins.Values)
             {
-                if (ship.complete || !driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
+                if (!driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
+                if (ship.complete) { LiftOnion(ship); continue; }
                 ship.elapsed += Time.fixedDeltaTime;
-                float t = Mathf.Clamp01(ship.elapsed / 3.5f);
-                // Decelerate into a short landing, then release Olimar beside the ship.
+                float t = Mathf.Clamp01(ship.elapsed / DescentSeconds);
+                // Decelerate into a short landing; the Onion lands beside it and Olimar beams out of it.
                 float eased = 1f - (1f - t) * (1f - t);
                 var at = Vector3.Lerp(ship.start, ship.landing, eased);
                 var pos = UnityHost.ToSim(at);
                 Native.pik_sim_set_onion_pose(sim, (uint)ship.id, ref pos, t < 1f ? (byte)1 : (byte)0);
                 if (t < 1f) Native.pik_sim_set_onion_flight_motion(sim, (uint)ship.id, 1, t);
-                if (onionOf.TryGetValue(ship.captain, out var onion))
+                onionOf.TryGetValue(ship.captain, out var onion);
+                if (onion != null && !ship.onionDown)
                 {
-                    onion.position = at + Vector3.right * 3f + Vector3.up * 4f;
+                    if (ship.elapsed >= OnionLandsAt)
+                    {
+                        ship.onionDown = true;
+                        onion.following = false;
+                        // Where Olimar stands (the Dolphin is further back).
+                        onion.landing = driver.Body.footPosition;
+                        onion.transitionStart = onion.position;
+                        onion.transitionElapsed = 0f;
+                        onion.transitionDuration = OnionLanding;
+                        onion.airborne = true;
+                    }
+                    else onion.position = at + Vector3.right * 3f + Vector3.up * 4f;
                     WriteFlight(onion);
                 }
-                if (t >= 1f || !driver.Arriving) FinishArrival(ship, driver);
+                if (!driver.Arriving) { FinishArrival(ship, driver); continue; }
+                if (onion == null)
+                {
+                    if (t >= 1f) FinishArrival(ship, driver);
+                    continue;
+                }
+                // Landed: its cone opens over 0.8 s, then Olimar appears in the beam.
+                if (ship.onionDown && !onion.airborne) ship.landedFor += Time.fixedDeltaTime;
+                if (ship.beam < 0f && (ship.landedFor >= BeamDelay || ship.elapsed > DescentSeconds + OnionLanding + 3f))
+                {
+                    ship.beam = 0f;
+                    StoreSquadInOnion(ship.captain, driver);
+                }
+                if (ship.beam >= 0f)
+                {
+                    ship.beam += Time.fixedDeltaTime / BeamSeconds;
+                    if (!ship.squadOut && ship.beam >= SquadOutAt / BeamSeconds)
+                    {
+                        ship.squadOut = true;
+                        CallSquadOut(ship.captain, driver, onion);
+                    }
+                    if (ship.beam >= 1f) FinishArrival(ship, driver);
+                }
             }
         }
+
+        /// Olimar's beam-in progress, 0..1 while it lasts, else -1 (the presenter draws him as a column of
+        /// light settling into himself).
+        public float BeamProgress(uint captain) =>
+            dolphins.TryGetValue((int)captain, out var s) && !s.complete && s.beam >= 0f ? Mathf.Clamp01(s.beam) : -1f;
 
         void FinishArrival(DolphinFlight ship, OlimarDriver driver)
         {
             var pos = UnityHost.ToSim(ship.landing);
             Native.pik_sim_set_onion_pose(sim, (uint)ship.id, ref pos, 0);
             ship.complete = true;
+            ship.beam = -1f;
             driver.Arriving = false;
-            if (ship.bringSquad) BringPikmin(ship.captain, driver);
-            Plugin.Log.LogInfo($"Dolphin landed for captain {ship.captain}; Onion following.");
+            // Arriving by the Onion, the squad is already out of it; otherwise (a respawn, an aborted
+            // arrival) they appear around Olimar.
+            if (ship.bringSquad && !ship.squadOut) BringPikmin(ship.captain, driver);
+            if (ship.onionDown) ship.liftAt = Time.fixedTime + LiftAfter;
+            Plugin.Log.LogInfo($"Dolphin landed for captain {ship.captain}; " + (ship.onionDown ? "squad out of the Onion." : "Onion following."));
         }
+
+        /// The landed Onion rises to follow him again once the beam-out is over, unless he has already
+        /// moved it.
+        void LiftOnion(DolphinFlight ship)
+        {
+            if (ship.liftAt <= 0f || Time.fixedTime < ship.liftAt) return;
+            ship.liftAt = 0f;
+            if (!onionOf.TryGetValue(ship.captain, out var onion) || onion.following || onion.airborne) return;
+            onion.following = true;
+            onion.transitionStart = onion.position;
+            onion.transitionElapsed = 0f;
+            onion.transitionDuration = 1.8f;
+            onion.airborne = true;
+            WriteFlight(onion);
+        }
+
+        /// Arriving and not yet beamed in: Olimar isn't drawn.
+        public bool CaptainHidden(uint captain) => CaptainArriving(captain) && BeamProgress(captain) < 0f;
 
         public bool CaptainArriving(uint captain) => driverOf.TryGetValue((int)captain, out var d) && d && d.Arriving;
 
@@ -481,7 +558,7 @@ namespace OlimarTest
         {
             foreach (var flight in onionOf.Values)
             {
-                if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete) continue;
+                if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
                 if (flight.following && driverOf.TryGetValue(flight.captain, out var d) && d && d.Body)
                 {
                     var at = d.Body.footPosition;
@@ -607,6 +684,51 @@ namespace OlimarTest
             onionTargets.TryGetValue(onion, out var t) && t ? t : null;
 
         // The squad and Onion stock from the last stage, or the configured start of a run.
+        /// The squad he starts a stage with: what he carried out of the last, or the starting counts
+        /// (Blue, Red, Yellow).
+        int[] StartingSquad(OlimarDriver d)
+        {
+            var saved = cargo[d.Body.master];
+            return saved.saved ? saved.squad : new[] { Plugin.StartBlue.Value, Plugin.StartRed.Value, Plugin.StartYellow.Value };
+        }
+
+        /// Puts his squad, what his Onion held and its plucker's Pikmin into the landed Onion, for it to let
+        /// the squad out ([`CallSquadOut`]).
+        void StoreSquadInOnion(int captain, OlimarDriver d)
+        {
+            var saved = cargo[d.Body.master];
+            int home = onionOf[captain].id;
+            if (home < 0) return;
+            var squad = StartingSquad(d);
+            for (uint c = 0; c < 3; c++)
+                if (squad[c] > 0) Native.pik_sim_store_in_onion(sim, (uint)home, c, 0, (uint)squad[c]);
+            if (saved.saved)
+                for (uint c = 0; c < 3; c++)
+                    if (saved.stored[c] > 0) Native.pik_sim_store_in_onion(sim, (uint)home, c, 0, (uint)saved.stored[c]);
+            // An Onion never starts empty: its plucker (Items.AutoPluckDelay) is a Pikmin inside it.
+            int inside = saved.saved ? saved.stored[0] + saved.stored[1] + saved.stored[2] : 0;
+            if (inside == 0) Native.pik_sim_store_in_onion(sim, (uint)home, Native.Red, 0, 1);
+        }
+
+        /// The Onion lets his squad out, to join him. Any it can't (a field limit) are placed around him.
+        void CallSquadOut(int captain, OlimarDriver d, OnionFlight onion)
+        {
+            var squad = StartingSquad(d);
+            var feet = d.Body.footPosition;
+            var back = -Vector3.ProjectOnPlane(d.Body.transform.forward, Vector3.up).normalized;
+            int n = 0;
+            for (uint c = 0; c < 3; c++)
+            {
+                int left = squad[c] - (int)CallOut(captain, onion.id, c, (uint)squad[c]);
+                for (; left > 0; left--, n++)
+                {
+                    var off = Quaternion.Euler(0f, (n % 8 - 3.5f) * 20f, 0f) * back * (1.2f + 0.35f * (n / 8));
+                    var p = UnityHost.ToSim(UnityHost.Snap(feet + off));
+                    Native.pik_sim_spawn_piki(sim, c, ref p, captain);
+                }
+            }
+        }
+
         void BringPikmin(int captain, OlimarDriver d)
         {
             var saved = cargo[d.Body.master];

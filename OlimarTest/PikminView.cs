@@ -157,13 +157,16 @@ namespace OlimarTest
                 frame.up = new Native.Vec3(cam.up.x, cam.up.y, cam.up.z);
             }
             var drivers = FindObjectsOfType<OlimarDriver>();
+            // Olimar beaming out of his Onion at the start of the stage.
+            foreach (var d in drivers)
+                if (d.Captain >= 0) models.Materialize((uint)d.Captain, world.BeamProgress((uint)d.Captain));
             foreach (var d in drivers)
                 if (d.Captain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
                     frame.listener = d.Captain;
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.SimHandle, ref frame, UnityHost.Scale, d =>
-                ((d.kind == Native.KindCaptain || d.kind == Native.KindCursor || d.kind == Native.KindMarker)
-                    && world.CaptainArriving(d.id)) ||
+                (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id)
+                    : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && world.CaptainArriving(d.id)) ||
                 d.kind == Native.KindPellet &&
                 world.Corpses.Pose(d.id, new Vector3(d.pos.x, d.pos.y, d.pos.z) * UnityHost.Scale,
                     new Quaternion(d.rot_x, d.rot_y, d.rot_z, d.rot_w)));
@@ -176,7 +179,7 @@ namespace OlimarTest
                 if (dr.kind == Native.KindCaptain) drawnCaptains.Add((int)dr.id);
             }
             foreach (var d in drivers)
-                d.HideBody(d.Captain >= 0 && drawnCaptains.Contains(d.Captain));
+                d.HideBody(d.Arriving || d.Captain >= 0 && drawnCaptains.Contains(d.Captain));
         }
 
         // RoR2's master and sound-effects volume, times ours.

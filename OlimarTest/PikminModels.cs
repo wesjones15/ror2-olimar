@@ -37,6 +37,8 @@ namespace OlimarTest
         /// objects across scenes.
         public static PikminModels Create(string assetsDir, Transform parent, bool sound, string name = "Pikmin")
         {
+            // The Dolphin's parts are drawn as the sim fits them: all 30 unless the ship-parts mode is on.
+            Native.pik_view_set_repaired_ship(1);
             var v = Native.pik_view_new(Native.CString(assetsDir), (byte)(sound ? 1 : 0));
             if (v == IntPtr.Zero)
             {
@@ -55,6 +57,12 @@ namespace OlimarTest
         }
 
         /// Draw each captain's cursor and marker (on by default).
+        /// Captain `captain` appears in a beam, `progress` 0..1; anything else ends it.
+        public void Materialize(uint captain, float progress)
+        {
+            if (view != IntPtr.Zero) Native.pik_view_set_materialize(view, captain, progress);
+        }
+
         public void ShowCursors(bool show)
         {
             if (view != IntPtr.Zero) Native.pik_view_show_cursors(view, (byte)(show ? 1 : 0));

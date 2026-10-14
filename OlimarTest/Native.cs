@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 21). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 23). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 21;
+        public const uint AbiVersion = 23;
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_attack_rate(IntPtr sim, uint captain, float rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_speed(IntPtr sim, uint captain, float scale);
@@ -23,6 +23,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_sprout_stages(IntPtr sim, float stage, float flower);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_dismiss_strike(IntPtr sim, float damageScale, float reach, float cooldown, float charge);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_punch_damage(IntPtr sim, float damage);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_give_ship_part(IntPtr sim, uint ship, uint part);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_cursor_homing(IntPtr sim, byte on);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_pace(IntPtr sim, float leaf, float bud, float flower);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_kill_growth(IntPtr sim, uint kills);
@@ -236,7 +237,7 @@ namespace OlimarTest
 
         // Draw kinds (libpikmin_present::view::kinds).
         public const byte KindCaptain = 0, KindPiki = 1, KindHappa = 2, KindOnion = 3, KindPellet = 4,
-            KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8, KindShip = 9, KindBeam = 10;
+            KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8, KindShip = 9, KindBeam = 10, KindShipPart = 11;
 
         // Models' info, batches, textures and draws are ror2-common's ViewModelInfo, ViewBatch
         // (blends: ViewBlend; libpikmin_present::view::blend's additive is the Onions' light cones), ViewTexture and
@@ -276,6 +277,8 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_texture(IntPtr view, uint id, out ViewTexture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_update(IntPtr view, IntPtr sim, ref ViewFrame frame);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_show_cursors(IntPtr view, byte show);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_materialize(IntPtr view, uint captain, float progress);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_repaired_ship(byte on);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_captain_pikmin_jump(byte on);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_trumpet_gain(IntPtr view, float gain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_draws(IntPtr view, [Out] ViewDraw[] outArr, uint max);

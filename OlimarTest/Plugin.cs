@@ -60,7 +60,7 @@ namespace OlimarTest
         internal static ConfigEntry<float> SecondsPerStage, FlowerSeconds;
         // The dismiss strike and Pikmin pace (see PikminWorld.StartSim).
         internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
-        internal static ConfigEntry<bool> CursorHoming, PikminJump;
+        internal static ConfigEntry<bool> CursorHoming, PikminJump, ShipParts;
         internal static ConfigEntry<float> PunchDamage, StrikeChargeSeconds;
         internal static ConfigEntry<bool> StrikeStun, StrikeKillReset;
         internal static ConfigEntry<int> KillsPerStage;
@@ -137,6 +137,9 @@ namespace OlimarTest
             StrikeReachMetres = Config.Bind("Combat", "StrikeReachMetres", 4f,
                 "How far from an enemy's edge the strike reaches, all around Olimar.");
             StrikeCooldown = Config.Bind("Combat", "StrikeCooldown", 4f, "Seconds between strikes.");
+            ShipParts = Config.Bind("Dolphin", "ShipPartsMode", false,
+                "Not built yet: the ship-repair mode, where the Dolphin is wrecked and its parts are scattered over the stages. " +
+                "Off (the only mode for now): the Dolphin is the repaired ship, with all 30 parts and its lights and effects.");
             PikminJump = Config.Bind("Pikmin", "OlimarUsesPikminJump", true,
                 "Olimar jumps with the Pikmin's own jump animation (they share the game's motion table). Off: his geyser-ride pose, tipped upright.");
             CursorHoming = Config.Bind("Combat", "CursorHoming", true,
