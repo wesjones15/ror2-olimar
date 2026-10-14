@@ -190,6 +190,7 @@ namespace OlimarTest
             onionMinions.Clear();
             bodies.Clear();
             creatureIndex.Clear();
+            lastCore.Clear();
             foreach (var b in attackWatched)
                 if (b) b.onSkillActivatedServer -= EnemyAttacked;
             attackWatched.Clear();
@@ -1015,6 +1016,7 @@ namespace OlimarTest
             PartCount = 0;
             bodies.Clear();
             creatureIndex.Clear();
+            if (lastCore.Count > 512) lastCore.Clear();
             attackWatched.RemoveWhere(Gone);
             foreach (var b in CharacterBody.readOnlyInstancesList)
             {
@@ -1026,6 +1028,7 @@ namespace OlimarTest
                 if (creatureCount == creatures.Length) Array.Resize(ref creatures, creatures.Length * 2);
                 int start = PartCount;
                 partStart = start;
+                partShift = Lead(id, b);
                 var group = b.hurtBoxGroup;
                 if (group && group.hurtBoxes != null)
                     foreach (var hb in group.hurtBoxes)
@@ -1046,7 +1049,7 @@ namespace OlimarTest
                 creatures[creatureCount++] = new Native.Creature
                 {
                     id = id,
-                    pos = UnityHost.ToSim(b.footPosition),
+                    pos = UnityHost.ToSim(b.footPosition + partShift),
                     yaw = UnityHost.Yaw(b.transform.forward),
                     alive = 1,
                     flying = (byte)(b.isFlying ? 1 : 0),
@@ -1064,13 +1067,34 @@ namespace OlimarTest
 
         int partStart;
         HurtParts.Add partAdder;
+        // How far this enemy's parts are moved ahead for the sim (Lead).
+        Vector3 partShift;
+
+        // The sim is drawn one tick behind real time but an enemy's model is not, so a fast enemy runs away from the
+        // Pikmin latched to it: hand the sim where it will be a tick on (by its speed, Combat.LatchLead).
+        readonly Dictionary<ulong, (Vector3 pos, float time)> lastCore = new Dictionary<ulong, (Vector3, float)>();
+
+        Vector3 Lead(ulong id, CharacterBody b)
+        {
+            var core = b.corePosition;
+            var shift = Vector3.zero;
+            float lead = Plugin.LatchLead.Value;
+            if (lead > 0f && lastCore.TryGetValue(id, out var last) && Time.fixedTime > last.time)
+            {
+                var v = (core - last.pos) / (Time.fixedTime - last.time);
+                // A teleport or a snap isn't a speed.
+                if (v.sqrMagnitude < 40f * 40f) shift = v * (lead / Mathf.Max(1u, tickHz));
+            }
+            lastCore[id] = (core, Time.fixedTime);
+            return shift;
+        }
 
         void AddPart(Vector3 centre, float radius)
         {
             if (PartCount == parts.Length) Array.Resize(ref parts, parts.Length * 2);
             parts[PartCount++] = new Native.Part
             {
-                centre = UnityHost.ToSim(centre),
+                centre = UnityHost.ToSim(centre + partShift),
                 radius = radius / UnityHost.Scale,
                 stickable = 1,
             };
