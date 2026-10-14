@@ -159,10 +159,10 @@ namespace OlimarTest
             var drivers = FindObjectsOfType<OlimarDriver>();
             // Olimar beaming out of his Onion at the start of the stage.
             foreach (var d in drivers)
-                if (d.Captain >= 0) models.Materialize((uint)d.Captain, world.BeamProgress((uint)d.Captain));
+                if (d.ViewCaptain >= 0) models.Materialize((uint)d.ViewCaptain, world.BeamProgress((uint)d.ViewCaptain));
             foreach (var d in drivers)
-                if (d.Captain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
-                    frame.listener = d.Captain;
+                if (d.ViewCaptain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
+                    frame.listener = d.ViewCaptain;
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.SimHandle, ref frame, UnityHost.Scale, d =>
                 (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id)
@@ -179,7 +179,7 @@ namespace OlimarTest
                 if (dr.kind == Native.KindCaptain) drawnCaptains.Add((int)dr.id);
             }
             foreach (var d in drivers)
-                d.HideBody(d.Arriving || d.Captain >= 0 && drawnCaptains.Contains(d.Captain));
+                d.HideBody(d.Arriving || d.ViewCaptain >= 0 && drawnCaptains.Contains(d.ViewCaptain));
         }
 
         // RoR2's master and sound-effects volume, times ours.

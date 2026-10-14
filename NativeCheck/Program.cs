@@ -113,6 +113,60 @@ static class Program
         Check(Math.Abs(invalid.pos.x - endNavi.pos.x) < 0.001f, "invalid lag safely draws the newest state");
     }
 
+    // The server's world through pik_sim_snapshot, the host's envelope, and a replica applying it.
+    static void CheckReplica(ref Native.Host host)
+    {
+        IntPtr server = Native.pik_sim_new(null, 41);
+        var origin = new Native.Vec3(0, 0, 0);
+        int cap = Native.pik_sim_add_captain(server, ref origin);
+        for (int i = 0; i < 20; i++)
+        {
+            var at = new Native.Vec3(-20 - i * 3, 0, i % 4 * 6);
+            Native.pik_sim_spawn_piki(server, (uint)(i % 3), ref at, cap);
+        }
+        var onionAt = new Native.Vec3(-300, 0, 0);
+        Native.pik_sim_add_onion(server, ref onionAt, 7);
+        var walk = new Native.Input { stick_x = 1f };
+        Native.pik_sim_set_input(server, (uint)cap, ref walk);
+        for (int i = 0; i < 30; i++) Native.pik_sim_advance(server, ref host, 1f / 30f);
+        var buffer = new byte[128 * 1024];
+        uint n = Native.pik_sim_snapshot(server, buffer, (uint)buffer.Length);
+        Check(n > 100 && n < 20000, $"a snapshot of 20 Pikmin is {n} bytes");
+        Check(Native.pik_sim_snapshot(server, new byte[8], 8) == 0, "a buffer that is too small writes nothing");
+
+        var sent = new List<CaptainInfo> { new CaptainInfo { id = 0, netId = 77, flags = CaptainInfo.Arriving, beam = 0.5f } };
+        var envelope = PikminEnvelope.Write(3, sent, buffer, (int)n);
+        var infos = new List<CaptainInfo>();
+        var status = PikminEnvelope.Read(new ByteReader(envelope), out uint epoch, infos, out var snapshot, out _);
+        Check(status == PikminEnvelope.Status.Ok && epoch == 3 && infos.Count == 1 && infos[0].netId == 77
+            && infos[0].IsArriving && !infos[0].IsTemporary && infos[0].beam == 0.5f && snapshot.Length == (int)n, "envelope round trip");
+        var cut = new byte[20];
+        Array.Copy(envelope, cut, 20);
+        Check(PikminEnvelope.Read(new ByteReader(cut), out _, new List<CaptainInfo>(), out _, out _) == PikminEnvelope.Status.Corrupt, "a cut envelope is corrupt");
+        var wrong = (byte[])envelope.Clone();
+        wrong[1] ^= 1;
+        Check(PikminEnvelope.Read(new ByteReader(wrong), out _, new List<CaptainInfo>(), out _, out _) == PikminEnvelope.Status.WrongAbi, "another ABI is refused");
+
+        IntPtr replica = Native.pik_replica_new(null);
+        Check(replica != IntPtr.Zero, "replica starts");
+        Check(Native.pik_replica_apply(replica, snapshot, (uint)snapshot.Length) == 1, "replica takes the snapshot");
+        Check(Native.pik_replica_apply(replica, new byte[] { 1, 2, 3 }, 3) == 0, "replica refuses nonsense");
+        Check(Native.pik_replica_apply(server, snapshot, (uint)snapshot.Length) == 0, "a plain sim isn't a replica");
+        Native.pik_replica_update(replica, 0.05f);
+        var a = new Native.Piki[32];
+        var b = new Native.Piki[32];
+        uint na = Native.pik_sim_pikis(server, a, 32), nb = Native.pik_sim_pikis(replica, b, 32);
+        Check(na == 20 && nb == 20, $"the replica has the server's {na} Pikmin ({nb})");
+        bool same = true;
+        for (int i = 0; i < na; i++) same &= a[i].color == b[i].color && Math.Abs(a[i].pos.x - b[i].pos.x) < 1f && a[i].state == b[i].state;
+        Check(same, "the replica's Pikmin are where the server's are");
+        Native.pik_sim_captain(server, (uint)cap, out var capA);
+        Native.pik_sim_captain(replica, (uint)cap, out var capB);
+        Check(Math.Abs(capA.pos.x - capB.pos.x) < 1f && capA.pos.x > 30f, $"and so is the captain ({capA.pos.x} vs {capB.pos.x})");
+        Native.pik_sim_free(server);
+        Native.pik_sim_free(replica);
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -157,6 +211,7 @@ static class Program
         Check(Native.pik_sim_onion_counts(arrivalSim, (uint)arrivalOnion, (uint)arrivalCaptain, Native.Blue, out var stock) != 0
             && stock.in_onion == 4, "cosmetic colour and landing preserve blue storage");
         Native.pik_sim_free(arrivalSim);
+        CheckReplica(ref host);
         IntPtr jumpSim = Native.pik_sim_new(null, 31);
         int jumper = Native.pik_sim_add_captain(jumpSim, ref origin);
         var followerAt = new Native.Vec3(-60, 0, 0);

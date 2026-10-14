@@ -52,6 +52,8 @@ namespace OlimarTest
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> CarryBodies;
         internal static ConfigEntry<bool> LogEvents;
+        internal static ConfigEntry<float> SnapshotHz;
+        internal static ConfigEntry<bool> ReliableSnapshots, LogNet;
         // Items (OlimarItems): the shared minion scaling policy and the timers items shorten.
         internal static ConfigEntry<float> ProcInterval, MinionMoveScale, MinionHealScale, ItemEffectScale,
             CooldownExponent, RelocationRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
@@ -72,6 +74,21 @@ namespace OlimarTest
         /// Extraction has finished (or wasn't needed). The sim waits for this so it starts on
         /// the disc's tuning.
         internal static bool AssetsSettled => !assetsBusy;
+
+        static int assetsState;
+
+        /// The assets folder is complete (so Pikmin's models, sounds and tuning can load), checked once
+        /// extraction has settled.
+        internal static bool AssetsReady
+        {
+            get
+            {
+                if (!AssetsSettled) return false;
+                if (assetsState == 0)
+                    assetsState = Native.pik_assets_complete(Native.CString(AssetsDir)) != 0 ? 1 : 2;
+                return assetsState == 1;
+            }
+        }
 
         void Awake()
         {
@@ -243,6 +260,15 @@ namespace OlimarTest
                 "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
             GummyClones = Config.Bind("Look", "GummyClones", true,
                 "Goobo Jr.'s Olimar is drawn in RoR2's gummy clone material.");
+            SnapshotHz = Config.Bind("Net", "SnapshotHz", 10f,
+                new ConfigDescription("How often, with other players in the game, the host sends them its Pikmin world " +
+                    "(positions are blended between snapshots, so 10 looks smooth). More is smoother and uses more bandwidth.",
+                    new AcceptableValueRange<float>(2f, 30f)));
+            ReliableSnapshots = Config.Bind("Net", "ReliableSnapshots", false,
+                "Send the host's snapshots reliably. Off: a lost one is skipped (its sounds and effects too); on: " +
+                "none are lost but a bad connection backs up.");
+            LogNet = Config.Bind("Debug", "LogNet", false,
+                "Every ten seconds, log how much the host's snapshots send.");
             LogEvents = Config.Bind("Debug", "LogEvents", false,
                 "Log every sim event (latches, deaths, growth, deliveries, plucks, enemy attacks) to the " +
                 "BepInEx log. Off by default: it adds a line per event and floods the log in a fight.");
@@ -278,6 +304,7 @@ namespace OlimarTest
             ContentProvider.Register(Guid, Content.Fill);
             Language.onCurrentLanguageChanged += AddTokens;
             PikminWorld.Hook();
+            PikminNet.Register();
         }
 
         static bool InVr()

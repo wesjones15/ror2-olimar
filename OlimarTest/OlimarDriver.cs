@@ -41,7 +41,18 @@ namespace OlimarTest
         CameraRigController camRig;
 
         int captain = -1;
+        // On a machine that only shows the server's world: this body's captain there (-1: none), for
+        // hiding Commando under Olimar and the beam-in. The server's PikminWorld sends who is who.
+        int remoteCaptain = -1;
         bool warnedClient;
+
+        static readonly System.Collections.Generic.List<OlimarDriver> all = new System.Collections.Generic.List<OlimarDriver>();
+        public static System.Collections.Generic.IReadOnlyList<OlimarDriver> All => all;
+
+        /// His captain in the world drawn here: his own on the server, the server's on others.
+        public int ViewCaptain => captain >= 0 ? captain : remoteCaptain;
+
+        internal void SetRemoteCaptain(int id) => remoteCaptain = id;
         internal bool Arriving;
 
         // Body origin minus feet: the sim tracks Olimar's feet.
@@ -102,6 +113,7 @@ namespace OlimarTest
             native = GetComponent<NativeBody>();
             smoother = new StepSmoother(transform);
             Items = new OlimarItems(this);
+            all.Add(this);
         }
 
         void FixedUpdate()
@@ -194,6 +206,7 @@ namespace OlimarTest
 
         void OnDestroy()
         {
+            all.Remove(this);
             if (PikminWorld.Instance) PikminWorld.Instance.Unregister(this);
             ReleaseCamera();
             InteractTarget.Override(interaction, null);

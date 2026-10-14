@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 24;
+        public const uint AbiVersion = 25;
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_attack_rate(IntPtr sim, uint captain, float rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_speed(IntPtr sim, uint captain, float scale);
@@ -310,6 +310,14 @@ namespace OlimarTest
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_sim_new(byte[] assetsDir, ulong seed);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_free(IntPtr sim);
+        /// The sim's entities and events since the last call, encoded for another machine's replica; the
+        /// length written, or 0 if `cap` was too small.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_snapshot(IntPtr sim, [Out] byte[] output, uint cap);
+        /// A sim that only holds what the server's snapshots say (it is never stepped).
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_replica_new(byte[] assetsDir);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_replica_apply(IntPtr sim, byte[] bytes, uint len);
+        /// Blends a replica toward its newest snapshot; once a frame, before pik_view_update.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_replica_update(IntPtr sim, float dt);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_sim_params_source(IntPtr sim);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_poisoned(IntPtr sim);
 

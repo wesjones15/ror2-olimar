@@ -35,6 +35,26 @@ namespace OlimarTest
         float alphaAtFixed;
         uint tickHz = 30;
 
+        // ---- multiplayer ---------------------------------------------------------------------
+        // The server's sends a snapshot of its sim every few ticks (PikminEnvelope); every other
+        // machine runs a PikminWorld in ClientMode instead: `sim` is then a replica that holds what
+        // the snapshots say (nothing steps), and everything that reads `sim` (the view, the squad
+        // chips, the Onion window) sees the server's world.
+
+        /// This machine shows the server's world instead of running its own.
+        public bool ClientMode { get; private set; }
+        // Counts the server's sims (one per stage); the replica starts over when it changes.
+        uint epoch, ignoreThrough;
+        int ticksSinceSend;
+        byte[] snapshotBuffer;
+        readonly List<CaptainInfo> sendInfos = new List<CaptainInfo>();
+        // What the server said about each captain (client): whose body, arriving, beam-in.
+        readonly Dictionary<int, CaptainInfo> remoteInfo = new Dictionary<int, CaptainInfo>();
+        static bool warnedAssets, warnedSize;
+        // Network ticks per second, and bytes sent in the last report period (Debug.LogNet).
+        long bytesSent;
+        float reportAt;
+
         // Captains: one per Olimar's CharacterMaster, so a respawned body keeps his Pikmin.
         readonly Dictionary<CharacterMaster, int> captainOf = new Dictionary<CharacterMaster, int>();
         readonly Dictionary<int, OlimarDriver> driverOf = new Dictionary<int, OlimarDriver>();
@@ -122,7 +142,7 @@ namespace OlimarTest
         public bool Healthy => sim != IntPtr.Zero && !reportedPoison;
 
         /// How far the clock is between the last tick and the next, for drawing.
-        public float RenderAlpha =>
+        public float RenderAlpha => ClientMode ? 1f :
             Mathf.Clamp01(alphaAtFixed + (Time.time - Time.fixedTime) * tickHz);
 
         public static void Hook()
@@ -153,6 +173,21 @@ namespace OlimarTest
                 var go = new GameObject("PikminWorld");
                 DontDestroyOnLoad(go);
                 Instance = go.AddComponent<PikminWorld>();
+                Instance.view = go.AddComponent<PikminView>();
+                Instance.view.world = Instance;
+            }
+            return Instance;
+        }
+
+        /// The world on a machine that isn't running the sim: it shows the server's.
+        static PikminWorld EnsureClient()
+        {
+            if (!Instance)
+            {
+                var go = new GameObject("PikminWorld");
+                DontDestroyOnLoad(go);
+                Instance = go.AddComponent<PikminWorld>();
+                Instance.ClientMode = true;
                 Instance.view = go.AddComponent<PikminView>();
                 Instance.view.world = Instance;
             }
@@ -195,6 +230,9 @@ namespace OlimarTest
             attackWatched.Clear();
             thrownAt.Clear();
             tempCaptains.Clear();
+            remoteInfo.Clear();
+            foreach (var d in OlimarDriver.All)
+                if (d) d.SetRemoteCaptain(-1);
             affixes.Clear();
             Array.Clear(procReadyAt, 0, procReadyAt.Length);
             PikiCount = PelletCount = OnionCount = SproutCount = 0;
@@ -265,7 +303,9 @@ namespace OlimarTest
         static bool IsGooboClone(OlimarDriver d) => GummyClone.Is(d.Body);
 
         /// A Goobo Jr. clone's captain (a temporary squad's), for drawing it as a gummy.
-        public bool IsTemporaryCaptain(int captain) => tempCaptains.Contains(captain);
+        public bool IsTemporaryCaptain(int captain) => ClientMode
+            ? remoteInfo.TryGetValue(captain, out var info) && info.IsTemporary
+            : tempCaptains.Contains(captain);
 
         // The clone's squad: as many of each colour as its owner has with him now. They're new
         // Pikmin; the owner's squad and Onion lose nothing.
@@ -341,6 +381,7 @@ namespace OlimarTest
             }
             simStage = Stage.instance;
             reportedPoison = false;
+            epoch++;
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
             Native.pik_sim_set_shake_protection(sim, Plugin.ShakeProtection.Value);
             Native.pik_sim_set_auto_carry(sim, Mathf.Max(0f, Plugin.AutoCarryMetres.Value) / UnityHost.Scale);
@@ -516,8 +557,9 @@ namespace OlimarTest
 
         /// Olimar's beam-in progress, 0..1 while it lasts, else -1 (the presenter draws him as a column of
         /// light settling into himself).
-        public float BeamProgress(uint captain) =>
-            dolphins.TryGetValue((int)captain, out var s) && !s.complete && s.beam >= 0f ? Mathf.Clamp01(s.beam) : -1f;
+        public float BeamProgress(uint captain) => ClientMode
+            ? remoteInfo.TryGetValue((int)captain, out var info) && info.beam >= 0f ? Mathf.Clamp01(info.beam) : -1f
+            : dolphins.TryGetValue((int)captain, out var s) && !s.complete && s.beam >= 0f ? Mathf.Clamp01(s.beam) : -1f;
 
         void FinishArrival(DolphinFlight ship, OlimarDriver driver)
         {
@@ -551,7 +593,9 @@ namespace OlimarTest
         /// Arriving and not yet beamed in: Olimar isn't drawn.
         public bool CaptainHidden(uint captain) => CaptainArriving(captain) && BeamProgress(captain) < 0f;
 
-        public bool CaptainArriving(uint captain) => driverOf.TryGetValue((int)captain, out var d) && d && d.Arriving;
+        public bool CaptainArriving(uint captain) => ClientMode
+            ? remoteInfo.TryGetValue((int)captain, out var info) && info.IsArriving
+            : driverOf.TryGetValue((int)captain, out var d) && d && d.Arriving;
 
         void WriteFlight(OnionFlight flight)
         {
@@ -829,7 +873,7 @@ namespace OlimarTest
 
         void FixedUpdate()
         {
-            if (sim == IntPtr.Zero) return;
+            if (ClientMode || sim == IntPtr.Zero) return;
             if (Stage.instance != simStage)
             {
                 // The stage is gone; wait for an Olimar to register in the next one.
@@ -898,6 +942,121 @@ namespace OlimarTest
                     kv.Value.Ticked(cap);
             KillFallen();
             DrainEvents();
+            view.Snapshot();
+            SendSnapshot((int)ticks);
+        }
+
+        // ---- the server's snapshots ----------------------------------------------------------
+
+        /// Every few ticks, with other players about, the sim's world goes to them.
+        void SendSnapshot(int ticks)
+        {
+            if (!NetworkServer.active || !Mp.Networked) return;
+            ticksSinceSend += ticks;
+            int every = Mathf.Max(1, Mathf.RoundToInt(tickHz / Mathf.Max(1f, Plugin.SnapshotHz.Value)));
+            if (ticksSinceSend < every) return;
+            ticksSinceSend = 0;
+            if (snapshotBuffer == null) snapshotBuffer = new byte[128 * 1024];
+            uint n = Native.pik_sim_snapshot(sim, snapshotBuffer, (uint)snapshotBuffer.Length);
+            if (n == 0)
+            {
+                if (!warnedSize)
+                    Plugin.Log.LogWarning("The Pikmin world is too big to send to other players in one snapshot; they won't see it.");
+                warnedSize = true;
+                return;
+            }
+            sendInfos.Clear();
+            foreach (var kv in driverOf)
+            {
+                var d = kv.Value;
+                if (!d || !d.Body) continue;
+                byte flags = 0;
+                if (tempCaptains.Contains(kv.Key)) flags |= CaptainInfo.Temporary;
+                if (d.Arriving) flags |= CaptainInfo.Arriving;
+                sendInfos.Add(new CaptainInfo { id = (byte)kv.Key, netId = d.Body.netId.Value, flags = flags, beam = BeamProgress((uint)kv.Key) });
+            }
+            var payload = PikminEnvelope.Write(epoch, sendInfos, snapshotBuffer, (int)n);
+            Mp.SendToAll(PikminNet.SnapshotMsg, payload, Plugin.ReliableSnapshots.Value);
+            if (Plugin.LogNet.Value)
+            {
+                bytesSent += payload.Length;
+                if (Time.unscaledTime >= reportAt)
+                {
+                    if (reportAt > 0f) Plugin.Log.LogInfo($"Pikmin snapshots: {payload.Length} bytes each, {bytesSent / 10f / 1024f:F1} KiB/s");
+                    bytesSent = 0;
+                    reportAt = Time.unscaledTime + 10f;
+                }
+            }
+        }
+
+        /// A snapshot from the server arrived (any machine but the server).
+        internal static void ReceiveSnapshot(uint epoch, List<CaptainInfo> captains, byte[] snapshot)
+        {
+            if (NetworkServer.active || RunAudio.Ended) return;
+            // Without the Pikmin disc's assets there is nothing to draw it with.
+            if (!Plugin.AssetsReady)
+            {
+                if (!warnedAssets && Plugin.AssetsSettled)
+                    Plugin.Log.LogWarning("The host is playing Olimar, but this machine has no Pikmin assets yet " +
+                                          "(set Paths.Disc to your own disc): you won't see their Pikmin.");
+                warnedAssets = true;
+                return;
+            }
+            if (!Stage.instance) return;
+            EnsureClient().ApplyRemote(epoch, captains, snapshot);
+        }
+
+        void ApplyRemote(uint theirEpoch, List<CaptainInfo> captains, byte[] snapshot)
+        {
+            // A late packet from a stage we've left, or a sim that's since been replaced.
+            if (theirEpoch <= ignoreThrough) return;
+            if (sim != IntPtr.Zero && theirEpoch != epoch)
+            {
+                FreeSim();
+            }
+            if (sim == IntPtr.Zero)
+            {
+                sim = Native.pik_replica_new(Native.CString(Plugin.AssetsDir));
+                if (sim == IntPtr.Zero)
+                {
+                    Plugin.Log.LogError("libpikmin's replica didn't start");
+                    return;
+                }
+                epoch = theirEpoch;
+                simStage = Stage.instance;
+                reportedPoison = false;
+                Plugin.Log.LogInfo($"Showing the host's Pikmin ({Native.Utf8(Native.pik_sim_params_source(sim))})");
+                view.StartModels();
+            }
+            if (Native.pik_replica_apply(sim, snapshot, (uint)snapshot.Length) == 0) return;
+            remoteInfo.Clear();
+            foreach (var c in captains) remoteInfo[c.id] = c;
+            foreach (var d in OlimarDriver.All)
+            {
+                if (!d || !d.Body) continue;
+                int id = -1;
+                foreach (var c in captains)
+                    if (c.netId != 0 && c.netId == d.Body.netId.Value)
+                    {
+                        id = c.id;
+                        break;
+                    }
+                d.SetRemoteCaptain(id);
+            }
+        }
+
+        void Update()
+        {
+            if (!ClientMode || sim == IntPtr.Zero) return;
+            // A new stage: the old world is gone, and so are its snapshots.
+            if (!Stage.instance || Stage.instance != simStage)
+            {
+                ignoreThrough = epoch;
+                FreeSim();
+                return;
+            }
+            Native.pik_replica_update(sim, Time.deltaTime);
+            ReadBack();
             view.Snapshot();
         }
 
