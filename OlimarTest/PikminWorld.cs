@@ -1117,6 +1117,7 @@ namespace OlimarTest
                     if (captain >= 0 && driverOf.TryGetValue(captain, out var d) && d && d.Body)
                         d.Items.OnEvent(e, this);
                     if (Plugin.LogEvents.Value) LogEvent(e);
+                    if (Plugin.LogLatches.Value && e.kind == Native.EventKind.Latched) AuditLatch(e);
                 }
             } while (n == events.Length);
         }
@@ -1188,6 +1189,32 @@ namespace OlimarTest
                 default: return;
             }
             Plugin.Log.LogInfo(what);
+        }
+
+        // Where a Pikmin that just latched is against the enemy's real hurtboxes, to find latches in the air.
+        void AuditLatch(in Native.Event e)
+        {
+            if (e.has_creature == 0 || !bodies.TryGetValue(e.creature, out var body) || !body) return;
+            int pi = -1;
+            for (int i = 0; i < PikiCount; i++)
+                if (Pikis[i].id == e.a) { pi = i; break; }
+            if (pi < 0) return;
+            var at = UnityHost.ToUnity(Pikis[pi].pos);
+            float best = float.MaxValue;
+            Collider nearest = null;
+            var group = body.hurtBoxGroup;
+            if (group && group.hurtBoxes != null)
+                foreach (var hb in group.hurtBoxes)
+                {
+                    var col = hb ? hb.collider : null;
+                    if (!col || !col.enabled) continue;
+                    float d = Vector3.Distance(col.ClosestPoint(at), at);
+                    if (d < best) { best = d; nearest = col; }
+                }
+            if (!nearest) return;
+            var ext = nearest.bounds.extents;
+            Plugin.Log.LogInfo($"Latch audit: Pikmin {e.a} on {body.GetDisplayName()} is {best:F2} m from its nearest hurtbox " +
+                               $"({nearest.GetType().Name} '{nearest.name}', box extents {ext.x:F2}/{ext.y:F2}/{ext.z:F2})");
         }
 
         string Name(in Native.Event e) =>

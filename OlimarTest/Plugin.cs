@@ -51,7 +51,7 @@ namespace OlimarTest
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> CarryBodies;
-        internal static ConfigEntry<bool> LogEvents;
+        internal static ConfigEntry<bool> LogEvents, LogLatches;
         // Items (OlimarItems): the shared minion scaling policy and the timers items shorten.
         internal static ConfigEntry<float> ProcInterval, MinionMoveScale, MinionHealScale, ItemEffectScale,
             CooldownExponent, RelocationRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
@@ -243,6 +243,9 @@ namespace OlimarTest
                 "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
             GummyClones = Config.Bind("Look", "GummyClones", true,
                 "Goobo Jr.'s Olimar is drawn in RoR2's gummy clone material.");
+            LogLatches = Config.Bind("Debug", "LogLatches", false,
+                "Each time a Pikmin latches onto an enemy, log how far it is from the enemy's nearest real hurtbox " +
+                "(0 is on the surface; a big number is a Pikmin latched onto air) and what kind of hurtbox that is.");
             LogEvents = Config.Bind("Debug", "LogEvents", false,
                 "Log every sim event (latches, deaths, growth, deliveries, plucks, enemy attacks) to the " +
                 "BepInEx log. Off by default: it adds a line per event and floods the log in a fight.");
