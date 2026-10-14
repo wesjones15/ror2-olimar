@@ -49,10 +49,31 @@ namespace OlimarTest
         static readonly System.Collections.Generic.List<OlimarDriver> all = new System.Collections.Generic.List<OlimarDriver>();
         public static System.Collections.Generic.IReadOnlyList<OlimarDriver> All => all;
 
-        /// His captain in the world drawn here: his own on the server, the server's on others.
-        public int ViewCaptain => captain >= 0 ? captain : remoteCaptain;
+        /// His captain in the world drawn and queried here (the squad, the Onion): the server's, which
+        /// on a client is not the id of the small sim that moves him.
+        public int ViewCaptain => NetworkServer.active ? captain : remoteCaptain;
+        int DataCaptain => ViewCaptain;
 
         internal void SetRemoteCaptain(int id) => remoteCaptain = id;
+
+        /// Another player's Olimar, and this is the server: his machine moves him, and the server's
+        /// captain follows the pose it sends (as in VR).
+        public bool IsRemote => NetworkServer.active && Body && !Body.hasEffectiveAuthority && !IsAi;
+
+        /// A player's own Olimar on a machine that isn't the server.
+        public bool IsLocalClient => !NetworkServer.active && Body && Body.hasEffectiveAuthority && !IsAi;
+
+        float spawnAge;
+        /// The enemy he's locked onto, for the server's captain (the locked body's network id).
+        uint lockNetId;
+
+        // The latest of a client's Olimar's packets (server), with the buttons pressed since the last step.
+        PikminInputPacket remotePacket;
+        bool haveRemote;
+        byte remotePulses;
+        // What a local client's Olimar has sent (client).
+        byte sentButtons, outPulses;
+        int sendCount;
         internal bool Arriving;
 
         // Body origin minus feet: the sim tracks Olimar's feet.
@@ -89,7 +110,7 @@ namespace OlimarTest
         /// The sim moves the body (Pikmin scheme, a player's Olimar, running on the server,
         /// sim healthy).
         public bool SimMoves => Plugin.Scheme == ControlScheme.Pikmin && !IsAi && captain >= 0
-                                && PikminWorld.Instance && PikminWorld.Instance.Healthy;
+                                && PikminWorld.Instance && PikminWorld.Instance.Controllable;
 
         /// Run by RoR2's AI (Goobo Jr.'s Olimar), not a player.
         public bool IsAi => Body && Body.master && !Body.master.playerCharacterMasterController;
@@ -98,8 +119,8 @@ namespace OlimarTest
         bool OnPlayersTeam => !Body.teamComponent || Body.teamComponent.teamIndex == TeamIndex.Player;
 
         /// Alive, ours to steer, and a captain in the sim.
-        public bool Active => !Arriving && captain >= 0 && Body && Body.hasEffectiveAuthority && !Body.currentVehicle
-                              && (!health || health.alive);
+        public bool Active => !Arriving && captain >= 0 && Body && (Body.hasEffectiveAuthority || IsRemote)
+                              && !Body.currentVehicle && (!health || health.alive);
 
         public int Captain => captain;
 
@@ -118,19 +139,20 @@ namespace OlimarTest
 
         void FixedUpdate()
         {
-            if (!Body || !Body.hasEffectiveAuthority) return;
-            if (!NetworkServer.active)
+            if (!Body) return;
+            if (!Body.hasEffectiveAuthority)
             {
-                if (!warnedClient)
-                    Plugin.Log.LogWarning("Olimar's Pikmin only run on the host for now; as a client he walks like Commando.");
-                warnedClient = true;
+                if (IsRemote) RemoteTick();
                 return;
             }
+            bool server = NetworkServer.active;
+            // An AI Olimar (Goobo Jr.'s) lives on the server; and a client needs the assets to move him.
+            if (!server && (IsAi || !Plugin.AssetsSettled || !Plugin.AssetsReady)) return;
             if (captain < 0)
             {
                 // Register during the Dolphin arrival so the ship and airborne Onion draw together.
                 if (Body.currentVehicle || (health && !health.alive) || !OnPlayersTeam) return;
-                captain = PikminWorld.Ensure().Register(this);
+                captain = server ? PikminWorld.Ensure().Register(this) : PikminWorld.RegisterLocal(this);
                 if (captain < 0) return;
                 feetToOrigin = transform.position - Body.footPosition;
                 smoother.Reset();
@@ -171,7 +193,7 @@ namespace OlimarTest
             if (captain < 0) return;
 
             if (SimMoves && placed && Active)
-                smoother.Smooth(PikminWorld.Instance.RenderAlpha);
+                smoother.Smooth(PikminWorld.Instance.BodyAlpha);
 
             if (cam != null)
             {
@@ -182,7 +204,7 @@ namespace OlimarTest
             }
             pad.recentre = pad.zoom = pad.topView = false;
             bool openingMenu = !MenuOpen && pad.onionMenu && Active && PikminWorld.Instance;
-            if (openingMenu) OpenOnionMenu(PikminWorld.Instance.OnionInReach(captain));
+            if (openingMenu) OpenOnionMenu(PikminWorld.Instance.OnionInReach(DataCaptain));
             pad.onionMenu = false;
             OnionPrompt();
             if (MenuOpen && !openingMenu) MenuInput();
@@ -364,12 +386,12 @@ namespace OlimarTest
             // lands it too, and only once); a landed one is raised only out of its reach, since under
             // it X opens its menu.
             bool pikminX = Plugin.Scheme == ControlScheme.Pikmin;
-            bool flying = PikminWorld.Instance.OnionFlying(captain);
+            bool flying = PikminWorld.Instance.OnionFlying(DataCaptain);
             if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !realPrompt
                 && (flying || (pikminX && !InteractPrompt())))
             {
                 if (!onionPressClaimed)
-                    PikminWorld.Instance.CommandOnion(captain, pikminX && !flying);
+                    PikminWorld.Instance.CommandOnion(DataCaptain, pikminX && !flying);
                 onionPressClaimed = true;
             }
             // The Pikmin scheme's strike is its own button; only the aim scheme shares one with the Onion.
@@ -398,8 +420,116 @@ namespace OlimarTest
             LockedOn = locked;
             Native.pik_sim_set_lock_target(PikminWorld.Instance.SimHandle, (uint)captain,
                 locked ? unchecked((ulong)(uint)locked.GetInstanceID()) : 0, B(locked));
+            lockNetId = locked ? locked.netId.Value : 0;
             return i;
         }
+
+        // ---- another player's Olimar, on the server ---------------------------------------------
+
+        // The server's copy of a client's Olimar gets his captain once the body is up (and, for a fresh
+        // body, once RoR2's arrival state has reached this machine, so the Dolphin comes down for him too).
+        void RemoteTick()
+        {
+            if (captain >= 0 || Body.currentVehicle || (health && !health.alive) || !OnPlayersTeam) return;
+            spawnAge += Time.fixedDeltaTime;
+            if (!Arriving && spawnAge < 2f) return;
+            captain = PikminWorld.Ensure().Register(this);
+            if (captain >= 0) feetToOrigin = transform.position - Body.footPosition;
+        }
+
+        /// A packet from that Olimar's machine.
+        internal void ReceiveInput(in PikminInputPacket p)
+        {
+            remotePulses |= p.buttons;
+            remotePacket = p;
+            haveRemote = true;
+        }
+
+        /// The server's captain's controls this tick: the pose and cursor his own machine's sim has him at, and
+        /// the buttons it saw since the last step.
+        internal Native.Input RemoteInput()
+        {
+            var world = PikminWorld.Instance;
+            var hold = native ? native.Control() : NativeBody.Hold.None;
+            Native.pik_sim_set_captain_hold(world.SimHandle, (uint)captain, (uint)hold);
+            var i = new Native.Input();
+            var feet = Body.footPosition;
+            if (!haveRemote)
+            {
+                // Nothing from him yet: stay where the body is.
+                Pose(ref i, feet, Vector3.zero, Yaw());
+                return i;
+            }
+            var p = remotePacket;
+            i.use_pose = 1;
+            i.pose_pos = new Native.Vec3(p.px, p.py, p.pz);
+            i.pose_vel = new Native.Vec3(p.vx, p.vy, p.vz);
+            i.pose_face = p.face;
+            i.cursor = new Native.Vec3(p.cx, p.cy, p.cz);
+            i.use_cursor = 1;
+            byte b = (byte)(remotePulses | p.buttons);
+            remotePulses = 0;
+            i.whistle = B((b & PikminInputPacket.Whistle) != 0);
+            i.throw_ = B((b & PikminInputPacket.Throw) != 0);
+            i.dismiss = B((b & PikminInputPacket.Dismiss) != 0);
+            i.cycle = B((b & PikminInputPacket.Cycle) != 0);
+            i.swarm_x = p.swarmX;
+            i.swarm_y = p.swarmY;
+            // The enemy he locked onto, by this machine's id for it.
+            ulong creature = 0;
+            if (p.lockNetId != 0)
+            {
+                var go = Ror2Common.Mp.Find(p.lockNetId);
+                var target = go ? go.GetComponent<CharacterBody>() : null;
+                if (target) creature = unchecked((ulong)(uint)target.GetInstanceID());
+            }
+            Native.pik_sim_set_lock_target(world.SimHandle, (uint)captain, creature, B(creature != 0));
+            // A teleport (anything that moves him far between ticks) brings his squad with him.
+            var at = UnityHost.ToUnity(i.pose_pos);
+            if (lastFeetSet) Teleported(world, lastFeet, at);
+            lastFeet = at;
+            lastFeetSet = true;
+            if (hold == NativeBody.Hold.All) i.throw_ = i.whistle = i.dismiss = i.cycle = 0;
+            return i;
+        }
+
+        // ---- a client's own Olimar ---------------------------------------------------------------
+
+        /// After this tick of his local sim: his pose and buttons go to the server, every other tick or at once
+        /// when a button changes. Presses between packets ride along in the next.
+        internal void SendInput(in Native.Input i)
+        {
+            if (!Ror2Common.Mp.Networked || !Body || Body.netId.Value == 0 || !HasState)
+            {
+                outPulses = 0;
+                return;
+            }
+            byte b = (byte)((i.whistle != 0 ? PikminInputPacket.Whistle : 0) | (i.throw_ != 0 ? PikminInputPacket.Throw : 0)
+                | (i.dismiss != 0 ? PikminInputPacket.Dismiss : 0) | (i.cycle != 0 ? PikminInputPacket.Cycle : 0));
+            outPulses |= b;
+            if ((++sendCount & 1) != 0 && b == sentButtons) return;
+            sentButtons = b;
+            var c = State;
+            var packet = new PikminInputPacket
+            {
+                netId = Body.netId.Value,
+                px = c.pos.x, py = c.pos.y, pz = c.pos.z, vx = c.vel.x, vy = c.vel.y, vz = c.vel.z, face = c.face,
+                cx = c.cursor_world.x, cy = c.cursor_world.y, cz = c.cursor_world.z,
+                buttons = outPulses, swarmX = i.swarm_x, swarmY = i.swarm_y, lockNetId = lockNetId,
+            };
+            outPulses = 0;
+            PikminNet.SendInput(packet);
+        }
+
+        /// The Onion command buttons, for the server to carry out.
+        internal void SendOnion(byte kind, uint colour, uint count)
+        {
+            if (!Body || Body.netId.Value == 0) return;
+            PikminNet.SendOnion(new OnionCommandPacket { netId = Body.netId.Value, kind = kind, colour = (byte)colour, count = count });
+        }
+
+        /// The sim's pose for the replica's overlay: where the smoothed body's feet are.
+        internal Vector3 SmoothedFeet => transform.position - feetToOrigin;
 
         // Moved from `from` to `to` since the last tick: if that's a teleport, the squad follows.
         void Teleported(PikminWorld world, Vector3 from, Vector3 to)
@@ -427,7 +557,7 @@ namespace OlimarTest
             HasState = true;
             pad.Ticked();
             Items.Ticked(c);
-            if (!SimMoves || !Active) return;
+            if (IsRemote || !SimMoves || !Active) return;
 
             // Leave the body at the start of the blend, never ahead of the drawn model.
             smoother.Stepped(UnityHost.ToUnity(c.pos) + feetToOrigin);
@@ -477,7 +607,7 @@ namespace OlimarTest
             realPrompt = InteractGuard.PromptShown(driver);
             if (!realPrompt && !MenuOpen && world && localUser != null && Active)
             {
-                int o = world.OnionInReach(captain);
+                int o = world.OnionInReach(DataCaptain);
                 if (o >= 0) want = world.OnionTarget(o);
             }
             InteractTarget.Override(Interaction(), want);
@@ -485,7 +615,7 @@ namespace OlimarTest
 
         /// Onion `onion` can be opened by him now (its InteractTarget's prompt).
         public bool CanOpenOnion(int onion) =>
-            onion >= 0 && !MenuOpen && Active && PikminWorld.Instance && PikminWorld.Instance.OnionInReach(captain) == onion;
+            onion >= 0 && !MenuOpen && Active && PikminWorld.Instance && PikminWorld.Instance.OnionInReach(DataCaptain) == onion;
 
         /// The interact button on Onion `onion`.
         public void OpenOnionMenu(int onion)
@@ -509,7 +639,7 @@ namespace OlimarTest
         void MenuInput()
         {
             var world = PikminWorld.Instance;
-            if (!world || !Active || world.OnionInReach(captain) != menuOnion)
+            if (!world || !Active || world.OnionInReach(DataCaptain) != menuOnion)
             {
                 CloseMenu();
                 return;
@@ -524,7 +654,7 @@ namespace OlimarTest
             lastH = h;
             if (menuChoice >= 3)
             {
-                if (pad.confirm && world.CommandOnion(captain, menuChoice == 3)) CloseMenu();
+                if (pad.confirm && world.CommandOnion(DataCaptain, menuChoice == 3)) CloseMenu();
                 else if (pad.cancel) CloseMenu();
                 return;
             }
@@ -536,16 +666,16 @@ namespace OlimarTest
                 menuDelta += v;
             }
             lastV = v;
-            if (world.OnionFlying(captain)) menuDelta = 0;
-            if (world.OnionCounts(menuOnion, captain, menuColour, out var n))
+            if (world.OnionFlying(DataCaptain)) menuDelta = 0;
+            if (world.OnionCounts(menuOnion, DataCaptain, menuColour, out var n))
             {
                 int canOut = (int)Math.Min(n.in_onion, n.max_on_field > n.on_field ? n.max_on_field - n.on_field : 0);
                 menuDelta = Mathf.Clamp(menuDelta, -(int)n.in_squad, canOut);
             }
             if (pad.confirm)
             {
-                if (menuDelta > 0) world.CallOut(captain, menuOnion, menuColour, (uint)menuDelta);
-                else if (menuDelta < 0) world.PutAway(captain, menuOnion, menuColour, (uint)-menuDelta);
+                if (menuDelta > 0) world.CallOut(DataCaptain, menuOnion, menuColour, (uint)menuDelta);
+                else if (menuDelta < 0) world.PutAway(DataCaptain, menuOnion, menuColour, (uint)-menuDelta);
                 CloseMenu();
             }
             else if (pad.cancel)
@@ -600,10 +730,10 @@ namespace OlimarTest
         {
             var world = PikminWorld.Instance;
             if (localUser == null || !world || !Active || captain < 0) return;
-            world.SquadCounts(captain, squadCounts);
+            world.SquadCounts(DataCaptain, squadCounts);
             // The colour to throw next, or -1 for Any: the nearest Pikmin (the default, and always while
             // locked on), shown by a thin outline round every chip.
-            int pick = LockedOn ? -1 : world.ThrowColour(captain);
+            int pick = LockedOn ? -1 : world.ThrowColour(DataCaptain);
             MenuStyles();
             float k = Screen.height / 1080f;
             var saved = GUI.matrix;
@@ -651,7 +781,7 @@ namespace OlimarTest
         {
             SquadHud();
             if (!MenuOpen || localUser == null || !PikminWorld.Instance) return;
-            if (!PikminWorld.Instance.OnionCounts(menuOnion, captain, menuColour, out var n)) return;
+            if (!PikminWorld.Instance.OnionCounts(menuOnion, DataCaptain, menuColour, out var n)) return;
             MenuStyles();
             float k = Screen.height / 1080f;
             var saved = GUI.matrix;
@@ -671,7 +801,7 @@ namespace OlimarTest
             bool shared = (PikminWorld.Instance.OnionColours(menuOnion) & (PikminWorld.Instance.OnionColours(menuOnion) - 1)) != 0;
             GUI.Label(new Rect(r.x, y, w, 40f), menuChoice == 3 ? "< Follow Olimar >" : menuChoice == 4 ? "< Land Here >" : $"< {ColourNames[menuColour]} Pikmin >", titleStyle);
             y += 44f;
-            GUI.Label(new Rect(r.x, y, w, 30f), PikminWorld.Instance.OnionFlying(captain)
+            GUI.Label(new Rect(r.x, y, w, 30f), PikminWorld.Instance.OnionFlying(DataCaptain)
                 ? "Flying — select Land Here to manage Pikmin" : "Landed — select Follow Olimar to take off", noteStyle);
             y += 36f;
             Row(x, y, cw, "In the Onion", (int)n.in_onion - menuDelta);

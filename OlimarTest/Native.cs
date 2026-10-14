@@ -318,6 +318,10 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_replica_apply(IntPtr sim, byte[] bytes, uint len);
         /// Blends a replica toward its newest snapshot; once a frame, before pik_view_update.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_replica_update(IntPtr sim, float dt);
+        /// On a replica: shows the server's `captain` moving as `fromCaptain` of `mover` does (a client's own
+        /// Olimar, so he responds at once); `pos` (smoothed feet, or null) and `face` override the mover's.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_replica_overlay_captain(IntPtr replica, uint captain, IntPtr mover, uint fromCaptain, ref Vec3 pos, float face);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_replica_overlay_captain(IntPtr replica, uint captain, IntPtr mover, uint fromCaptain, IntPtr pos, float face);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_sim_params_source(IntPtr sim);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_poisoned(IntPtr sim);
 

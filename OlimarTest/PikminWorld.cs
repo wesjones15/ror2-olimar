@@ -136,7 +136,113 @@ namespace OlimarTest
 
         public bool Running => sim != IntPtr.Zero;
 
-        internal IntPtr SimHandle => sim;
+        // ---- a client's own Olimar -----------------------------------------------------------
+        // He moves himself so he feels no lag: a small sim with only his captain runs here, on his
+        // controls and this world's ground and walls, and his body follows it. The server's captain for him
+        // follows the pose this sends (PikminInputPacket), and does everything with the squad.
+        IntPtr moverSim;
+        OlimarDriver moverDriver;
+        bool moverPoisoned;
+        float moverAlpha;
+
+        /// A player's own Olimar on a client: his captain in the local sim (0), or -1 for now.
+        internal static int RegisterLocal(OlimarDriver d)
+        {
+            if (!Plugin.AssetsSettled) return -1;
+            return EnsureClient().MoverRegister(d);
+        }
+
+        int MoverRegister(OlimarDriver d)
+        {
+            if (moverSim == IntPtr.Zero)
+            {
+                moverSim = Native.pik_sim_new(Native.CString(Plugin.AssetsDir), (ulong)DateTime.Now.Ticks);
+                if (moverSim == IntPtr.Zero)
+                {
+                    Plugin.Log.LogError("libpikmin's local sim didn't start");
+                    return -1;
+                }
+                moverPoisoned = false;
+                var feet = UnityHost.ToSim(d.Body.footPosition);
+                if (Native.pik_sim_add_captain(moverSim, ref feet) < 0) return -1;
+                Plugin.Log.LogInfo($"{d.Body.GetDisplayName()} moves on this machine; the host's Pikmin follow");
+            }
+            moverDriver = d;
+            return 0;
+        }
+
+        void FreeMover()
+        {
+            if (moverSim != IntPtr.Zero) Native.pik_sim_free(moverSim);
+            moverSim = IntPtr.Zero;
+            moverDriver = null;
+            moverPoisoned = false;
+        }
+
+        // One physics step of a client's Olimar's sim: his controls in, his pose and buttons to the server.
+        void ClientFixed()
+        {
+            var d = moverDriver;
+            if (moverSim == IntPtr.Zero || !d || !d.Body) return;
+            if (Native.pik_sim_poisoned(moverSim) != 0)
+            {
+                if (!moverPoisoned)
+                    Plugin.Log.LogError("libpikmin's local sim hit a bug and stopped; RoR2 moves Olimar until the next stage");
+                moverPoisoned = true;
+                return;
+            }
+            var input = default(Native.Input);
+            if (d.Active) input = d.BuildInput();
+            Native.pik_sim_set_input(moverSim, 0, ref input);
+            var body = d.Body;
+            float speed = MinionStats.Of(body).moveSpeed;
+            if (body.isSprinting) speed *= body.sprintingSpeedMultiplier;
+            Native.pik_sim_set_captain_speed(moverSim, 0, speed);
+            Native.pik_sim_set_captain_reach(moverSim, 0, Plugin.ThrowReach.Value);
+            if (d.Active) d.Items.BeforeStep(moverSim, 0);
+            uint ticks = Native.pik_sim_advance(moverSim, ref host, Time.fixedDeltaTime);
+            moverAlpha = Native.pik_sim_alpha(moverSim);
+            if (ticks == 0) return;
+            if (Native.pik_sim_captain(moverSim, 0, out var cap) != 0) d.Ticked(cap);
+            if (d.Active) d.SendInput(input);
+        }
+
+        /// An Onion command from a client's Olimar, for his captain here.
+        internal void RemoteOnionCommand(OlimarDriver d, in OnionCommandPacket p)
+        {
+            int captain = d.Captain;
+            switch (p.kind)
+            {
+                case OnionCommandPacket.Follow:
+                    CommandOnion(captain, true);
+                    break;
+                case OnionCommandPacket.Land:
+                    CommandOnion(captain, false);
+                    break;
+                case OnionCommandPacket.CallOut:
+                case OnionCommandPacket.PutAway:
+                {
+                    int onion = OnionInReach(captain);
+                    if (onion < 0 || p.colour > 2 || p.count > 100) return;
+                    if (p.kind == OnionCommandPacket.CallOut) CallOut(captain, onion, p.colour, p.count);
+                    else PutAway(captain, onion, p.colour, p.count);
+                    break;
+                }
+            }
+        }
+
+        /// The sim that takes this machine's Olimar's controls: the real one on the server, the small one that
+        /// moves him on a client (his own captain there is its only one).
+        internal IntPtr SimHandle => ClientMode ? moverSim : sim;
+
+        /// The sim to read the world from and draw: the real one, or on a client the replica of it.
+        internal IntPtr DataHandle => sim;
+
+        /// Whether his controls have a sim to act on.
+        public bool Controllable => ClientMode ? moverSim != IntPtr.Zero && !moverPoisoned : Healthy;
+
+        /// How far between his sim's last tick and the next, for smoothing his body.
+        public float BodyAlpha => ClientMode ? moverAlpha : RenderAlpha;
 
         /// Running and not stopped by a bug in the sim.
         public bool Healthy => sim != IntPtr.Zero && !reportedPoison;
@@ -202,6 +308,7 @@ namespace OlimarTest
 
         void OnDestroy()
         {
+            FreeMover();
             FreeSim();
             if (Instance == this) Instance = null;
         }
@@ -287,6 +394,7 @@ namespace OlimarTest
 
         public void Unregister(OlimarDriver d)
         {
+            if (moverDriver == d) moverDriver = null;
             foreach (var kv in driverOf)
                 if (kv.Value == d)
                 {
@@ -655,7 +763,9 @@ namespace OlimarTest
             }
         }
 
-        public bool OnionFlying(int captain) => onionOf.TryGetValue(captain, out var f) && f.airborne;
+        public bool OnionFlying(int captain) => ClientMode
+            ? remoteInfo.TryGetValue(captain, out var info) && info.OnionAirborne
+            : onionOf.TryGetValue(captain, out var f) && f.airborne;
         public uint OnionColour(int onion)
         {
             foreach (var f in onionOf.Values)
@@ -666,6 +776,12 @@ namespace OlimarTest
 
         public bool CommandOnion(int captain, bool follow)
         {
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(follow ? OnionCommandPacket.Follow : OnionCommandPacket.Land, 0, 0);
+                return true;
+            }
             if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d)
             {
                 if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {captain}: no Onion to {(follow ? "raise" : "lower")}");
@@ -839,10 +955,22 @@ namespace OlimarTest
 
         /// The colour `captain` throws next, or -1 for the nearest (he hasn't picked one).
         public int ThrowColour(int captain) =>
-            sim == IntPtr.Zero ? -1 : Native.pik_sim_captain_throw_color(sim, (uint)captain);
+            sim == IntPtr.Zero || captain < 0 ? -1 : Native.pik_sim_captain_throw_color(sim, (uint)captain);
 
         public int OnionInReach(int captain)
         {
+            if (ClientMode)
+            {
+                // The server's word on his Onion, and where it stands.
+                if (sim == IntPtr.Zero || !moverDriver || !moverDriver.Body || !remoteInfo.TryGetValue(captain, out var info) || info.onion < 0)
+                    return -1;
+                if (info.OnionFollowing) return info.onion;
+                for (int i = 0; i < OnionCount; i++)
+                    if (Onions[i].id == info.onion)
+                        return Vector3.Distance(moverDriver.Body.footPosition, UnityHost.ToUnity(Onions[i].pos)) < 70f * UnityHost.Scale
+                            ? info.onion : -1;
+                return -1;
+            }
             if (sim == IntPtr.Zero || !onionOf.TryGetValue(captain, out var f)
                 || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body) return -1;
             return f.following || Vector3.Distance(d.Body.footPosition, f.airborne ? f.landing : f.position)
@@ -855,11 +983,25 @@ namespace OlimarTest
             return sim != IntPtr.Zero && Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out counts) != 0;
         }
 
-        public uint CallOut(int captain, int onion, uint colour, uint n) =>
-            sim == IntPtr.Zero ? 0 : Native.pik_sim_onion_call_out(sim, (uint)captain, (uint)onion, colour, n);
+        public uint CallOut(int captain, int onion, uint colour, uint n)
+        {
+            if (ClientMode)
+            {
+                if (moverDriver) moverDriver.SendOnion(OnionCommandPacket.CallOut, colour, n);
+                return n;
+            }
+            return sim == IntPtr.Zero ? 0 : Native.pik_sim_onion_call_out(sim, (uint)captain, (uint)onion, colour, n);
+        }
 
-        public uint PutAway(int captain, int onion, uint colour, uint n) =>
-            sim == IntPtr.Zero ? 0 : Native.pik_sim_onion_put_away(sim, (uint)captain, (uint)onion, colour, n);
+        public uint PutAway(int captain, int onion, uint colour, uint n)
+        {
+            if (ClientMode)
+            {
+                if (moverDriver) moverDriver.SendOnion(OnionCommandPacket.PutAway, colour, n);
+                return n;
+            }
+            return sim == IntPtr.Zero ? 0 : Native.pik_sim_onion_put_away(sim, (uint)captain, (uint)onion, colour, n);
+        }
 
         public uint OnionColours(int onion)
         {
@@ -873,7 +1015,12 @@ namespace OlimarTest
 
         void FixedUpdate()
         {
-            if (ClientMode || sim == IntPtr.Zero) return;
+            if (ClientMode)
+            {
+                ClientFixed();
+                return;
+            }
+            if (sim == IntPtr.Zero) return;
             if (Stage.instance != simStage)
             {
                 // The stage is gone; wait for an Olimar to register in the next one.
@@ -896,7 +1043,7 @@ namespace OlimarTest
                 if (kv.Value && kv.Value.Arriving) anyone = true;
                 if (kv.Value && kv.Value.Active)
                 {
-                    input = kv.Value.BuildInput();
+                    input = kv.Value.IsRemote ? kv.Value.RemoteInput() : kv.Value.BuildInput();
                     anyone = true;
                 }
                 Native.pik_sim_set_input(sim, (uint)kv.Key, ref input);
@@ -973,7 +1120,14 @@ namespace OlimarTest
                 byte flags = 0;
                 if (tempCaptains.Contains(kv.Key)) flags |= CaptainInfo.Temporary;
                 if (d.Arriving) flags |= CaptainInfo.Arriving;
-                sendInfos.Add(new CaptainInfo { id = (byte)kv.Key, netId = d.Body.netId.Value, flags = flags, beam = BeamProgress((uint)kv.Key) });
+                short onion = -1;
+                if (onionOf.TryGetValue(kv.Key, out var flight))
+                {
+                    onion = (short)flight.id;
+                    if (flight.following) flags |= CaptainInfo.Following;
+                    if (flight.airborne) flags |= CaptainInfo.Airborne;
+                }
+                sendInfos.Add(new CaptainInfo { id = (byte)kv.Key, netId = d.Body.netId.Value, flags = flags, beam = BeamProgress((uint)kv.Key), onion = onion });
             }
             var payload = PikminEnvelope.Write(epoch, sendInfos, snapshotBuffer, (int)n);
             Mp.SendToAll(PikminNet.SnapshotMsg, payload, Plugin.ReliableSnapshots.Value);
@@ -1042,6 +1196,9 @@ namespace OlimarTest
                         break;
                     }
                 d.SetRemoteCaptain(id);
+                // The server decides when his arrival is over; this machine's body follows.
+                if (id >= 0 && d.IsLocalClient && d.Arriving && remoteInfo.TryGetValue(id, out var mine) && !mine.IsArriving)
+                    d.Arriving = false;
             }
         }
 
@@ -1052,10 +1209,19 @@ namespace OlimarTest
             if (!Stage.instance || Stage.instance != simStage)
             {
                 ignoreThrough = epoch;
+                FreeMover();
                 FreeSim();
                 return;
             }
             Native.pik_replica_update(sim, Time.deltaTime);
+            // His own Olimar is drawn where his local sim and smoothed body have him, not where the server's
+            // captain was a round trip ago.
+            var mine = moverDriver;
+            if (moverSim != IntPtr.Zero && mine && mine.Body && mine.ViewCaptain >= 0 && mine.HasState)
+            {
+                var feet = UnityHost.ToSim(mine.SmoothedFeet);
+                Native.pik_replica_overlay_captain(sim, (uint)mine.ViewCaptain, moverSim, 0, ref feet, mine.State.face);
+            }
             ReadBack();
             view.Snapshot();
         }

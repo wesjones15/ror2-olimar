@@ -11,6 +11,10 @@ namespace OlimarTest
     {
         /// The server's world: server to every client.
         public const short SnapshotMsg = 0x4F01;
+        /// A client's Olimar: his pose and buttons for the server's captain (client to server).
+        public const short InputMsg = 0x4F02;
+        /// An Onion command from a client's Olimar (client to server).
+        public const short OnionMsg = 0x4F03;
 
         static bool warned;
 
@@ -18,7 +22,40 @@ namespace OlimarTest
         {
             PikminEnvelope.Abi = (byte)Native.AbiVersion;
             Mp.Register(SnapshotMsg, null, OnSnapshot);
+            Mp.Register(InputMsg, OnInput, null);
+            Mp.Register(OnionMsg, OnOnion, null);
         }
+
+        static bool Finite(float v) => !(float.IsNaN(v) || float.IsInfinity(v));
+
+        // The server takes a client's Olimar's pose and buttons for his captain.
+        static void OnInput(NetworkConnection from, ByteReader reader)
+        {
+            if (!PikminInputPacket.Read(reader, out var p)) return;
+            if (!(Finite(p.px + p.py + p.pz) && Finite(p.vx + p.vy + p.vz) && Finite(p.face) && Finite(p.cx + p.cy + p.cz)
+                  && Finite(p.swarmX + p.swarmY))) return;
+            var go = Mp.Find(p.netId);
+            var driver = go ? go.GetComponent<OlimarDriver>() : null;
+            if (driver && driver.IsRemote) driver.ReceiveInput(p);
+        }
+
+        // ...and his Onion commands.
+        static void OnOnion(NetworkConnection from, ByteReader reader)
+        {
+            if (!OnionCommandPacket.Read(reader, out var p)) return;
+            var go = Mp.Find(p.netId);
+            var driver = go ? go.GetComponent<OlimarDriver>() : null;
+            var world = PikminWorld.Instance;
+            if (!driver || !driver.IsRemote || !world || driver.Captain < 0) return;
+            world.RemoteOnionCommand(driver, p);
+        }
+
+        /// A client's Olimar sends his pose and buttons to the server.
+        public static void SendInput(in PikminInputPacket p) =>
+            Mp.SendToServer(InputMsg, PikminInputPacket.Write(p), true);
+
+        public static void SendOnion(in OnionCommandPacket p) =>
+            Mp.SendToServer(OnionMsg, OnionCommandPacket.Write(p), true);
 
         static void OnSnapshot(NetworkConnection unused, ByteReader reader)
         {

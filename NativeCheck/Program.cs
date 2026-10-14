@@ -134,18 +134,31 @@ static class Program
         Check(n > 100 && n < 20000, $"a snapshot of 20 Pikmin is {n} bytes");
         Check(Native.pik_sim_snapshot(server, new byte[8], 8) == 0, "a buffer that is too small writes nothing");
 
-        var sent = new List<CaptainInfo> { new CaptainInfo { id = 0, netId = 77, flags = CaptainInfo.Arriving, beam = 0.5f } };
+        var sent = new List<CaptainInfo> { new CaptainInfo { id = 0, netId = 77, flags = CaptainInfo.Arriving | CaptainInfo.Following, beam = 0.5f, onion = 3 } };
         var envelope = PikminEnvelope.Write(3, sent, buffer, (int)n);
         var infos = new List<CaptainInfo>();
         var status = PikminEnvelope.Read(new ByteReader(envelope), out uint epoch, infos, out var snapshot, out _);
         Check(status == PikminEnvelope.Status.Ok && epoch == 3 && infos.Count == 1 && infos[0].netId == 77
-            && infos[0].IsArriving && !infos[0].IsTemporary && infos[0].beam == 0.5f && snapshot.Length == (int)n, "envelope round trip");
+            && infos[0].IsArriving && !infos[0].IsTemporary && infos[0].beam == 0.5f && infos[0].onion == 3
+            && infos[0].OnionFollowing && !infos[0].OnionAirborne && snapshot.Length == (int)n, "envelope round trip");
         var cut = new byte[20];
         Array.Copy(envelope, cut, 20);
         Check(PikminEnvelope.Read(new ByteReader(cut), out _, new List<CaptainInfo>(), out _, out _) == PikminEnvelope.Status.Corrupt, "a cut envelope is corrupt");
         var wrong = (byte[])envelope.Clone();
         wrong[1] ^= 1;
         Check(PikminEnvelope.Read(new ByteReader(wrong), out _, new List<CaptainInfo>(), out _, out _) == PikminEnvelope.Status.WrongAbi, "another ABI is refused");
+
+        // A client's input and Onion commands.
+        var packet = new PikminInputPacket { netId = 9, px = 1, py = 2, pz = 3, vx = 4, vy = 5, vz = 6, face = 0.5f, cx = 7, cy = 8, cz = 9,
+            buttons = PikminInputPacket.Throw | PikminInputPacket.Cycle, swarmX = -1, swarmY = 0.25f, lockNetId = 42 };
+        var packetBytes = PikminInputPacket.Write(packet);
+        Check(PikminInputPacket.Read(new ByteReader(packetBytes), out var back) && back.netId == 9 && back.pz == 3 && back.vy == 5
+            && back.cz == 9 && back.buttons == 10 && back.swarmY == 0.25f && back.lockNetId == 42 && back.face == 0.5f, "input packet round trip");
+        Check(!PikminInputPacket.Read(new ByteReader(packetBytes, 0, packetBytes.Length - 1), out _), "a short input packet is refused");
+        var command = OnionCommandPacket.Write(new OnionCommandPacket { netId = 9, kind = OnionCommandPacket.CallOut, colour = 2, count = 5 });
+        Check(OnionCommandPacket.Read(new ByteReader(command), out var cmd) && cmd.netId == 9 && cmd.kind == 2 && cmd.colour == 2 && cmd.count == 5, "Onion command round trip");
+        command[5] = 77;
+        Check(!OnionCommandPacket.Read(new ByteReader(command), out _), "an unknown Onion command is refused");
 
         IntPtr replica = Native.pik_replica_new(null);
         Check(replica != IntPtr.Zero, "replica starts");

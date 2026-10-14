@@ -164,7 +164,7 @@ namespace OlimarTest
                 if (d.ViewCaptain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
                     frame.listener = d.ViewCaptain;
             // A pellet with its enemy's body is drawn as the body.
-            models.Update(world.SimHandle, ref frame, UnityHost.Scale, d =>
+            models.Update(world.DataHandle, ref frame, UnityHost.Scale, d =>
                 (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id)
                     : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && world.CaptainArriving(d.id)) ||
                 d.kind == Native.KindPellet &&
