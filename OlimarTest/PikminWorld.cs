@@ -341,7 +341,7 @@ namespace OlimarTest
             Native.pik_sim_set_sprout_stages(sim, Mathf.Max(0f, Plugin.SecondsPerStage.Value), Mathf.Max(0f, Plugin.FlowerSeconds.Value));
             Native.pik_sim_set_kill_growth(sim, (uint)Mathf.Max(0, Plugin.KillsPerStage.Value));
             Native.pik_sim_set_dismiss_strike(sim, Mathf.Max(0f, Plugin.StrikeDamage.Value),
-                Mathf.Max(0f, Plugin.StrikeReachMetres.Value) / UnityHost.Scale, Mathf.Max(0f, Plugin.StrikeCooldown.Value));
+                Mathf.Max(0f, Plugin.StrikeReachMetres.Value) / UnityHost.Scale, 0f /* RoR2's Special slot keeps the cooldown */);
             Native.pik_sim_set_squad_pace(sim, Plugin.PaceLeaf.Value, Plugin.PaceBud.Value, Plugin.PaceFlower.Value);
             Plugin.Log.LogInfo($"Pikmin sim started ({Native.Utf8(Native.pik_sim_params_source(sim))})");
             view.StartModels();
@@ -767,6 +767,7 @@ namespace OlimarTest
                 case Native.EventKind.CaptainJumped:
                 case Native.EventKind.CaptainStomped:
                 case Native.EventKind.CaptainLanded:
+                case Native.EventKind.StrikeStarted:
                     return (int)e.a;
                 case Native.EventKind.PikiHurt:
                     return e.a < PikiCount ? Pikis[e.a].captain : -1;

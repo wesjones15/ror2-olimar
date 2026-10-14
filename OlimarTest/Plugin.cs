@@ -245,8 +245,8 @@ namespace OlimarTest
                 [SkillSlot.Primary] = new[] { PadButton.A },
                 [SkillSlot.Secondary] = new[] { PadButton.LB, PadButton.B },
                 [SkillSlot.Utility] = new[] { PadButton.X },
-                // Passive: no button.
-                [SkillSlot.Special] = new PadButton[0],
+                // The dismiss strike.
+                [SkillSlot.Special] = new[] { PadButton.RB },
             });
 
             ContentProvider.Register(Guid, Content.Fill);
@@ -325,12 +325,12 @@ namespace OlimarTest
                 "Commando's body leading a squad of Pikmin from libpikmin.\n\n" +
                 "< ! > Throw Pikmin onto enemies; they latch on and fight.\n" +
                 "< ! > Whistle to call Pikmin back; corpses are carried to the Onion for more.\n" +
-                "< ! > Pad: A throw or pluck, B jump, LB + B whistle (LB blocks jumping), X land the Onion or dismiss, " +
+                "< ! > Pad: A throw or pluck, B jump, LB + B whistle (LB blocks jumping), X raise or lower the Onion (d-pad up: its menu), RB strike (the dismiss attack), " +
                 "d-pad left/right pick the colour to throw, hold RT to lock onto an enemy (RB then cycles), " +
-                "right stick pans the camera (LB + right stick swarms), LT recentres.\n" +
-                "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility dismiss.\n" +
+                "right stick pans the camera (LB + right stick swarms; click it to zoom), LT recentres.\n" +
+                "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility Onion, F strike.\n" +
                 "< ! > Hopoo Feather: jump again in mid-air, and the squad does too. H3AD-5T v2: jump in mid-air with no jumps left to stomp.\n" +
-                "< ! > The utility's charges lift and land the Onion; sprouts left a minute are plucked by a Pikmin from the landed Onion.");
+                "< ! > The utility's charges lift and land the Onion. Passive: sprouts left a minute are plucked by a Pikmin from the landed Onion.");
             lang.SetStringByToken("OLIMARTEST_ONION_NAME", "Onion");
             lang.SetStringByToken("OLIMARTEST_BODY_OUTRO", "..and so he left, with a ship full of seeds.");
             lang.SetStringByToken("OLIMARTEST_BODY_FAIL", "..and so he vanished, his Pikmin waiting by the Onion.");

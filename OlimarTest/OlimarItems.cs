@@ -61,6 +61,16 @@ namespace OlimarTest
 
         // ---- each step --------------------------------------------------------------------
 
+        /// The Special slot can fire the strike now: it has a charge (or Brainstalks makes it free), or
+        /// another skill overrides the slot and is ready.
+        public bool StrikeReady()
+        {
+            var slot = Slot(SkillSlot.Special);
+            if (!slot) return true;
+            if (!NativeSkills.Holds(slot, OlimarSkills.Strike)) return slot.CanExecute();
+            return NativeSkills.Unlimited(Body) || slot.stock >= 1;
+        }
+
         /// Before the sim steps: his stats into the sim.
         public void BeforeStep(IntPtr sim, uint captain)
         {
@@ -132,8 +142,9 @@ namespace OlimarTest
                 case Native.EventKind.PikiHurt:
                     PikiHurt(world, e.a, e.value);
                     break;
-                case Native.EventKind.PluckerOut:
-                    NativeSkills.Spend(Slot(SkillSlot.Special), OlimarSkills.Pluckers);
+                case Native.EventKind.StrikeStarted:
+                    NativeSkills.Spend(Slot(SkillSlot.Special), OlimarSkills.Strike);
+                    NativeBody.MarkCombat(body);
                     break;
                 case Native.EventKind.PelletDelivered:
                     BackupMagazine(world, (uint)e.b, (uint)e.c);
@@ -436,7 +447,7 @@ namespace OlimarTest
     // Olimar's actions as RoR2 skills (see OlimarItems), made once at content load.
     internal static class OlimarSkills
     {
-        public static NativeSkillDef Throw, Whistle, Relocate, Pluckers;
+        public static NativeSkillDef Throw, Whistle, Relocate, Strike;
 
         public static void Add(GameObject body, RoR2.ContentManagement.ContentPack pack)
         {
@@ -449,12 +460,23 @@ namespace OlimarTest
                 Icon(SkillSlot.Secondary), 0f, 1, false);
             Relocate = NativeSkills.Make("OlimarRelocateOnion", "OLIMARTEST_RELOCATE_NAME", "OLIMARTEST_RELOCATE_DESC",
                 Icon(SkillSlot.Utility), Plugin.RelocationRecharge.Value, 1, false);
-            Pluckers = NativeSkills.Make("OlimarOnionPluckers", "OLIMARTEST_PLUCKERS_NAME", "OLIMARTEST_PLUCKERS_DESC",
-                Icon(SkillSlot.Special), Mathf.Max(1f, Plugin.AutoPluckDelay.Value), 1, false);
+            // The dismiss strike: RoR2 keeps its cooldown (the sim's is off), so cooldown items
+            // work and the HUD shows it.
+            Strike = NativeSkills.Make("OlimarDismissStrike", "OLIMARTEST_STRIKE_NAME", "OLIMARTEST_STRIKE_DESC",
+                Icon(SkillSlot.Special), Mathf.Max(0.1f, Plugin.StrikeCooldown.Value), 1, true);
             NativeSkills.SetFamily(body, SkillSlot.Primary, Throw, pack);
             NativeSkills.SetFamily(body, SkillSlot.Secondary, Whistle, pack);
             NativeSkills.SetFamily(body, SkillSlot.Utility, Relocate, pack);
-            NativeSkills.SetFamily(body, SkillSlot.Special, Pluckers, pack);
+            NativeSkills.SetFamily(body, SkillSlot.Special, Strike, pack);
+            // The Onion's pluckers have no button: the passive, listed with the four skills.
+            if (loc)
+            {
+                loc.passiveSkill.enabled = true;
+                loc.passiveSkill.skillNameToken = "OLIMARTEST_PLUCKERS_NAME";
+                loc.passiveSkill.skillDescriptionToken = "OLIMARTEST_PLUCKERS_DESC";
+                loc.passiveSkill.keywordToken = "";
+                loc.passiveSkill.icon = Icon(SkillSlot.Utility);
+            }
         }
 
         public static void Tokens(Language lang)
@@ -467,13 +489,17 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
                 "Hold LB and press B. Calls every Pikmin in the whistle's circle back into the squad, off an enemy " +
                 "or a corpse too. While LB is held Olimar doesn't jump.");
-            lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Onion Relocation");
+            lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Raise / Lower Onion");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
-                "X. Land the Onion under you, or lift it to follow you; each lift or landing takes a charge. " +
-                "RB strikes everything around Olimar for several punches' damage (4 s cooldown); it no longer dismisses the squad.");
+                "X. Lower the Onion where you stand, or raise it to follow you; each takes a charge. D-pad up opens the Onion's menu.");
+            lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
+            lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
+                $"RB. Olimar blows the dismissal whistle and strikes every enemy around him for {Plugin.StrikeDamage.Value:0.#} times his " +
+                "punch's damage. It no longer sends the squad away. Cooldown items shorten the recharge.");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_NAME", "Onion Pluckers");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_DESC",
-                $"Passive, no button. Sprouts left unplucked for {Plugin.AutoPluckDelay.Value:0} s are plucked by a Pikmin from the landed Onion, and join you. Cooldown items make it sooner.");
+                $"Passive. Sprouts left unplucked for {Plugin.AutoPluckDelay.Value:0} s are plucked by a Pikmin from the landed Onion, " +
+                "wherever they grew, and join you. Cooldown items make it sooner.");
         }
     }
 }

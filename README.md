@@ -71,9 +71,10 @@ What works:
   `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
 - **Onion (phase 8)**: one Onion per Olimar stores all three types. Its Red, Yellow or
   Blue appearance is chosen once per run and kept across stages; it has no effect on storage.
-  It arrives airborne alongside the Dolphin and follows Olimar. X/interact places it when
-  flying; once landed, interact opens its menu. D-pad up / Tab also opens the menu, including
-  during flight. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
+  It arrives airborne alongside the Dolphin and follows Olimar. With the Pikmin controls X is
+  its own button: it lowers a flying Onion where he stands and raises a landed one to follow
+  him (each takes a relocation charge). D-pad up / Tab opens the menu, including during flight.
+  The Aim scheme still uses interact to land it and open the menu. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
   up/down adjusts transfers and A/left click confirms. Transfers and deliveries wait until
   landed. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
@@ -118,7 +119,7 @@ position, so your RoR2 binds don't change it:
 | A                | primary             | throw, pluck                 |
 | B                | secondary           | jump                         |
 | LB (held) + B    | jump (held) + secondary | whistle; modifier blocks jumping |
-| X                | utility             | land or lift the Onion       |
+| X                | utility             | lower the Onion here / raise it to follow |
 | RB               | F                   | dismiss strike: a melee blow all around him, 4 s cooldown (see below) |
 | d-pad left/right | mouse wheel         | next colour to throw         |
 | Y                | equipment           | RoR2's equipment, as usual   |
@@ -127,7 +128,6 @@ position, so your RoR2 binds don't change it:
 | right stick click | C                  | zoom (three levels)          |
 | RoR2 sprint bind | sprint              | sprint until movement stops  |
 | RT (fixed camera only) |               | top view                     |
-| X under an Onion | interact            | land / open the Onion window |
 | d-pad up         | Tab                 | Onion menu (including in flight) |
 
 The camera is a stand-in for Pikmin's: it looks down from behind and only turns when told
@@ -139,7 +139,9 @@ B jumps in both camera modes. Holding LB prevents Olimar from jumping; releasing
 with B still held does not jump. B still cancels the Onion menu and does not jump on closing it.
 
 The HUD's skill icons show the pad buttons the Pikmin controls use (ror2-common `GlyphOverride`): A for
-the throw, LB + B for the whistle, X for the Onion, none for the passive Pluckers. The Aim scheme and
+the throw, LB + B for the whistle, X to raise or lower the Onion, RB for the Dismiss Strike (its recharge is the
+Special slot's, so cooldown items shorten it). The Onion Pluckers are the character's passive, listed
+with the four skills on the character select screen but with no icon in the HUD. The Aim scheme and
 keyboard keep RoR2's binds. The skills' names and descriptions on the character select screen give the
 same buttons.
 

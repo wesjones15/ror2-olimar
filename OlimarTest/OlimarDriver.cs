@@ -68,7 +68,7 @@ namespace OlimarTest
         int menuOnion = -1;
         uint menuColour = Native.Red;
         int menuDelta, menuChoice;
-        bool onionPressClaimed;
+        bool onionPressClaimed, strikeSwallow;
         int lastV, lastH;
         float repeatAt;
         public bool MenuOpen => menuOnion >= 0;
@@ -338,14 +338,34 @@ namespace OlimarTest
             // RoR2 interactions have first claim on the button.
             bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Relocate : input.skill3.down;
             if (!dismiss) onionPressClaimed = false;
-            if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !InteractPrompt() && PikminWorld.Instance.OnionFlying(captain))
+            // With the Pikmin controls X is the Onion's own button: it lowers a flying Onion where
+            // he stands and raises a landed one to follow him. (In the Aim scheme it only lowers.)
+            bool pikminX = Plugin.Scheme == ControlScheme.Pikmin;
+            if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !InteractPrompt()
+                && (pikminX || PikminWorld.Instance.OnionFlying(captain)))
             {
-                if (!onionPressClaimed) PikminWorld.Instance.CommandOnion(captain, false);
+                if (!onionPressClaimed)
+                    PikminWorld.Instance.CommandOnion(captain, pikminX && !PikminWorld.Instance.OnionFlying(captain));
                 onionPressClaimed = true;
             }
             // The Pikmin scheme's strike is its own button; only the aim scheme shares one with the Onion.
             if (!(Plugin.Scheme == ControlScheme.Pikmin && !IsAi) && (onionPressClaimed || InteractPrompt())) i.dismiss = 0;
             enemyLock.Range = Plugin.LockRange.Value;
+            // The strike's cooldown is the Special slot's: no charge, no strike. A press made while it
+            // recharges stays spent until the button is let go, so it doesn't fire the moment it is ready.
+            if (!IsAi && Plugin.StrikeDamage.Value > 0f)
+            {
+                if (strikeSwallow)
+                {
+                    if (i.dismiss != 0) i.dismiss = 0;
+                    else strikeSwallow = false;
+                }
+                else if (i.dismiss != 0 && !Items.StrikeReady())
+                {
+                    i.dismiss = 0;
+                    strikeSwallow = Plugin.Scheme == ControlScheme.Pikmin ? pad.Strike : input.skill3.down;
+                }
+            }
             var locked = IsAi ? brainTarget : enemyLock.Update(Body,
                 Plugin.Scheme == ControlScheme.Pikmin && Plugin.Camera.Value == CameraMode.Orbit
                     && pad.lockHeld && !MenuOpen && !Arriving,
@@ -429,7 +449,10 @@ namespace OlimarTest
             // Chests, shrines and other RoR2 interactions keep priority over our prompt.
             var driver = Interaction();
             InteractTarget.Override(driver, null);
-            if (!InteractGuard.PromptShown(driver) && !MenuOpen && world && localUser != null && Active)
+            // With the Pikmin controls X raises and lowers the Onion directly (BuildInput) and the
+            // d-pad opens its menu, so it offers no interact prompt.
+            if (!InteractGuard.PromptShown(driver) && !MenuOpen && world && localUser != null && Active
+                && Plugin.Scheme != ControlScheme.Pikmin)
             {
                 int o = world.OnionInReach(captain);
                 if (o >= 0) want = world.OnionTarget(o);
