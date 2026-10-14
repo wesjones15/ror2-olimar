@@ -341,7 +341,8 @@ namespace OlimarTest
             Native.pik_sim_set_sprout_stages(sim, Mathf.Max(0f, Plugin.SecondsPerStage.Value), Mathf.Max(0f, Plugin.FlowerSeconds.Value));
             Native.pik_sim_set_kill_growth(sim, (uint)Mathf.Max(0, Plugin.KillsPerStage.Value));
             Native.pik_sim_set_dismiss_strike(sim, Mathf.Max(0f, Plugin.StrikeDamage.Value),
-                Mathf.Max(0f, Plugin.StrikeReachMetres.Value) / UnityHost.Scale, 0f /* RoR2's Special slot keeps the cooldown */);
+                Mathf.Max(0f, Plugin.StrikeReachMetres.Value) / UnityHost.Scale, 0f /* RoR2's Special slot keeps the cooldown */,
+                Mathf.Max(0f, Plugin.StrikeChargeSeconds.Value));
             Native.pik_sim_set_squad_pace(sim, Plugin.PaceLeaf.Value, Plugin.PaceBud.Value, Plugin.PaceFlower.Value);
             Native.pik_sim_set_punch_damage(sim, Plugin.PunchDamage.Value);
             Native.pik_sim_set_cursor_homing(sim, Plugin.CursorHoming.Value ? (byte)1 : (byte)0);
@@ -1077,6 +1078,7 @@ namespace OlimarTest
                 if (part < c.parts_len) at = UnityHost.ToUnity(parts[c.parts_start + part].centre);
             }
             bool piki = source == Native.SourcePiki && sourceId < PikiCount;
+            bool strike = source == Native.SourceStrike;
             // Each Pikmin procs at most once per Items.ProcInterval, on its own clock.
             float proc = Plugin.ProcCoefficient.Value;
             if (piki && !ProcReady(sourceId)) proc = 0f;
@@ -1085,6 +1087,8 @@ namespace OlimarTest
                 coefficient = amount * Plugin.DamageCoefficient.Value,
                 position = at,
                 procCoefficient = proc,
+                // The strike staggers: RoR2's one-second stun (bosses shrug it off).
+                damageType = strike && Plugin.StrikeStun.Value ? DamageType.Stun1s : DamageType.Generic,
             };
             // A Pikmin's hit is Olimar's, measured from the Pikmin (Focus Crystal's range);
             // his own punch is his.
@@ -1092,6 +1096,10 @@ namespace OlimarTest
                 ? MinionHit.Deal(attacker, MinionOf(Pikis[sourceId]), health, spec)
                 : NativeHit.Deal(attacker, health, spec);
             if (landed && piki && proc > 0f) affixes.OnHit(sourceId, attacker, health, proc);
+            // A kill with the strike gives it back.
+            if (landed && strike && !health.alive && Plugin.StrikeKillReset.Value
+                && driverOf.TryGetValue((int)sourceId, out var striker) && striker)
+                striker.Items.StrikeKilled();
             return landed ? (byte)1 : (byte)0;
         }
 

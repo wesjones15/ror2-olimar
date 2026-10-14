@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 19). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 20). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 19;
+        public const uint AbiVersion = 20;
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_attack_rate(IntPtr sim, uint captain, float rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_speed(IntPtr sim, uint captain, float scale);
@@ -21,7 +21,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_boost_captain_jump(IntPtr sim, uint captain, float factor);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_growth(IntPtr sim, float growthRate, float rejoinDelay);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_sprout_stages(IntPtr sim, float stage, float flower);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_dismiss_strike(IntPtr sim, float damageScale, float reach, float cooldown);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_dismiss_strike(IntPtr sim, float damageScale, float reach, float cooldown, float charge);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_punch_damage(IntPtr sim, float damage);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_cursor_homing(IntPtr sim, byte on);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_pace(IntPtr sim, float leaf, float bud, float flower);
@@ -62,7 +62,7 @@ namespace OlimarTest
             public IntPtr user, ground_height, walls, damage, carry_path;
         }
 
-        public const uint SourcePiki = 0, SourceCaptain = 1;
+        public const uint SourcePiki = 0, SourceCaptain = 1, SourceStrike = 2;
 
         [StructLayout(LayoutKind.Sequential)]
         public struct Input

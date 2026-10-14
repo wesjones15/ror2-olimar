@@ -61,7 +61,8 @@ namespace OlimarTest
         // The dismiss strike and Pikmin pace (see PikminWorld.StartSim).
         internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
         internal static ConfigEntry<bool> CursorHoming;
-        internal static ConfigEntry<float> PunchDamage;
+        internal static ConfigEntry<float> PunchDamage, StrikeChargeSeconds;
+        internal static ConfigEntry<bool> StrikeStun, StrikeKillReset;
         internal static ConfigEntry<int> KillsPerStage;
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
@@ -126,6 +127,12 @@ namespace OlimarTest
                 "Olimar's punch, in Pikmin attack points (times Combat.DamageCoefficient and his damage stat). Pikmin 1's is 10, half " +
                 "his damage stat; 22.5 is a quarter of the dismiss strike's 4x, about 1.1 times his damage stat. 0: the disc's. " +
                 "The strike is a multiple of this.");
+            StrikeChargeSeconds = Config.Bind("Combat", "StrikeChargeSeconds", 3f,
+                "After a strike the squad swarms the way he struck (at the enemy he is locked onto, else the way he faces) for this many seconds, " +
+                "counted from the strike. Moving the right stick swarms instead. 0: no charge.");
+            StrikeStun = Config.Bind("Combat", "StrikeStun", true, "The strike staggers what it hits (RoR2's one-second stun; bosses resist).");
+            StrikeKillReset = Config.Bind("Combat", "StrikeKillReset", true,
+                "A kill with the strike gives its charge straight back. Off: the cooldown always runs in full.");
             StrikeReachMetres = Config.Bind("Combat", "StrikeReachMetres", 4f,
                 "How far from an enemy's edge the strike reaches, all around Olimar.");
             StrikeCooldown = Config.Bind("Combat", "StrikeCooldown", 4f, "Seconds between strikes.");

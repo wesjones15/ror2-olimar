@@ -61,6 +61,13 @@ namespace OlimarTest
 
         // ---- each step --------------------------------------------------------------------
 
+        /// A kill with the strike: its charge comes straight back.
+        public void StrikeKilled()
+        {
+            var slot = Slot(SkillSlot.Special);
+            if (NativeSkills.Holds(slot, OlimarSkills.Strike) && slot.stock < slot.maxStock) slot.AddOneStock();
+        }
+
         /// The Special slot can fire the strike now: it has a charge (or Brainstalks makes it free), or
         /// another skill overrides the slot and is ready.
         public bool StrikeReady()
@@ -496,7 +503,8 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
                 $"RB. Olimar blows the dismissal whistle and strikes every enemy around him for {Plugin.StrikeDamage.Value:0.#} times his " +
-                "punch's damage. It no longer sends the squad away. Cooldown items shorten the recharge.");
+                "punch's damage, staggers them, and sends the squad charging the way he struck. A kill with it resets the cooldown. " +
+                "It no longer sends the squad away. Cooldown items shorten the recharge.");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_NAME", "Onion Pluckers");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_DESC",
                 $"Passive. Sprouts left unplucked for {Plugin.AutoPluckDelay.Value:0} s are plucked by a Pikmin from the landed Onion, " +

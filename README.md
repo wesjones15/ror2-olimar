@@ -33,7 +33,9 @@ What works:
 - **Dismiss strike** (`Combat.Strike*`): RoR2 has no captain puzzles, so the dismiss button no longer sends the squad away. It
   plays Olimar's dismissal motion and sound and hits every enemy around him (reach `StrikeReachMetres`, 4 m) for
   `StrikeDamage` (4) times his punch (about 4.5 times his damage stat: two strikes kill a Beetle at the start; the punch, `PunchDamage` 22.5, is about 1.1 times it), then cools down for `StrikeCooldown` (4 s). It takes Olimar's items and attack
-  speed like his punch does. Set `StrikeDamage` to 0 to get Pikmin 1's dismissal back.
+  speed like his punch does. It also staggers what it hits (`StrikeStun`), sends the squad swarming the way he struck for
+  `StrikeChargeSeconds` (3; at the enemy he is locked onto, else the way he faces, and the right stick overrides it), and a kill
+  with it gives its charge straight back (`StrikeKillReset`). Set `StrikeDamage` to 0 to get Pikmin 1's dismissal back.
 - **Pikmin pace** (`Pikmin.Pace*`): a Pikmin's top speed is a multiple of Olimar's full-tilt speed, his items and sprint
   included: flower 1.2 (so it stays in reach for a throw), bud 0.97, leaf 0.93. Set any to 0 for the disc's speeds.
 - **Fall damage** (`Items.FallDamage`): the sim moves Olimar, so RoR2's motor never sees him land.
