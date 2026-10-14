@@ -332,6 +332,7 @@ namespace OlimarTest
             onionMinions.Clear();
             bodies.Clear();
             creatureIndex.Clear();
+            lastCore.Clear();
             foreach (var b in attackWatched)
                 if (b) b.onSkillActivatedServer -= EnemyAttacked;
             attackWatched.Clear();
@@ -1340,6 +1341,7 @@ namespace OlimarTest
             PartCount = 0;
             bodies.Clear();
             creatureIndex.Clear();
+            if (lastCore.Count > 512) lastCore.Clear();
             attackWatched.RemoveWhere(Gone);
             foreach (var b in CharacterBody.readOnlyInstancesList)
             {
@@ -1350,6 +1352,8 @@ namespace OlimarTest
                 ulong id = Id(b);
                 if (creatureCount == creatures.Length) Array.Resize(ref creatures, creatures.Length * 2);
                 int start = PartCount;
+                partStart = start;
+                partShift = Lead(id, b);
                 var group = b.hurtBoxGroup;
                 if (group && group.hurtBoxes != null)
                     foreach (var hb in group.hurtBoxes)
@@ -1358,9 +1362,8 @@ namespace OlimarTest
                         if (!hb || !hb.gameObject.activeInHierarchy) continue;
                         var col = hb.collider;
                         if (!col || !col.enabled) continue;
-                        var bounds = col.bounds;
-                        var e = bounds.extents;
-                        AddPart(bounds.center, Mathf.Max(e.x, Mathf.Max(e.y, e.z)));
+                        // Spheres that sit on the collider's real shape (HurtParts).
+                        HurtParts.For(col, partAdder ?? (partAdder = AddPartLimited));
                     }
                 if (PartCount == start)
                     AddPart(b.corePosition, Mathf.Max(0.3f, b.bestFitRadius));
@@ -1371,7 +1374,7 @@ namespace OlimarTest
                 creatures[creatureCount++] = new Native.Creature
                 {
                     id = id,
-                    pos = UnityHost.ToSim(b.footPosition),
+                    pos = UnityHost.ToSim(b.footPosition + partShift),
                     yaw = UnityHost.Yaw(b.transform.forward),
                     alive = 1,
                     flying = (byte)(b.isFlying ? 1 : 0),
@@ -1381,12 +1384,42 @@ namespace OlimarTest
             }
         }
 
+        // Adds a sphere unless this creature already has the most the sim is given.
+        void AddPartLimited(Vector3 centre, float radius)
+        {
+            if (PartCount - partStart < MaxPartsPerCreature) AddPart(centre, radius);
+        }
+
+        int partStart;
+        HurtParts.Add partAdder;
+        // How far this enemy's parts are moved ahead for the sim (Lead).
+        Vector3 partShift;
+
+        // The sim is drawn one tick behind real time but an enemy's model is not, so a fast enemy runs away from the
+        // Pikmin latched to it: hand the sim where it will be a tick on (by its speed, Combat.LatchLead).
+        readonly Dictionary<ulong, (Vector3 pos, float time)> lastCore = new Dictionary<ulong, (Vector3, float)>();
+
+        Vector3 Lead(ulong id, CharacterBody b)
+        {
+            var core = b.corePosition;
+            var shift = Vector3.zero;
+            float lead = Plugin.LatchLead.Value;
+            if (lead > 0f && lastCore.TryGetValue(id, out var last) && Time.fixedTime > last.time)
+            {
+                var v = (core - last.pos) / (Time.fixedTime - last.time);
+                // A teleport or a snap isn't a speed.
+                if (v.sqrMagnitude < 40f * 40f) shift = v * (lead / Mathf.Max(1u, tickHz));
+            }
+            lastCore[id] = (core, Time.fixedTime);
+            return shift;
+        }
+
         void AddPart(Vector3 centre, float radius)
         {
             if (PartCount == parts.Length) Array.Resize(ref parts, parts.Length * 2);
             parts[PartCount++] = new Native.Part
             {
-                centre = UnityHost.ToSim(centre),
+                centre = UnityHost.ToSim(centre + partShift),
                 radius = radius / UnityHost.Scale,
                 stickable = 1,
             };
@@ -1442,6 +1475,7 @@ namespace OlimarTest
                     if (captain >= 0 && driverOf.TryGetValue(captain, out var d) && d && d.Body)
                         d.Items.OnEvent(e, this);
                     if (Plugin.LogEvents.Value) LogEvent(e);
+                    if (Plugin.LogLatches.Value && e.kind == Native.EventKind.Latched) AuditLatch(e);
                 }
             } while (n == events.Length);
         }
@@ -1513,6 +1547,32 @@ namespace OlimarTest
                 default: return;
             }
             Plugin.Log.LogInfo(what);
+        }
+
+        // Where a Pikmin that just latched is against the enemy's real hurtboxes, to find latches in the air.
+        void AuditLatch(in Native.Event e)
+        {
+            if (e.has_creature == 0 || !bodies.TryGetValue(e.creature, out var body) || !body) return;
+            int pi = -1;
+            for (int i = 0; i < PikiCount; i++)
+                if (Pikis[i].id == e.a) { pi = i; break; }
+            if (pi < 0) return;
+            var at = UnityHost.ToUnity(Pikis[pi].pos);
+            float best = float.MaxValue;
+            Collider nearest = null;
+            var group = body.hurtBoxGroup;
+            if (group && group.hurtBoxes != null)
+                foreach (var hb in group.hurtBoxes)
+                {
+                    var col = hb ? hb.collider : null;
+                    if (!col || !col.enabled) continue;
+                    float d = Vector3.Distance(col.ClosestPoint(at), at);
+                    if (d < best) { best = d; nearest = col; }
+                }
+            if (!nearest) return;
+            var ext = nearest.bounds.extents;
+            Plugin.Log.LogInfo($"Latch audit: Pikmin {e.a} on {body.GetDisplayName()} is {best:F2} m from its nearest hurtbox " +
+                               $"({nearest.GetType().Name} '{nearest.name}', box extents {ext.x:F2}/{ext.y:F2}/{ext.z:F2})");
         }
 
         string Name(in Native.Event e) =>

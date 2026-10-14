@@ -51,8 +51,8 @@ namespace OlimarTest
         internal static ConfigEntry<int> MaxPellets;
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> CarryBodies;
-        internal static ConfigEntry<bool> LogEvents;
-        internal static ConfigEntry<float> SnapshotHz;
+        internal static ConfigEntry<bool> LogEvents, LogLatches;
+        internal static ConfigEntry<float> SnapshotHz, LatchLead;
         internal static ConfigEntry<bool> ReliableSnapshots, LogNet;
         // Items (OlimarItems): the shared minion scaling policy and the timers items shorten.
         internal static ConfigEntry<float> ProcInterval, MinionMoveScale, MinionHealScale, ItemEffectScale,
@@ -137,6 +137,11 @@ namespace OlimarTest
                 "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
                 "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +
                 "Off: Pikmin 1, where they wait to be whistled.");
+            LatchLead = Config.Bind("Combat", "LatchLead", 1f,
+                new ConfigDescription("The sim's Pikmin are drawn one 30 Hz tick behind real time, while an enemy's model is drawn live, " +
+                    "so a fast enemy (a wisp) moves away from the Pikmin latched to it. Enemies' parts go to the sim this many ticks " +
+                    "ahead (by their speed) to cancel that. 0 turns it off; more over-corrects.",
+                    new AcceptableValueRange<float>(0f, 3f)));
             StrikeDamage = Config.Bind("Combat", "StrikeDamage", 4f,
                 "The dismiss button (RB, F on keyboard) is a melee strike that no longer dismisses the squad: this many " +
                 "times Olimar's punch damage to every enemy around him. 4 is about 4.5 times his damage stat: two strikes kill a Beetle at the start " +
@@ -269,6 +274,9 @@ namespace OlimarTest
                 "none are lost but a bad connection backs up.");
             LogNet = Config.Bind("Debug", "LogNet", false,
                 "Every ten seconds, log how much the host's snapshots send.");
+            LogLatches = Config.Bind("Debug", "LogLatches", false,
+                "Each time a Pikmin latches onto an enemy, log how far it is from the enemy's nearest real hurtbox " +
+                "(0 is on the surface; a big number is a Pikmin latched onto air) and what kind of hurtbox that is.");
             LogEvents = Config.Bind("Debug", "LogEvents", false,
                 "Log every sim event (latches, deaths, growth, deliveries, plucks, enemy attacks) to the " +
                 "BepInEx log. Off by default: it adds a line per event and floods the log in a fight.");
