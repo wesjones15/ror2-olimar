@@ -405,7 +405,7 @@ namespace OlimarTest
             var back = -Vector3.ProjectOnPlane(body.transform.forward, Vector3.up).normalized;
             if (back.sqrMagnitude < 0.5f) back = Vector3.back;
             var landing = body.footPosition;
-            if (Physics.Raycast(landing + back * 8f + Vector3.up * 2f, Vector3.down, out var floor,
+            if (Physics.Raycast(landing + back * DolphinBehind + Vector3.up * 2f, Vector3.down, out var floor,
                 12f, UnityHost.Mask, QueryTriggerInteraction.Ignore) && floor.normal.y > 0.5f)
                 landing = floor.point;
             // Indoor stages shorten the approach to the space available below the roof.
@@ -462,7 +462,7 @@ namespace OlimarTest
                     {
                         ship.onionDown = true;
                         onion.following = false;
-                        // Where Olimar stands (the Dolphin is further back).
+                        // Where Olimar stands (the Dolphin is behind him).
                         onion.landing = OnionSpot(driver);
                         onion.transitionStart = onion.position;
                         onion.transitionElapsed = 0f;

@@ -89,7 +89,7 @@ What works:
   moving, so Bustling Fungus only activates after the Onion has landed and stood still for
   one second, regardless of whether Olimar is moving.
 - **Arrival**: the repaired S.S. Dolphin (all 30 parts, its lights and effects; `Dolphin.ShipPartsMode` is the future
-  ship-repair mode and is off) lands behind him while his Onion lands to one side. Olimar beams out of the Dolphin's
+  ship-repair mode and is off) lands 4 m behind him (its goal spot, ringed by its own effect, is where he forms) while his Onion lands to one side. Olimar beams out of the Dolphin's
   side in the ship's healing effects (the recover burst and sparkles), and the squad comes out of the Onion's legs to him; the Onion then lifts to follow him.
 - **Dolphin arrival (phase 7)**: Olimar's drop pod is replaced by a 3.5-second S.S. Dolphin
   landing using the extracted ship model. The Onion descends beside it, then follows Olimar;
