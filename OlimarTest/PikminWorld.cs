@@ -65,6 +65,7 @@ namespace OlimarTest
         readonly Dictionary<int, InteractTarget> onionTargets = new Dictionary<int, InteractTarget>();
         // Each Onion's RoR2 body, as its Olimar's minion: his items, its own position.
         readonly Dictionary<int, Minion> onionMinions = new Dictionary<int, Minion>();
+        readonly Dictionary<CharacterBody, int> onionBodyIds = new Dictionary<CharacterBody, int>();
         // Goobo Jr.'s Olimars: captains whose squad is temporary and who have no Onion.
         readonly HashSet<int> tempCaptains = new HashSet<int>();
         // Pluripotent Larva uses seen per master (ExtraLifeVoidConsumed).
@@ -335,6 +336,7 @@ namespace OlimarTest
             onionTargets.Clear();
             foreach (var m in onionMinions.Values) m.Release();
             onionMinions.Clear();
+            onionBodyIds.Clear();
             bodies.Clear();
             creatureIndex.Clear();
             lastCore.Clear();
@@ -776,6 +778,7 @@ namespace OlimarTest
             {
                 var p = Pellets[i];
                 if (p.state == 3) continue;
+                if (p.state > 0 && p.onion != flight.id) continue;
                 if (flight.pickup == (int)p.id) { pi = i; break; }
                 if (flight.pickup >= 0 || p.state > 1) continue;
                 var at = UnityHost.ToUnity(p.pos);
@@ -901,7 +904,11 @@ namespace OlimarTest
         void AddOnionMinion(int id, Vector3 at, CharacterBody owner)
         {
             var m = Minions.Spawn(Content.OnionMinion, owner, at, Quaternion.identity);
-            if (m != null) onionMinions[id] = m;
+            if (m != null)
+            {
+                onionMinions[id] = m;
+                if (m.Body) onionBodyIds[m.Body] = id;
+            }
             else Plugin.Log.LogWarning($"Onion {id}'s minion body didn't spawn; it won't get items");
         }
 
@@ -1867,7 +1874,8 @@ namespace OlimarTest
             }
             var v = r.victimBody;
             foreach (var f in onionOf.Values)
-                if (!f.dormant && onionMinions.TryGetValue(f.id, out var minion) && minion.Body == v)
+                if (v && onionBodyIds.TryGetValue(v, out int onionId) && onionId == f.id
+                    && !f.dormant && onionMinions.TryGetValue(f.id, out var minion))
                 {
                     f.dormant = true;
                     f.following = f.airborne = false;
@@ -1877,6 +1885,7 @@ namespace OlimarTest
                     var ground = UnityHost.ToSim(f.position);
                     Native.pik_sim_make_onion_dormant(sim, (uint)f.id, Mathf.Max(0f, Plugin.OnionReviveSeconds.Value), ref ground);
                     minion.Release();
+                    onionBodyIds.Remove(v);
                     onionMinions.Remove(f.id);
                     Plugin.Log.LogInfo($"Onion {f.id} became dormant; revival starts in {Plugin.OnionReviveSeconds.Value:0.#} seconds.");
                     return;

@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 24). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 27). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -158,7 +158,7 @@ namespace OlimarTest
             public Vec3 pos;
             public uint id, colors;
             public uint stored0, stored1, stored2;
-            // 0 idle, 1 suction, 2 emitting seeds, 3 taking off, 4 away, 5 landing.
+            // 0 idle, 1 suction, 2 seeds, 3 takeoff, 4 away, 5 landing, 6 hover, 7 dormant, 8 reviving.
             public byte anim, is_ship, _p0, _p1;
 
             public uint Stored(uint color) => color == 0 ? stored0 : color == 1 ? stored1 : stored2;
