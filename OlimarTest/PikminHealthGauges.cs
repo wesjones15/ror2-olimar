@@ -44,8 +44,9 @@ namespace OlimarTest
         ConfigEntry<bool> enabledSetting;
         Canvas canvas;
         Sprite disc;
-        readonly Dictionary<HealthComponent, Gauge> gauges = new Dictionary<HealthComponent, Gauge>();
-        readonly List<HealthComponent> gone = new List<HealthComponent>();
+        readonly Dictionary<object, Gauge> gauges = new Dictionary<object, Gauge>();
+        readonly List<object> gone = new List<object>();
+        readonly List<PikminWorld.OnionGauge> onionGauges = new List<PikminWorld.OnionGauge>();
         readonly HashSet<CombatHealthBarViewer> silenced = new HashSet<CombatHealthBarViewer>();
 
         public static void Install(GameObject host, ConfigFile config)
@@ -120,26 +121,33 @@ namespace OlimarTest
                     var enemy = members[i] ? members[i].body : null;
                     var health = enemy ? enemy.healthComponent : null;
                     if (!health || !health.alive || health.dontShowHealthbar) continue;
-                    Track(health, enemy, cam);
+                    Track(health, health.combinedHealthFraction, WorldAbove(enemy), cam);
                 }
             }
+            // Olimar's Onions: wounded ones, and the dormant ones refilling.
+            onionGauges.Clear();
+            if (PikminWorld.Instance) PikminWorld.Instance.OnionGauges(onionGauges);
+            foreach (var o in onionGauges) Track(o.key, o.ratio, o.position, cam, o.keep);
             gone.Clear();
             foreach (var kv in gauges)
-                if (!kv.Key || !kv.Value.seen) gone.Add(kv.Key);
+                if ((kv.Key is UnityEngine.Object dead && !dead) || !kv.Value.seen) gone.Add(kv.Key);
             foreach (var key in gone) Remove(key);
         }
 
-        void Track(HealthComponent health, CharacterBody enemy, Camera cam)
+        static Vector3 WorldAbove(CharacterBody enemy) =>
+            enemy.corePosition + Vector3.up * (Mathf.Max(enemy.radius, 0.5f) * 1.1f + 1f);
+
+        void Track(object key, float health, Vector3 world, Camera cam, bool keep = false)
         {
-            float ratio = Mathf.Clamp01(health.combinedHealthFraction);
-            if (!gauges.TryGetValue(health, out var g))
+            float ratio = Mathf.Clamp01(health);
+            if (!gauges.TryGetValue(key, out var g))
             {
                 // Full-health enemies get no gauge until they are hurt.
                 if (ratio >= 0.999f) return;
                 g = Make();
                 g.shown = ratio;
                 g.state = State.FadeIn;
-                gauges[health] = g;
+                gauges[key] = g;
             }
             g.seen = true;
             float dt = Time.unscaledDeltaTime;
@@ -164,7 +172,7 @@ namespace OlimarTest
                     {
                         g.hold = 0f;
                         // The wheel stays while the enemy is wounded.
-                        if (g.shown <= 0f || g.shown >= 1f) g.state = State.FadeOut;
+                        if (!keep && (g.shown <= 0f || g.shown >= 1f)) g.state = State.FadeOut;
                     }
                     break;
                 case State.FadeOut:
@@ -176,7 +184,7 @@ namespace OlimarTest
                     }
                     break;
             }
-            Place(g, enemy, cam);
+            Place(g, world, cam);
         }
 
         // `LifeGauge::adjustValue`: the shown value eases toward the real one, snapping when close.
@@ -186,9 +194,8 @@ namespace OlimarTest
             if (Mathf.Abs(g.shown - target) < 1f / 64f) g.shown = target;
         }
 
-        void Place(Gauge g, CharacterBody enemy, Camera cam)
+        void Place(Gauge g, Vector3 world, Camera cam)
         {
-            var world = enemy.corePosition + Vector3.up * (Mathf.Max(enemy.radius, 0.5f) * 1.1f + 1f);
             var screen = cam.WorldToScreenPoint(world);
             bool visible = g.state != State.Hidden && screen.z > 0.5f && screen.z < MaxMetres;
             if (g.root.gameObject.activeSelf != visible) g.root.gameObject.SetActive(visible);
@@ -278,7 +285,7 @@ namespace OlimarTest
             disc = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
         }
 
-        void Remove(HealthComponent key)
+        void Remove(object key)
         {
             if (gauges.TryGetValue(key, out var g) && g.root) Destroy(g.root.gameObject);
             gauges.Remove(key);

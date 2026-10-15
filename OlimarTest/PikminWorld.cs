@@ -95,6 +95,9 @@ namespace OlimarTest
             public float transitionElapsed, transitionDuration;
             public bool following = true, airborne = true;
             public bool dormant;
+            /// Seconds dormant, and seconds into the revival (the sim's two phases), for its gauge.
+            public float dormantAge, reviveAge;
+            public bool reviving;
             public int pickup = -1;
             public float pickupDwell;
         }
@@ -724,6 +727,42 @@ namespace OlimarTest
                 minion.Place(flight.position + Vector3.up * 3.5f, Quaternion.identity, flight.airborne, !flight.airborne);
         }
 
+        // libpikmin's dormancy: it folds shut and waits the configured time (at least its 1.5 s
+        // fold), then plays a 3 s revival.
+        static float DormantSeconds => Mathf.Max(Plugin.OnionReviveSeconds.Value, 1.5f);
+        const float ReviveSeconds = 3f;
+
+        /// An Onion's life gauge: where it floats and how full it is.
+        public struct OnionGauge
+        {
+            public object key;
+            public Vector3 position;
+            public float ratio;
+            /// Stays up however full or empty it is (a dormant Onion's, for its whole wait).
+            public bool keep;
+        }
+
+        /// The Onions that show a Pikmin life gauge: a live one below half health, and a dormant
+        /// one refilling with its revival timer (empty as it falls, full as it wakes).
+        public void OnionGauges(List<OnionGauge> into)
+        {
+            foreach (var f in onionOf.Values)
+            {
+                if (f.dormant)
+                {
+                    float total = DormantSeconds + ReviveSeconds;
+                    float elapsed = f.reviving ? DormantSeconds + Mathf.Min(f.reviveAge, ReviveSeconds) : Mathf.Min(f.dormantAge, DormantSeconds);
+                    into.Add(new OnionGauge { key = f, position = f.position + Vector3.up * 5f, ratio = Mathf.Clamp01(elapsed / total), keep = true });
+                }
+                else if (onionMinions.TryGetValue(f.id, out var minion) && minion.Alive)
+                {
+                    float ratio = minion.Body.healthComponent.combinedHealthFraction;
+                    if (ratio < 0.5f)
+                        into.Add(new OnionGauge { key = minion.Body.healthComponent, position = f.position + Vector3.up * 7f, ratio = ratio });
+                }
+            }
+        }
+
         void MoveOnions()
         {
             foreach (var flight in onionOf.Values)
@@ -731,9 +770,20 @@ namespace OlimarTest
                 if (flight.dormant)
                 {
                     bool disabled = true;
+                    byte anim = 0;
                     for (int i = 0; i < OnionCount; i++)
-                        if (Onions[i].id == flight.id) disabled = Onions[i].anim >= 7;
-                    if (disabled) continue;
+                        if (Onions[i].id == flight.id) { anim = Onions[i].anim; disabled = anim >= 7; }
+                    if (disabled)
+                    {
+                        // The sim's clock, for the gauge: it folds shut and waits, then revives.
+                        if (anim == 8)
+                        {
+                            if (!flight.reviving) { flight.reviving = true; flight.dormantAge = DormantSeconds; flight.reviveAge = 0f; }
+                            flight.reviveAge += Time.fixedDeltaTime;
+                        }
+                        else flight.dormantAge += Time.fixedDeltaTime;
+                        continue;
+                    }
                     flight.dormant = false;
                     if (driverOf.TryGetValue(flight.captain, out var owner) && owner && owner.Body)
                         AddOnionMinion(flight.id, flight.position + Vector3.up * 3.5f, owner.Body);
@@ -1897,6 +1947,8 @@ namespace OlimarTest
                     && !f.dormant && onionMinions.TryGetValue(f.id, out var minion))
                 {
                     f.dormant = true;
+                    f.dormantAge = f.reviveAge = 0f;
+                    f.reviving = false;
                     f.following = f.airborne = false;
                     f.pickup = -1;
                     f.transitionDuration = 0f;

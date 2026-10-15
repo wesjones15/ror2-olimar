@@ -321,6 +321,11 @@ to 0.75 metres above the ground (`PickupHeight`, half of what it was), and dwell
 A carry team can hand off once it is within suction reach. It holds still through suction,
 then resumes following. A blocked approach or missing floor prevents pickup.
 
+An Onion below half health shows Pikmin 1's life gauge wheel (the one enemies get, `PikminHealthGauges`)
+above its pod. A dormant Onion shows the wheel empty, filling with its revival timer: the configured
+wait and the fold, then the three-second revival, full as it wakes. The host's Onions only; a client
+sees none.
+
 At zero health it settles on the ground and folds into the disc's dormant Onion pose.
 Its colour-matched dormant material is the odd frame of goal.mod's original palette;
 the model and startup animations are already in objects/goal. Stock survives but cannot
