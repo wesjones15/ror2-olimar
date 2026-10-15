@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using MonoMod.RuntimeDetour;
 using RoR2;
 using Ror2Common;
 using UnityEngine;
@@ -104,7 +106,6 @@ namespace OlimarTest
             /// Seconds the Onion has stood landed; Olimar's beam-in progress 0..1 (-1 not started).
             public float landedFor, beam = -1f;
             /// When the Onion lifts to follow him again (Time.fixedTime), 0 for never.
-            public float liftAt;
         }
         readonly Dictionary<int, DolphinFlight> dolphins = new Dictionary<int, DolphinFlight>();
         readonly Dictionary<int, OnionFlight> onionOf = new Dictionary<int, OnionFlight>();
@@ -265,6 +266,7 @@ namespace OlimarTest
             {
                 if (Instance) Instance.OnDamageDealt(r);
             };
+            HookBlasts();
         }
 
         public void StopPresentation()
@@ -549,9 +551,9 @@ namespace OlimarTest
         }
 
         // The ship is a presentation/carry goal only; no parts or repair objective spawn.
-        /// How far behind Olimar the Dolphin lands: its goal spot is 100 units (4 m) ahead of it
-        /// (`UfoItem::getGoalPos`), so he forms on the spot the ship's rings mark.
-        const float DolphinBehind = 4f;
+        /// How far behind Olimar the Dolphin lands. Its goal spot is 100 units (4 m) ahead of it
+        /// (`UfoItem::getGoalPos`); he stands a metre nearer the ship than that, in its rings.
+        const float DolphinBehind = 3f;
 
         void SpawnDolphin(int captain, OlimarDriver driver, bool bringSquad = true)
         {
@@ -593,14 +595,14 @@ namespace OlimarTest
         // ship nears the ground and takes OnionLanding to land beside it, its light cone opens, and
         // Olimar beams in over BeamSeconds with the squad coming out of the Onion.
         const float DescentSeconds = 3.5f, OnionLandsAt = 1.6f, OnionLanding = 2f, BeamDelay = 0.5f,
-            BeamSeconds = 0.9f, SquadOutAt = 0.3f, LiftAfter = 2.2f;
+            BeamSeconds = 0.9f, SquadOutAt = 0.3f;
 
         void MoveDolphins()
         {
             foreach (var ship in dolphins.Values)
             {
                 if (!driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
-                if (ship.complete) { LiftOnion(ship); continue; }
+                if (ship.complete) continue;
                 ship.elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(ship.elapsed / DescentSeconds);
                 // Decelerate into a short landing; the Onion lands beside it and Olimar beams out of it.
@@ -680,23 +682,7 @@ namespace OlimarTest
             // Arriving by the Onion, the squad is already out of it; otherwise (a respawn, an aborted
             // arrival) they appear around Olimar.
             if (ship.bringSquad && !ship.squadOut) BringPikmin(ship.captain, driver);
-            if (ship.onionDown) ship.liftAt = Time.fixedTime + LiftAfter;
-            Plugin.Log.LogInfo($"Dolphin landed for captain {ship.captain}; " + (ship.onionDown ? "squad out of the Onion." : "Onion following."));
-        }
-
-        /// The landed Onion rises to follow him again once the beam-out is over, unless he has already
-        /// moved it.
-        void LiftOnion(DolphinFlight ship)
-        {
-            if (ship.liftAt <= 0f || Time.fixedTime < ship.liftAt) return;
-            ship.liftAt = 0f;
-            if (!onionOf.TryGetValue(ship.captain, out var onion) || onion.following || onion.airborne) return;
-            onion.following = true;
-            onion.transitionStart = onion.position;
-            onion.transitionElapsed = 0f;
-            onion.transitionDuration = 1.8f;
-            onion.airborne = true;
-            WriteFlight(onion);
+            Plugin.Log.LogInfo($"Dolphin landed for captain {ship.captain}; " + (ship.onionDown ? "squad out of the Onion, which stays planted." : "Onion following."));
         }
 
         /// Arriving and not yet beamed in: Olimar isn't drawn.
@@ -1696,12 +1682,66 @@ namespace OlimarTest
             if ((r.damageInfo.damageType & DamageType.DoT) != 0) return;
             var at = r.damageInfo.position;
             if (at == Vector3.zero) return;
+            if ((r.damageInfo.damageType & DamageType.Freeze2s) != 0)
+                Freeze(at, Plugin.PikminHurtRadius.Value, r.damageInfo.procCoefficient);
             var centre = UnityHost.ToSim(at);
             // A Pikmin has PikminHealth x the nearest Olimar's max health; the sim counts its
             // health out of 100 (piki_max_health's code default).
             float full = Mathf.Max(1f, Plugin.PikminHealth.Value * NearestOlimarHealth(at));
             Native.pik_sim_attack_pikis_in_sphere(sim, ref centre,
                 Plugin.PikminHurtRadius.Value / UnityHost.Scale, r.damageDealt / full * 100f);
+        }
+
+        // A freezing hit or blast from an enemy (Freeze2s: a Glacial elite's death burst) freezes
+        // the Pikmin within `radiusMetres` of `at` as RoR2 freezes bodies: two seconds times the
+        // proc coefficient.
+        void Freeze(Vector3 at, float radiusMetres, float procCoefficient)
+        {
+            if (sim == IntPtr.Zero || !NetworkServer.active) return;
+            if (stepping)
+            {
+                afterStep.Add(() => Freeze(at, radiusMetres, procCoefficient));
+                return;
+            }
+            var centre = UnityHost.ToSim(at);
+            float seconds = 2f * (procCoefficient > 0f ? procCoefficient : 1f);
+            uint n = Native.pik_sim_freeze_pikis_in_sphere(sim, ref centre, radiusMetres / UnityHost.Scale, seconds);
+            if (n > 0 && Plugin.LogEvents.Value)
+                Plugin.Log.LogInfo($"{n} Pikmin frozen for {seconds:0.#} s");
+        }
+
+        static Hook blastHook;
+
+        // RoR2 freezes only bodies, so its freezing blasts (BlastAttack.Fire with Freeze2s from a
+        // non-player team) are watched here to freeze the Pikmin inside them too.
+        static void HookBlasts()
+        {
+            if (blastHook != null) return;
+            try
+            {
+                var fire = typeof(BlastAttack).GetMethod("Fire", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+                blastHook = new Hook(fire, (Func<Func<BlastAttack, BlastAttack.Result>, BlastAttack, BlastAttack.Result>)BlastFired);
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Freezing blasts: hook failed ({e.GetType().Name}: {e.Message}); Pikmin freeze only from direct hits");
+            }
+        }
+
+        static BlastAttack.Result BlastFired(Func<BlastAttack, BlastAttack.Result> orig, BlastAttack self)
+        {
+            var result = orig(self);
+            try
+            {
+                if (Instance && self != null && (self.damageType & DamageType.Freeze2s) != 0
+                    && self.teamIndex != TeamIndex.Player && self.teamIndex != TeamIndex.None)
+                    Instance.Freeze(self.position, self.radius, self.procCoefficient);
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogError($"Freezing blast: {e}");
+            }
+            return result;
         }
 
         // Enemies whose attacks are watched (EnemyAttacked).

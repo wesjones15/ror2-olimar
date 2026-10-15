@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 25;
+        public const uint AbiVersion = 26;
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_attack_rate(IntPtr sim, uint captain, float rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_speed(IntPtr sim, uint captain, float scale);
@@ -135,7 +135,7 @@ namespace OlimarTest
             public int captain, pellet;
             /// Out of piki_max_health (100 by default).
             public float health;
-            public byte state, color, happa, alive, has_creature, on_ground, _p0, _p1;
+            public byte state, color, happa, alive, has_creature, on_ground, frozen, _p1;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -351,6 +351,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_reach(IntPtr sim, uint captain, float scale);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_speed(IntPtr sim, uint captain, float scale);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_attack_pikis_in_sphere(IntPtr sim, ref Vec3 centre, float radius, float damage);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_freeze_pikis_in_sphere(IntPtr sim, ref Vec3 centre, float radius, float seconds);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_kill_piki(IntPtr sim, uint piki);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_onion_in_reach(IntPtr sim, uint captain);

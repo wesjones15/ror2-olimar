@@ -170,7 +170,10 @@ namespace OlimarTest
             PaceFlower = Config.Bind("Pikmin", "PaceFlower", 1.2f,
                 "A flower Pikmin's top speed as a multiple of Olimar's full-tilt speed (his items and sprint included), so " +
                 "it keeps up and stays in reach for a throw. 0 for any of the three: the disc's speeds.");
-            PaceBud = Config.Bind("Pikmin", "PaceBud", 0.97f, "The same for a bud Pikmin: a little slower than Olimar.");
+            PaceBud = Config.Bind("Pikmin", "PaceBud", 1.04f,
+                "The same for a bud Pikmin: just faster than Olimar, so it's clearly quicker than a leaf.");
+            // 0.97 was the old default, too close to a leaf's 0.93: a file still on it moves up.
+            if (Mathf.Approximately(PaceBud.Value, 0.97f)) PaceBud.Value = 1.04f;
             PaceLeaf = Config.Bind("Pikmin", "PaceLeaf", 0.93f, "The same for a leaf Pikmin.");
             SecondsPerStage = Config.Bind("Growth", "SecondsPerStage", 20f,
                 "Seconds a planted sprout is a leaf, then a bud, before it is a flower (15 to 30 suggested). The " +
