@@ -507,7 +507,10 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_THROW_DESC",
                 "<style=cIsUtility>Press A</style> to throw the nearest Pikmin at the cursor, up to " +
                 $"<style=cIsUtility>{300f * 0.04f * Plugin.ThrowReach.Value:0} m</style> away. It latches onto the enemy and fights until " +
-                "it is killed or you whistle it back. <style=cIsUtility>Hold RT</style> to lock onto an enemy up to " +
+                "it is killed or you whistle it back. Each swing hits for " +
+                $"<style=cIsDamage>{15f * Plugin.DamageCoefficient.Value * 100f:0}% damage</style> from a Red Pikmin and " +
+                $"<style=cIsDamage>{10f * Plugin.DamageCoefficient.Value * 100f:0}%</style> from a Blue or Yellow. " +
+                "<style=cIsUtility>Hold RT</style> to lock onto an enemy up to " +
                 $"{Plugin.LockRange.Value:0} m away: thrown Pikmin home in on it (<style=cIsUtility>RB</style> cycles targets). " +
                 "<style=cIsUtility>D-pad left and right</style> pick Red, Yellow, Blue or Any (the nearest). With no Pikmin to throw, " +
                 "Olimar punches. Attack speed speeds up Pikmin attacks.");
