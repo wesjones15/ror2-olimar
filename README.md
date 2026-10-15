@@ -336,5 +336,5 @@ All discs and extracted models, textures, sounds and command tables stay outside
 Olimar's native pose is held at RoR2's arrival feet to prevent falling through during the
 spawn state. He materializes from the Dolphin hatch with the ship recovery effects; only
 the Pikmin exit the Onion. ABI 27 and snapshot version 3 carry the new Onion lifecycle.
-Install the matching DLL pair together. The current build is staged in dist/OlimarTest;
+Install the matching DLL pair together. The Onion trial is staged separately in dist/OnionBalanceTrial;
 in-game acceptance of arrival, enemy targeting, healing and revival remains manual.
