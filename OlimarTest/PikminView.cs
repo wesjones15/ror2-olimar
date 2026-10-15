@@ -157,7 +157,7 @@ namespace OlimarTest
                 frame.up = new Native.Vec3(cam.up.x, cam.up.y, cam.up.z);
             }
             var drivers = FindObjectsOfType<OlimarDriver>();
-            // Olimar beaming out of his Onion at the start of the stage.
+            // Olimar beams down from the Dolphin; only the Pikmin exit the Onion.
             foreach (var d in drivers)
                 if (d.ViewCaptain >= 0) models.Materialize((uint)d.ViewCaptain, world.BeamProgress((uint)d.ViewCaptain));
             foreach (var d in drivers)

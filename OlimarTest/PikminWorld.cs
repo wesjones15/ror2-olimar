@@ -101,7 +101,7 @@ namespace OlimarTest
             public Vector3 start, landing;
             public float elapsed;
             public bool complete, bringSquad;
-            // The Onion lands beside the landing Dolphin and Olimar beams out of it (BeamOut).
+            // The Onion releases the squad; the Dolphin beams Olimar down separately.
             public bool onionDown, squadOut;
             /// Seconds the Onion has stood landed; Olimar's beam-in progress 0..1 (-1 not started).
             public float landedFor, beam = -1f;
@@ -1028,6 +1028,14 @@ namespace OlimarTest
             {
                 var input = default(Native.Input);
                 if (kv.Value && kv.Value.Arriving) anyone = true;
+                if (kv.Value && kv.Value.Arriving && kv.Value.Body)
+                {
+                    // RoR2 holds the arrival body in place. Hold the native captain at the
+                    // same feet too; letting gravity run independently can bury his model.
+                    input.use_pose = 1;
+                    input.pose_pos = UnityHost.ToSim(kv.Value.Body.footPosition);
+                    input.pose_face = UnityHost.Yaw(kv.Value.Body.transform.forward);
+                }
                 if (kv.Value && kv.Value.Active)
                 {
                     input = kv.Value.IsRemote ? kv.Value.RemoteInput() : kv.Value.BuildInput();
