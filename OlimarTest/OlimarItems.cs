@@ -496,27 +496,42 @@ namespace OlimarTest
 
         public static void Tokens(Language lang)
         {
+            // What each skill does for the player: controls, how long, how far, how often. Numbers
+            // come from the config. A Pikmin unit is 0.04 m at the default scale, and the game's whistle
+            // circle reaches 90 units.
+            float punch = Plugin.PunchDamage.Value > 0f ? Plugin.PunchDamage.Value * Plugin.DamageCoefficient.Value * 100f : 0f;
+            string strikeDamage = punch > 0f
+                ? $"<style=cIsDamage>{Plugin.StrikeDamage.Value * punch:0}% damage</style>"
+                : "<style=cIsDamage>several times his punch's damage</style>";
             lang.SetStringByToken("OLIMARTEST_THROW_NAME", "Pikmin Throw");
             lang.SetStringByToken("OLIMARTEST_THROW_DESC",
-                "A. Throw the nearest Pikmin; it latches onto an enemy and fights, and homes in on one you hold RT to lock " +
-                "onto (then it throws the nearest Pikmin, whatever colour is picked). With none to throw, punch. D-pad left/right steps through Any (the nearest, the default), Red, Yellow and Blue. Attack speed speeds up Pikmin attacks.");
+                "<style=cIsUtility>Press A</style> to throw the nearest Pikmin at the cursor, up to " +
+                $"<style=cIsUtility>{300f * 0.04f * Plugin.ThrowReach.Value:0} m</style> away. It latches onto the enemy and fights until " +
+                "it is killed or you whistle it back. <style=cIsUtility>Hold RT</style> to lock onto an enemy up to " +
+                $"{Plugin.LockRange.Value:0} m away: thrown Pikmin home in on it (<style=cIsUtility>RB</style> cycles targets). " +
+                "<style=cIsUtility>D-pad left and right</style> pick Red, Yellow, Blue or Any (the nearest). With no Pikmin to throw, " +
+                "Olimar punches. Attack speed speeds up Pikmin attacks.");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_NAME", "Whistle");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
-                "Hold LB and press B. Calls every Pikmin in the whistle's circle back into the squad, off an enemy " +
-                "or a corpse too. While LB is held Olimar doesn't jump.");
+                "<style=cIsUtility>Hold LB and press B</style>. A circle at the cursor grows to about " +
+                "<style=cIsUtility>3.6 m</style> and calls every Pikmin inside back to the squad, even off an enemy or a corpse. " +
+                "No cooldown. Olimar can't jump while LB is held.");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Raise / Lower Onion");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
-                "X, when no interact prompt is up: lower the Onion where you stand, or raise it to follow you; each takes a charge. " +
-                "Standing under the Onion, X opens its menu (so does d-pad up).");
+                "<style=cIsUtility>Press X</style> with no interact prompt up to lower the Onion where Olimar stands, or to raise it " +
+                $"so it follows him. Each takes a charge, and one returns every <style=cIsUtility>{Plugin.RelocationRecharge.Value:0.#} seconds</style>. " +
+                "Standing under the Onion, X (or D-pad up) opens its menu.");
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
-                $"RB. Olimar blows the dismissal whistle and strikes every enemy around him for {Plugin.StrikeDamage.Value:0.#} times his " +
-                "punch's damage, staggers them, and sends the squad charging the way he struck. A kill with it resets the cooldown. " +
-                "It no longer sends the squad away. Cooldown items shorten the recharge.");
+                $"<style=cIsUtility>Press RB</style> to strike every enemy within <style=cIsUtility>{Plugin.StrikeReachMetres.Value:0.#} m</style> for " +
+                $"{strikeDamage} and stun them for 1 second (bosses resist). The squad charges the way you struck for " +
+                $"<style=cIsUtility>{Plugin.StrikeChargeSeconds.Value:0.#} seconds</style>. A kill refunds the cooldown. " +
+                $"Cooldown: <style=cIsUtility>{Plugin.StrikeCooldown.Value:0.#} seconds</style>.");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_NAME", "Onion Pluckers");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_DESC",
-                $"Passive. Sprouts left unplucked for {Plugin.AutoPluckDelay.Value:0} s are plucked by a Pikmin from the landed Onion, " +
-                "wherever they grew, and join you. Cooldown items make it sooner.");
+                "Passive. Sprouts left standing for " +
+                $"<style=cIsUtility>{Plugin.AutoPluckDelay.Value:0} seconds</style> are plucked by a Pikmin from the landed Onion, wherever they " +
+                "grew, and join the squad. Cooldown reduction shortens the wait.");
         }
     }
 }

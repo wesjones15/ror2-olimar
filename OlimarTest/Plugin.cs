@@ -392,15 +392,13 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_BODY_NAME", "Olimar");
             lang.SetStringByToken("OLIMARTEST_BODY_SUBTITLE", "Captain of the S.S. Dolphin");
             lang.SetStringByToken("OLIMARTEST_BODY_DESCRIPTION",
-                "Commando's body leading a squad of Pikmin from libpikmin.\n\n" +
-                "< ! > Throw Pikmin onto enemies; they latch on and fight.\n" +
-                "< ! > Whistle to call Pikmin back; corpses are carried to the Onion for more.\n" +
-                "< ! > Pad: A throw or pluck, B jump, LB + B whistle (LB blocks jumping), X raise or lower the Onion (or interact: under the Onion it opens its menu, as does d-pad up), RB strike (the dismiss attack), " +
-                "d-pad left/right pick the colour to throw (Any is the nearest), hold RT to lock onto an enemy (RB then cycles), " +
-                "right stick pans the camera (LB + right stick swarms; click it to zoom), LT recentres.\n" +
-                "< ! > Keyboard (Pikmin controls): primary throw, secondary jump, hold jump + secondary whistle, utility Onion, F strike.\n" +
-                "< ! > Hopoo Feather: jump again in mid-air, and the squad does too. H3AD-5T v2: jump in mid-air with no jumps left to stomp.\n" +
-                "< ! > The utility's charges lift and land the Onion. Passive: sprouts left a minute are plucked by a Pikmin from the landed Onion.");
+                "Captain Olimar's ship has crashed on a strange planet, and his only help is a swarm of Pikmin: loyal little " +
+                "creatures that follow his whistle, fight at his side, and carry whatever he defeats back to the Onion to " +
+                "grow into more of themselves.\n\n" +
+                "< ! > Lead a squad of Red, Yellow and Blue Pikmin.\n" +
+                "< ! > Throw Pikmin onto enemies to latch on and fight, or whistle them back to safety.\n" +
+                "< ! > Defeated enemies are carried to the Onion, which turns them into new Pikmin.\n" +
+                "< ! > Sprouts grow from leaf to bud to flower, ready to be plucked and join the squad.");
             lang.SetStringByToken("OLIMARTEST_ONION_NAME", "Onion");
             lang.SetStringByToken("OLIMARTEST_BODY_OUTRO", "..and so he left, with a ship full of seeds.");
             lang.SetStringByToken("OLIMARTEST_BODY_FAIL", "..and so he vanished, his Pikmin waiting by the Onion.");
