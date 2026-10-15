@@ -44,6 +44,7 @@ namespace OlimarTest
         internal static ConfigEntry<CameraMode> Camera;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue;
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
+        internal static ConfigEntry<float> OnionHealth, OnionReviveSeconds, OnionPelletHeal;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
         internal static ConfigEntry<float> LookUpDegrees;
@@ -192,7 +193,10 @@ namespace OlimarTest
                 "shakes off every Pikmin, as Pikmin 1's flick does.");
             OnionItems = Config.Bind("Pikmin", "OnionItems", true,
                 "Each Onion is Olimar's minion and gets his items, so items that work where you " +
-                "stand still (Bustling Fungus) work around it. It can't be hurt or targeted.");
+                "stand still (Bustling Fungus) work around it.");
+            OnionHealth = Config.Bind("Pikmin", "OnionHealth", 400f, "Onion starting health; grows by 30% per level. Restart to apply.");
+            OnionReviveSeconds = Config.Bind("Pikmin", "OnionReviveSeconds", 30f, "Dormant time before the Onion plays its three-second revival. Stock survives but is inaccessible.");
+            OnionPelletHeal = Config.Bind("Pikmin", "OnionPelletHeal", 0.25f, "Fraction of maximum health healed per delivered pellet, plus 2% per seed (capped at full health).");
             DamageCoefficient = Config.Bind("Combat", "DamageCoefficient", 0.05f,
                 "RoR2 damage per point of Pikmin attack power, times Olimar's damage stat. A Red " +
                 "hits for 15 points: 0.75x Olimar's damage per swing at the default.");
@@ -505,9 +509,12 @@ namespace OlimarTest
             {
                 name = "OlimarTestOnion",
                 nameToken = "OLIMARTEST_ONION_NAME",
-                targetable = false,
-                invincible = true,
-                itemFilter = OnionItem,
+                targetable = true,
+                invincible = false,
+                baseMaxHealth = Mathf.Max(1f, Plugin.OnionHealth.Value),
+                levelMaxHealth = Mathf.Max(1f, Plugin.OnionHealth.Value) * 0.3f,
+                baseRegen = 0f, levelRegen = 0f,
+                itemFilter = item => Plugin.OnionItems.Value && OnionItem(item),
             });
 
             var display = Prefabs.Clone(commandoDisplay, "OlimarTestDisplay", Plugin.Guid);

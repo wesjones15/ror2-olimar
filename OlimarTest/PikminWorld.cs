@@ -93,6 +93,9 @@ namespace OlimarTest
             public Vector3 position, landing, transitionStart;
             public float transitionElapsed, transitionDuration;
             public bool following = true, airborne = true;
+            public bool dormant;
+            public int pickup = -1;
+            public float pickupDwell;
         }
         readonly Dictionary<CharacterMaster, Cargo> cargo = new Dictionary<CharacterMaster, Cargo>();
         sealed class DolphinFlight
@@ -694,6 +697,7 @@ namespace OlimarTest
 
         void WriteFlight(OnionFlight flight)
         {
+            if (flight.dormant) return;
             var pos = UnityHost.ToSim(flight.position);
             Native.pik_sim_set_onion_pose(sim, (uint)flight.id, ref pos, flight.airborne ? (byte)1 : (byte)0);
             if (flight.airborne && flight.transitionDuration > 0f)
@@ -706,14 +710,26 @@ namespace OlimarTest
                     ? d.Body.footPosition : flight.position;
             }
             if (onionMinions.TryGetValue(flight.id, out var minion))
-                minion.Place(flight.position, Quaternion.identity, flight.airborne, !flight.airborne);
+                minion.Place(flight.position + Vector3.up * 2f, Quaternion.identity, flight.airborne, !flight.airborne);
         }
 
         void MoveOnions()
         {
             foreach (var flight in onionOf.Values)
             {
+                if (flight.dormant)
+                {
+                    bool disabled = true;
+                    for (int i = 0; i < OnionCount; i++)
+                        if (Onions[i].id == flight.id) disabled = Onions[i].anim >= 7;
+                    if (disabled) continue;
+                    flight.dormant = false;
+                    if (driverOf.TryGetValue(flight.captain, out var owner) && owner && owner.Body)
+                        AddOnionMinion(flight.id, flight.position + Vector3.up * 2f, owner.Body);
+                    Plugin.Log.LogInfo($"Onion {flight.id} revived; its stored Pikmin are available again.");
+                }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
+                if (flight.following && UpdateOnionPickup(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && driverOf.TryGetValue(flight.captain, out var d) && d && d.Body)
                 {
                     var at = d.Body.footPosition;
@@ -750,6 +766,53 @@ namespace OlimarTest
             }
         }
 
+        // Flying Onions must descend and dwell before sucking up a loose pellet.
+        // Carry teams can still hand theirs off normally once the Onion is low enough.
+        bool UpdateOnionPickup(OnionFlight flight)
+        {
+            int pi = -1;
+            float best = 6f * 6f;
+            for (int i = 0; i < PelletCount; i++)
+            {
+                var p = Pellets[i];
+                if (p.state == 3) continue;
+                if (flight.pickup == (int)p.id) { pi = i; break; }
+                if (flight.pickup >= 0 || p.state > 1) continue;
+                var at = UnityHost.ToUnity(p.pos);
+                var flat = Vector3.ProjectOnPlane(at - flight.position, Vector3.up);
+                if (flat.sqrMagnitude < best && Mathf.Abs(at.y - flight.position.y) < 10f)
+                { best = flat.sqrMagnitude; pi = i; }
+            }
+            if (pi < 0)
+            {
+                flight.pickup = -1;
+                flight.pickupDwell = 0f;
+                return false;
+            }
+            var pellet = Pellets[pi];
+            flight.pickup = (int)pellet.id;
+            if (pellet.state == 2) return true; // Hold still through suction.
+            var ground = UnityHost.Snap(UnityHost.ToUnity(pellet.pos));
+            var target = ground + Vector3.up * 1.5f;
+            flight.position = Vector3.MoveTowards(flight.position, target, Time.fixedDeltaTime * 3f);
+            flight.transitionDuration = 0f;
+            if (Vector3.Distance(flight.position, target) < 0.1f)
+            {
+                flight.pickupDwell += Time.fixedDeltaTime;
+                if (flight.pickupDwell >= 0.75f && pellet.state == 0)
+                    Native.pik_sim_collect_ground_pellet(sim, (uint)flight.id, pellet.id);
+            }
+            else flight.pickupDwell = 0f;
+            return true;
+        }
+
+        bool OnionDisabled(int id)
+        {
+            foreach (var f in onionOf.Values) if (f.id == id && f.dormant) return true;
+            for (int i = 0; i < OnionCount; i++) if (Onions[i].id == id) return Onions[i].anim >= 7;
+            return false;
+        }
+
         public bool OnionFlying(int captain) => ClientMode
             ? remoteInfo.TryGetValue(captain, out var info) && info.OnionAirborne
             : onionOf.TryGetValue(captain, out var f) && f.airborne;
@@ -774,6 +837,9 @@ namespace OlimarTest
                 if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {captain}: no Onion to {(follow ? "raise" : "lower")}");
                 return false;
             }
+            if (f.dormant) return false;
+            f.pickup = -1;
+            f.pickupDwell = 0f;
             if (follow == f.following && (follow || f.airborne)) return true;
             if (!follow)
             {
@@ -834,7 +900,6 @@ namespace OlimarTest
         // The Onion's body as the owner's minion, where the sim has the Onion.
         void AddOnionMinion(int id, Vector3 at, CharacterBody owner)
         {
-            if (!Plugin.OnionItems.Value) return;
             var m = Minions.Spawn(Content.OnionMinion, owner, at, Quaternion.identity);
             if (m != null) onionMinions[id] = m;
             else Plugin.Log.LogWarning($"Onion {id}'s minion body didn't spawn; it won't get items");
@@ -951,6 +1016,7 @@ namespace OlimarTest
                 // The server's word on his Onion, and where it stands.
                 if (sim == IntPtr.Zero || !moverDriver || !moverDriver.Body || !remoteInfo.TryGetValue(captain, out var info) || info.onion < 0)
                     return -1;
+                if (OnionDisabled(info.onion)) return -1;
                 if (info.OnionFollowing) return info.onion;
                 for (int i = 0; i < OnionCount; i++)
                     if (Onions[i].id == info.onion)
@@ -960,6 +1026,7 @@ namespace OlimarTest
             }
             if (sim == IntPtr.Zero || !onionOf.TryGetValue(captain, out var f)
                 || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body) return -1;
+            if (f.dormant) return -1;
             return f.following || Vector3.Distance(d.Body.footPosition, f.airborne ? f.landing : f.position)
                 < 70f * UnityHost.Scale ? f.id : -1;
         }
@@ -1465,6 +1532,13 @@ namespace OlimarTest
                 for (int i = 0; i < n; i++)
                 {
                     var e = events[i];
+                    if (e.kind == Native.EventKind.PelletDelivered && onionMinions.TryGetValue(e.b, out var onion)
+                        && onion.Alive && !OnionDisabled(e.b))
+                    {
+                        var hp = onion.Body.healthComponent;
+                        float fraction = Mathf.Clamp01(Plugin.OnionPelletHeal.Value + 0.02f * Mathf.Max(0f, e.value));
+                        hp.Heal(hp.fullHealth * fraction, default(ProcChainMask), true);
+                    }
                     int captain = EventCaptain(e);
                     if (captain >= 0 && driverOf.TryGetValue(captain, out var d) && d && d.Body)
                         d.Items.OnEvent(e, this);
@@ -1792,6 +1866,21 @@ namespace OlimarTest
                 return;
             }
             var v = r.victimBody;
+            foreach (var f in onionOf.Values)
+                if (!f.dormant && onionMinions.TryGetValue(f.id, out var minion) && minion.Body == v)
+                {
+                    f.dormant = true;
+                    f.following = f.airborne = false;
+                    f.pickup = -1;
+                    f.transitionDuration = 0f;
+                    f.position = UnityHost.Snap(f.position);
+                    var ground = UnityHost.ToSim(f.position);
+                    Native.pik_sim_make_onion_dormant(sim, (uint)f.id, Mathf.Max(0f, Plugin.OnionReviveSeconds.Value), ref ground);
+                    minion.Release();
+                    onionMinions.Remove(f.id);
+                    Plugin.Log.LogInfo($"Onion {f.id} became dormant; revival starts in {Plugin.OnionReviveSeconds.Value:0.#} seconds.");
+                    return;
+                }
             if (v && v.GetComponent<OlimarDriver>() is OlimarDriver olimar && olimar.Captain >= 0)
             {
                 // His knockdown (ODead) in place of RoR2's ragdoll, which is on his hidden
