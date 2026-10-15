@@ -31,7 +31,8 @@ namespace OlimarTest
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
     [BepInPlugin(Guid, "Olimar", "0.1.0")]
-    [BepInDependency("___riskofthunder.RoR2BepInExPack", "1.46.0")]
+    // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
+    [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.libpikmin.olimartest";
