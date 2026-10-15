@@ -317,7 +317,7 @@ hit and targeted by enemies. Each delivered pellet heals 25% of its maximum heal
 Its hurtbox follows the model's pod, and its optional inherited items still run on its own body.
 
 In follow mode it approaches pellets within six metres, descends at three metres per second
-to 1.5 metres above the ground, and dwells for 0.75 seconds before taking a loose pellet.
+to 0.75 metres above the ground (`PickupHeight`, half of what it was), and dwells for 0.75 seconds before taking a loose pellet.
 A carry team can hand off once it is within suction reach. It holds still through suction,
 then resumes following. A blocked approach or missing floor prevents pickup.
 

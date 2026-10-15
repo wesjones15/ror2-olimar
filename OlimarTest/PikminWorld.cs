@@ -777,6 +777,9 @@ namespace OlimarTest
             }
         }
 
+        // How far above the ground a flying Onion stops to suck up a loose pellet (it was 1.5).
+        const float PickupHeight = 0.75f;
+
         // Flying Onions must descend and dwell before sucking up a loose pellet.
         // Carry teams can still hand theirs off normally once the Onion is low enough.
         bool UpdateOnionPickup(OnionFlight flight)
@@ -809,7 +812,7 @@ namespace OlimarTest
                 30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || floor.normal.y < 0.5f)
             { flight.pickup = -1; flight.pickupDwell = 0f; return false; }
             var ground = floor.point;
-            var target = ground + Vector3.up * 1.5f;
+            var target = ground + Vector3.up * PickupHeight;
             if (Physics.Linecast(flight.position + Vector3.up * 4.4f, target + Vector3.up * 4.4f,
                 UnityHost.Mask, QueryTriggerInteraction.Ignore))
             { flight.pickup = -1; flight.pickupDwell = 0f; return false; }
