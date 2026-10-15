@@ -5,7 +5,7 @@ using Ror2Common;
 
 namespace OlimarTest
 {
-    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 27). Every
+    // The libpikmin C ABI (libpikmin/crates/libpikmin-ffi/src/lib.rs and view.rs, PIK_ABI_VERSION 28). Every
     // struct mirrors a #[repr(C)] one there field for field, and Load() refuses a pikmin.dll
     // whose sizes differ. The view's model structs are ror2-common's (ViewSource.cs), which
     // libsms's view shares. Sim units: the decomp's (roughly cm), Y up; a facing angle a (radians)
@@ -13,7 +13,8 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 27;
+        public const uint AbiVersion = 28;
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_take_death_sting(IntPtr view, [Out] float[] samples, uint max);
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_attack_rate(IntPtr sim, uint captain, float rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_speed(IntPtr sim, uint captain, float scale);
@@ -276,7 +277,6 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_uvs(IntPtr view, uint model, [Out] float[] outPairs, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_texture(IntPtr view, uint id, out ViewTexture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_update(IntPtr view, IntPtr sim, ref ViewFrame frame);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_audio_lowpass(IntPtr view, float cutoff);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_show_cursors(IntPtr view, byte show);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_materialize(IntPtr view, uint captain, float progress);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_repaired_ship(byte on);

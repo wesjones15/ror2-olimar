@@ -1,4 +1,4 @@
-> modern/2026 migration branch: targets RiskOfRain2_DLC4 (Unity 2021.3.45f2). Build/API validation only; in-game validation is pending. Legacy instructions below describe the previous release.
+> modern/1.5.0 branch: targets RiskOfRain2_DLC4 (Unity 2021.3.45f2). Build/API validation only; in-game validation is pending. Legacy instructions below describe the previous release.
 
 # ror2-olimar
 
@@ -310,6 +310,12 @@ particles, and rocket sound start/stop. In-game visual acceptance is still manua
 ## Arrival music
 
 Phase 6: the first 3.5 seconds of Impact Site (tutorial.jam) play once per local body when DolphinArrival ends. Stage arrivals and respawns can play it again. SpawnMusic.Enabled and SpawnMusic.Volume control it; master and music volume also apply. The build synthesizes spawn.wav from your extracted disc audio into the ignored dist folder. Rebuild after extracting assets if the clip is missing. No music data is committed.
+
+Olimar's death plays the full vanilla sundown bell. ABI 28 renders it from your disc into
+memory when the sound view loads, then plays it through the death-sting player so game-over
+cleanup cannot silence it. `Sound.Enabled`, `Sound.Volume`, the game's SFX volume and the
+shared `Ror2Common.Audio.cfg` gain apply; the shared default is -4 dB. Leaving the run stops
+the bell. Install the matching `OlimarTest.dll` and `pikmin.dll` together.
 
 ## Onion health and recovery (2026-10-14)
 

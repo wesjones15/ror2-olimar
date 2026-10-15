@@ -30,6 +30,14 @@ namespace OlimarTest
         HealthComponent health;
         NativeBody native;
         bool sprintPressed;
+        bool deathSoundPlayed;
+
+        internal void PlayDeathSound()
+        {
+            if (deathSoundPlayed) return;
+            deathSoundPlayed = true;
+            SpawnMusic.PlayDeath(Body);
+        }
 
         LocalUser localUser;
         readonly Pad pad = new Pad();
@@ -191,6 +199,7 @@ namespace OlimarTest
 
         void Update()
         {
+            if (health && !health.alive) PlayDeathSound();
             FindLocalUser();
             if (localUser != null) pad.Read(localUser.inputPlayer, realPrompt);
             sprintPressed |= input && input.sprint.down;
@@ -232,6 +241,7 @@ namespace OlimarTest
 
         void OnDestroy()
         {
+            if (health && !health.alive) PlayDeathSound();
             all.Remove(this);
             if (PikminWorld.Instance) PikminWorld.Instance.Unregister(this);
             ReleaseCamera();

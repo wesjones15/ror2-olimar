@@ -472,7 +472,21 @@ static class Program
             // The sound output opens and closes in a plain process (nothing is played).
             IntPtr loud = Native.pik_view_new(Native.CString(args[1]), 1);
             Check(loud != IntPtr.Zero, "view with sound: " + Native.Utf8(Native.pik_view_status(loud)));
+            var bell = new float[640000];
+            Check(Native.pik_view_take_death_sting(loud, bell, 1) == 0, "death bell rejects a short buffer");
+            Check(Native.pik_view_take_death_sting(loud, bell, (uint)bell.Length) == bell.Length,
+                "full sundown bell crosses the ABI as 10 seconds of stereo 32 kHz PCM");
             Native.pik_view_free(loud);
+            double Energy(int first, int last)
+            {
+                double energy = 0;
+                for (int i = first * 64000; i < last * 64000; i++) energy += bell[i] * bell[i];
+                return energy;
+            }
+            Check(Array.TrueForAll(bell, sample => !float.IsNaN(sample) && !float.IsInfinity(sample)), "death PCM is finite");
+            Check(Energy(0, 3) > 0.01 && Energy(4, 6) > 0.01,
+                "both original bell phrases remain available after the native stream is freed");
+            Check(Energy(9, 10) < 0.00001, "full bell decay finishes before the PCM ends");
         }
         Native.pik_sim_free(sim);
 

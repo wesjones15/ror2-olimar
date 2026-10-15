@@ -1963,6 +1963,7 @@ namespace OlimarTest
                 }
             if (v && v.GetComponent<OlimarDriver>() is OlimarDriver olimar && olimar.Captain >= 0)
             {
+                olimar.PlayDeathSound();
                 // His knockdown (ODead) in place of RoR2's ragdoll, which is on his hidden
                 // Commando model; RoR2's own death state still runs.
                 Native.pik_sim_down_captain(sim, (uint)olimar.Captain, 1);
