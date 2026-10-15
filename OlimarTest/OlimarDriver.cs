@@ -159,6 +159,8 @@ namespace OlimarTest
                 feetToOrigin = transform.position - Body.footPosition;
                 smoother.Reset();
                 placed = false;
+                // The sim probes what RoR2's own bodies collide with, not just the world layer.
+                WorldProbe.UseBodyCollision(motor, gameObject);
             }
             bool steer = Arriving || (SimMoves && Active);
             // The sim has him, or hands him back to RoR2 (Aim scheme, the sim stopped).
