@@ -174,7 +174,7 @@ namespace OlimarTest
             if (!events || !hc || !hc.alive) return;
             float speed = Mathf.Sqrt(2f * Mathf.Abs(Physics.gravity.y) * drop);
             if (speed <= body.jumpPower + 20f) return;
-            events.OnCharacterHitGroundServer(body, Vector3.down * speed);
+            events.OnCharacterHitGroundServer(body, new CharacterMotor.HitGroundInfo { velocity = Vector3.down * speed, position = body.footPosition, ownerBodyObject = body.gameObject, isValidForEffect = true });
             if (Plugin.LogEvents.Value)
                 Plugin.Log.LogInfo($"Olimar landed from {drop:F1} m at {speed:F1} m/s");
         }
@@ -435,7 +435,7 @@ namespace OlimarTest
                 switch (name)
                 {
                     case "AffixRed":
-                        DotController.InflictDot(vb.gameObject, attacker.gameObject, DotController.DotIndex.Burn, 4f * procCoefficient, 1f);
+                        DotController.InflictDot(vb.gameObject, attacker.gameObject, vb.mainHurtBox, default(ProcChainMask), DotController.DotIndex.Burn, 4f * procCoefficient, 1f);
                         break;
                     case "AffixWhite":
                         vb.AddTimedBuff(RoR2Content.Buffs.Slow80, 1.5f * procCoefficient);

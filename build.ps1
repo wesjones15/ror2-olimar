@@ -4,11 +4,9 @@
 #   powershell -ExecutionPolicy Bypass -File build.ps1 [-RoR2Dir <game to compile against>]
 #       [-InstallDir <game to install into>] [-NoInstall]
 #
-# Compile against the 1.2.4.4 reference copy; install into the Steam copy used for play,
-# as ror2-mario does. Fall back to the reference copy if the Steam copy isn't present.
 param(
-    [string]$RoR2Dir = (Join-Path $PSScriptRoot "..\Risk Of Rain 2 2023"),
-    [string]$InstallDir = "D:\SteamLibrary\steamapps\common\Risk of Rain 2",
+    [string]$RoR2Dir = (Join-Path $PSScriptRoot "..\2026 Mod Stuff\RiskOfRain2_DLC4"),
+    [string]$InstallDir = $RoR2Dir,
     [string]$LibPikmin = (Join-Path $PSScriptRoot "..\libpikmin"),
     [switch]$NoInstall
 )
@@ -36,7 +34,7 @@ try {
     if ($LASTEXITCODE) { throw "spawn music render failed" }
     Move-Item -LiteralPath (Join-Path $dist "bgm_4.wav") -Destination (Join-Path $dist "spawn.wav") -Force
 } finally { Pop-Location }
-Copy-Item (Join-Path $PSScriptRoot "OlimarTest\bin\Release\netstandard2.0\OlimarTest.dll") $dist -Force
+Copy-Item (Join-Path $PSScriptRoot "OlimarTest\bin\Release\netstandard2.1\OlimarTest.dll") $dist -Force
 Copy-Item (Join-Path $LibPikmin "target\release\pikmin.dll") $dist -Force
 # Where the assets extracted from your own disc live (libpikmin/assets). If it isn't there
 # yet the plugin builds it on first run from the disc set in its config.

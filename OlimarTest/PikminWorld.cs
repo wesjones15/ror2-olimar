@@ -271,7 +271,7 @@ namespace OlimarTest
             {
                 if (Instance) Destroy(Instance.gameObject);
             };
-            GlobalEventManager.onCharacterDeathGlobal += r =>
+            GlobalEventManager.onDeathProcServer += r =>
             {
                 if (Instance) Instance.OnDeath(r);
             };
@@ -473,7 +473,7 @@ namespace OlimarTest
         {
             var inv = master ? master.inventory : null;
             var used = ByName.Item("ExtraLifeVoidConsumed");
-            return inv && used != ItemIndex.None ? inv.GetItemCount(used) : 0;
+            return inv && used != ItemIndex.None ? inv.GetItemCountEffective(used) : 0;
         }
 
         // A Larva brought him back: with no Pikmin left anywhere, he comes back with a squad.
