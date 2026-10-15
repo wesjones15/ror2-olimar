@@ -198,6 +198,12 @@ namespace OlimarTest
             }
             var input = default(Native.Input);
             if (d.Active) input = d.BuildInput();
+            if (d.Arriving)
+            {
+                input.use_pose = 1;
+                input.pose_pos = UnityHost.ToSim(d.Body.footPosition);
+                input.pose_face = UnityHost.Yaw(d.Body.transform.forward);
+            }
             Native.pik_sim_set_input(moverSim, 0, ref input);
             var body = d.Body;
             float speed = MinionStats.Of(body).moveSpeed;
@@ -610,7 +616,8 @@ namespace OlimarTest
                 if (ship.complete) continue;
                 ship.elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(ship.elapsed / DescentSeconds);
-                // Decelerate into a short landing; the Onion lands beside it and Olimar beams out of it.
+                // Decelerate into a short landing. The Onion releases Pikmin beside the
+                // Dolphin; Olimar's materialization starts at the ship's hatch.
                 float eased = 1f - (1f - t) * (1f - t);
                 var at = Vector3.Lerp(ship.start, ship.landing, eased);
                 var pos = UnityHost.ToSim(at);
