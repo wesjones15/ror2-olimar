@@ -180,6 +180,34 @@ static class Program
         Native.pik_sim_free(replica);
     }
 
+    static void CheckOnionRevival(ref Native.Host host)
+    {
+        var sim = Native.pik_sim_new(null, 27);
+        var ground = new Native.Vec3(0, 0, 0);
+        int captain = Native.pik_sim_add_captain(sim, ref ground);
+        int onion = Native.pik_sim_add_onion(sim, ref ground, 7);
+        Native.pik_sim_store_in_onion(sim, (uint)onion, Native.Red, 0, 4);
+        Native.pik_sim_make_onion_dormant(sim, (uint)onion, 0.2f, ref ground);
+        var onions = new Native.Onion[1];
+        Native.pik_sim_onions(sim, onions, 1);
+        Check(onions[0].anim == 7 && onions[0].stored1 == 4, "dormancy crosses ABI without erasing stock");
+        Check(Native.pik_sim_onion_call_out(sim, (uint)captain, (uint)onion, Native.Red, 4) == 0, "dormant stock is inaccessible");
+        for (int i = 0; i < 150; i++) Native.pik_sim_advance(sim, ref host, 1f / 30f);
+        Native.pik_sim_onions(sim, onions, 1);
+        Check(onions[0].anim == 0 && onions[0].stored1 == 4, "Onion revives through ABI with stock intact");
+        int pellet = Native.pik_sim_spawn_numbered_pellet(sim, 1, Native.Red, ref ground, 0);
+        var hover = new Native.Vec3(0, 125, 0);
+        Native.pik_sim_set_onion_pose(sim, (uint)onion, ref hover, 1);
+        Check(Native.pik_sim_collect_ground_pellet(sim, (uint)onion, (uint)pellet) == 0, "high Onion cannot vacuum a ground pellet");
+        hover.y = 40;
+        Native.pik_sim_set_onion_pose(sim, (uint)onion, ref hover, 1);
+        Check(Native.pik_sim_collect_ground_pellet(sim, (uint)onion, (uint)pellet) == 1, "descended Onion picks up with no Pikmin alive");
+        for (int i = 0; i < 150; i++) Native.pik_sim_advance(sim, ref host, 1f / 30f);
+        Native.pik_sim_onions(sim, onions, 1);
+        Check(onions[0].stored1 == 6 && Native.pik_sim_poisoned(sim) == 0, "ground pickup adds stock and keeps native sim healthy");
+        Native.pik_sim_free(sim);
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -196,6 +224,7 @@ static class Program
             walls = Marshal.GetFunctionPointerForDelegate(wallsFn),
             damage = Marshal.GetFunctionPointerForDelegate(damageFn),
         };
+        CheckOnionRevival(ref host);
         // An assets folder as the second argument checks the disc tuning loads too.
         IntPtr sim = Native.pik_sim_new(args.Length > 1 ? Native.CString(args[1]) : null, 7);
         if (args.Length > 1) Check(Native.pik_assets_complete(Native.CString(args[1])) == 1, "assets complete");

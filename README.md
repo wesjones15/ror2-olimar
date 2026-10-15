@@ -23,7 +23,7 @@ What works:
   x Olimar's damage stat, with on-hit items at a low proc coefficient. A Pikmin's hit is
   measured from the Pikmin, not Olimar (Focus Crystal's range).
 - **Items**: Olimar's move speed items (Goat Hoof, Energy Drink...) speed up his run in the
-  sim. Each Onion is his minion with his items (`OnionItems`): it can't be hurt or targeted,
+  sim. Each Onion is his targetable minion with his items (`OnionItems`),
   and items that work while you stand still (Bustling Fungus) work around it. Tesla Coil and
   Mired Urn are left off it.
 - **Getting hurt**: an enemy's hit on anything also hurts the Pikmin around where it landed.
@@ -60,7 +60,7 @@ What works:
   RoR2's floating damage digits. Its colours, critical-hit effects, movement and K/M/B suffixes stay.
   Set it to false to restore RoR2's font, including during play. This changes all floating damage
   numbers locally, whichever survivor you use. Missing digits fall back to the original font.
-  Requires the matching ABI 24 DLLs; no font textures ship with the plugin or go into git.
+  Requires the matching ABI 27 DLLs; no font textures ship with the plugin or go into git.
 - **Looks and sounds**: Olimar, the Pikmin (with leaf, bud or flower), the Onion, pellets,
   sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of
@@ -78,13 +78,13 @@ What works:
   `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
 - **Onion (phase 8)**: one Onion per Olimar stores all three types. Its Red, Yellow or
   Blue appearance is chosen once per run and kept across stages; it has no effect on storage.
-  It arrives airborne alongside the Dolphin and follows Olimar. With the Pikmin controls X lowers a
+  It arrives airborne alongside the Dolphin, lands to release the squad, and stays planted until raised. With the Pikmin controls X lowers a
   flying Onion where he stands and raises a landed one to follow him (each takes a relocation
   charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
   its menu, and at a chest it opens the chest. D-pad up / Tab opens the menu, including during
   flight. The Aim scheme uses interact to land it and open the menu. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
   up/down adjusts transfers and A/left click confirms. Transfers wait until landed; a hovering Onion
-  still takes pellets, and the Pikmin they make stay inside it as leaves instead of being planted. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
+  descends towards nearby pellets before collecting them, and the Pikmin they make stay inside it as leaves instead of being planted. Loose ground pellets are eligible even with no Pikmin alive. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
   moving, so Bustling Fungus only activates after the Onion has landed and stood still for
   one second, regardless of whether Olimar is moving.
@@ -308,3 +308,33 @@ particles, and rocket sound start/stop. In-game visual acceptance is still manua
 ## Arrival music
 
 Phase 6: the first 3.5 seconds of Impact Site (tutorial.jam) play once per local body when DolphinArrival ends. Stage arrivals and respawns can play it again. SpawnMusic.Enabled and SpawnMusic.Volume control it; master and music volume also apply. The build synthesizes spawn.wav from your extracted disc audio into the ignored dist folder. Rebuild after extracting assets if the clip is missing. No music data is committed.
+
+## Onion health and recovery (2026-10-14)
+
+An Onion starts with 400 health (`Pikmin.OnionHealth`), gains 30% per level, and can be
+hit and targeted by enemies. Each delivered pellet heals 25% of its maximum health plus
+2% per seed, capped at full health (`Pikmin.OnionPelletHeal` adjusts the base fraction).
+Its hurtbox follows the model's pod, and its optional inherited items still run on its own body.
+
+In follow mode it approaches pellets within six metres, descends at three metres per second
+to 1.5 metres above the ground, and dwells for 0.75 seconds before taking a loose pellet.
+A carry team can hand off once it is within suction reach. It holds still through suction,
+then resumes following. A blocked approach or missing floor prevents pickup.
+
+At zero health it settles on the ground and folds into the disc's dormant Onion pose.
+Its colour-matched dormant material is the odd frame of goal.mod's original palette;
+the model and startup animations are already in objects/goal. Stock survives but cannot
+be withdrawn, and Pikmin ignore pellets without another live destination. Existing carriers
+are released; interrupted suction leaves the pellet available for later.
+
+After 30 seconds (`Pikmin.OnionReviveSeconds`), the corresponding startup motion (3-5)
+plays over three seconds, with its original particle event keys and FindOnyon sound commands.
+The extractor now copies demo4/demo5's timed commands out of main.dol into the ignored
+SndData/onion_boot.bin. The Onion revives planted at full health with its stock intact.
+All discs and extracted models, textures, sounds and command tables stay outside git.
+
+Olimar's native pose is held at RoR2's arrival feet to prevent falling through during the
+spawn state. He materializes from the Dolphin hatch with the ship recovery effects; only
+the Pikmin exit the Onion. ABI 27 and snapshot version 3 carry the new Onion lifecycle.
+Install the matching DLL pair together. The current build is staged in dist/OlimarTest;
+in-game acceptance of arrival, enemy targeting, healing and revival remains manual.

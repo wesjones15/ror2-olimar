@@ -712,7 +712,9 @@ namespace OlimarTest
                     ? d.Body.footPosition : flight.position;
             }
             if (onionMinions.TryGetValue(flight.id, out var minion))
-                minion.Place(flight.position + Vector3.up * 2f, Quaternion.identity, flight.airborne, !flight.airborne);
+                // goal.mod's live pod centre is about 110 sim units (4.4 m) high;
+                // Commando's hidden body has its hurtbox about a metre above its feet.
+                minion.Place(flight.position + Vector3.up * 3.5f, Quaternion.identity, flight.airborne, !flight.airborne);
         }
 
         void MoveOnions()
@@ -727,7 +729,7 @@ namespace OlimarTest
                     if (disabled) continue;
                     flight.dormant = false;
                     if (driverOf.TryGetValue(flight.captain, out var owner) && owner && owner.Body)
-                        AddOnionMinion(flight.id, flight.position + Vector3.up * 2f, owner.Body);
+                        AddOnionMinion(flight.id, flight.position + Vector3.up * 3.5f, owner.Body);
                     Plugin.Log.LogInfo($"Onion {flight.id} revived; its stored Pikmin are available again.");
                 }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
@@ -795,8 +797,15 @@ namespace OlimarTest
             var pellet = Pellets[pi];
             flight.pickup = (int)pellet.id;
             if (pellet.state == 2) return true; // Hold still through suction.
-            var ground = UnityHost.Snap(UnityHost.ToUnity(pellet.pos));
+            var atPellet = UnityHost.ToUnity(pellet.pos);
+            if (!Physics.Raycast(atPellet + Vector3.up * 2f, Vector3.down, out var floor,
+                30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || floor.normal.y < 0.5f)
+            { flight.pickup = -1; flight.pickupDwell = 0f; return false; }
+            var ground = floor.point;
             var target = ground + Vector3.up * 1.5f;
+            if (Physics.Linecast(flight.position + Vector3.up * 4.4f, target + Vector3.up * 4.4f,
+                UnityHost.Mask, QueryTriggerInteraction.Ignore))
+            { flight.pickup = -1; flight.pickupDwell = 0f; return false; }
             flight.position = Vector3.MoveTowards(flight.position, target, Time.fixedDeltaTime * 3f);
             flight.transitionDuration = 0f;
             if (Vector3.Distance(flight.position, target) < 0.1f)
@@ -897,7 +906,7 @@ namespace OlimarTest
                         else d.OpenOnionMenu(id);
                     }
                 });
-            AddOnionMinion(id, UnityHost.ToUnity(p), owner);
+            AddOnionMinion(id, UnityHost.ToUnity(p) + Vector3.up * 3.5f, owner);
         }
 
         // The Onion's body as the owner's minion, where the sim has the Onion.
