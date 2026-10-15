@@ -40,6 +40,7 @@ namespace OlimarTest
             // The Dolphin's parts are drawn as the sim fits them: all 30 unless the ship-parts mode is on.
             Native.pik_view_set_repaired_ship(1);
             var v = Native.pik_view_new(Native.CString(assetsDir), (byte)(sound ? 1 : 0));
+            if (v != IntPtr.Zero) Native.pik_view_set_audio_lowpass(v, Plugin.SoundHighCut.Value);
             if (v == IntPtr.Zero)
             {
                 Plugin.Log.LogWarning($"Pikmin's models didn't load from {assetsDir}; drawing stand-ins");
@@ -72,7 +73,11 @@ namespace OlimarTest
         /// camera and volume.
         public void Pose(IntPtr sim, ref Native.ViewFrame frame)
         {
-            if (view != IntPtr.Zero) Native.pik_view_update(view, sim, ref frame);
+            if (view != IntPtr.Zero)
+            {
+                Native.pik_view_set_audio_lowpass(view, Plugin.SoundHighCut.Value);
+                Native.pik_view_update(view, sim, ref frame);
+            }
         }
 
         /// Poses `sim` and moves the objects and particles. `scale` is metres per sim unit; draws

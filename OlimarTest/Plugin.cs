@@ -72,7 +72,7 @@ namespace OlimarTest
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
         internal static ConfigEntry<bool> Sound;
-        internal static ConfigEntry<float> SoundVolume, TrumpetGain;
+        internal static ConfigEntry<float> SoundVolume, TrumpetGain, SoundHighCut;
 
         /// Extraction has finished (or wasn't needed). The sim waits for this so it starts on
         /// the disc's tuning.
@@ -228,6 +228,8 @@ namespace OlimarTest
                 "Onion. Arrival music has separate SpawnMusic settings; RoR2's soundtrack stays.");
             SoundVolume = Config.Bind("Sound", "Volume", 1f,
                 "Pikmin sound volume, on top of RoR2's master and sound effects volume (0 to 2).");
+            SoundHighCut = Config.Bind("Sound", "HighCutHz", 4500f,
+                "Softens harsh treble in Pikmin's sound effects. Cutoff in Hz; 0 keeps the unfiltered sound.");
             TrumpetGain = Config.Bind("Sound", "TrumpetGain", 1.4f,
                 "How loud Olimar's swarming trumpet plays against the disc's level (1), so it carries over RoR2's " +
                 "combat. 0 to 4; restart to apply.");
