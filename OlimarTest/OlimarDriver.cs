@@ -87,6 +87,8 @@ namespace OlimarTest
 
         /// Further than this between ticks is a teleport: the squad comes too.
         const float TeleportMetres = 12f;
+        // Where he last stood, for putting him back after a fall off the map.
+        readonly Unstuck fallGuard = new Unstuck();
         Vector3 lastFeet;
         bool lastFeetSet;
 
@@ -558,6 +560,26 @@ namespace OlimarTest
             pad.Ticked();
             Items.Ticked(c);
             if (IsRemote || !SimMoves || !Active) return;
+
+            // Off the map: with his motor off RoR2's kill zones never see him, so he'd fall for ever.
+            // Back to where he last stood with his squad, unhurt (ror2-common's Unstuck.Fell).
+            var feet = UnityHost.ToUnity(c.pos);
+            float height = UnityHost.NaviHeight * UnityHost.Scale, radius = Mathf.Max(0.1f, Body.radius);
+            Unstuck.GroundProbe stand = (Vector3 s, float rise, float drop, out Vector3 f) =>
+                WorldProbe.StandingGround(s, rise, drop, height, radius, out f);
+            fallGuard.Step(feet, false, c.on_ground != 0, false, Time.fixedDeltaTime, height, stand, out _);
+            if (fallGuard.Fell(feet, height, stand, out var back))
+            {
+                var at = UnityHost.ToSim(back);
+                var world = PikminWorld.Instance;
+                Native.pik_sim_teleport_squad(world.SimHandle, (uint)captain, ref at);
+                transform.position = back + feetToOrigin;
+                smoother.Reset();
+                if (native) native.ForgetVelocity();
+                fallGuard.Reset();
+                Plugin.Log.LogInfo($"Olimar fell off the map at {feet}; back on the surface at {back} with his squad");
+                return;
+            }
 
             // Leave the body at the start of the blend, never ahead of the drawn model.
             smoother.Stepped(UnityHost.ToUnity(c.pos) + feetToOrigin);
