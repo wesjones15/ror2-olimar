@@ -58,8 +58,9 @@ namespace OlimarTest
             pack.gameEndingDefs.Add(new[] { Ending });
         }
 
-        public static void Install()
+        public static void Install(GameObject plugin)
         {
+            plugin.AddComponent<ShipRepairHint>();
             NetworkModCompatibilityHelper.networkModList = NetworkModCompatibilityHelper.networkModList
                 .Concat(new[] { Plugin.Guid + ";ship-repair-abi30-v1" });
             hooks.Add(new Hook(typeof(Run).GetProperty("spawnWithPod").GetMethod,
@@ -149,6 +150,10 @@ namespace OlimarTest
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(() => RoR2.Console.instance.SubmitCmd((NetworkUser)null, "gamemode " + PrefabName + "; host 0;", false));
             foreach (var text in button.GetComponentsInChildren<LanguageTextMeshController>(true)) text.token = NameToken;
+            var tooltip = button.GetComponent<TooltipProvider>() ?? button.gameObject.AddComponent<TooltipProvider>();
+            tooltip.titleToken = NameToken;
+            tooltip.bodyToken = "OLIMAR_SHIP_REPAIR_DESCRIPTION";
+            tooltip.overrideTitleText = tooltip.overrideBodyText = "";
             button.gameObject.SetActive(true);
         }
 
@@ -202,7 +207,20 @@ namespace OlimarTest
             var language = Language.currentLanguage;
             if (language == null) return;
             language.SetStringByToken(NameToken, "Ship Repair");
+            language.SetStringByToken("OLIMAR_SHIP_REPAIR_DESCRIPTION", "The Dolphin is wrecked. Recover 30 unique ship parts with your Pikmin to escape. Parts left behind can appear on later stages.");
             language.SetStringByToken("OLIMAR_SHIP_REPAIR_WIN", "The Dolphin is whole again. Home is finally within reach.");
+        }
+    }
+
+    public sealed class ShipRepairHint : MonoBehaviour
+    {
+        void OnGUI()
+        {
+            if (ShipRepairMode.LobbyActive)
+                GUI.Box(new Rect(20, 100, 430, 80), "Ship Repair — recover 30 unique parts\n" +
+                    (ShipRepairMode.LobbyError() ?? "All players: Olimar. Artifacts: off.\nCarry parts to a landed Onion; missed parts can return."));
+            else if (RunAudio.Ended && ShipRepairSession.ResultSummary != null && FindObjectOfType<GameOverController>())
+                GUI.Box(new Rect(20, 100, 430, 100), ShipRepairSession.ResultSummary);
         }
     }
 }

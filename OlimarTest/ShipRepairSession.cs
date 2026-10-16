@@ -40,6 +40,7 @@ namespace OlimarTest
         int[] remoteOrder = Array.Empty<int>();
         Action pendingFailure;
         static string lastResult;
+        internal static string ResultSummary => lastResult;
         static string lastResultRun;
         static byte[] pendingPacket;
 
@@ -48,7 +49,7 @@ namespace OlimarTest
         double Seconds => NetworkServer.active ? Progress.Seconds : remoteSeconds;
         internal bool Terminal => NetworkServer.active ? Progress.State >= ShipRepairProgress.Phase.Winning : remotePhase >= ShipRepairProgress.Phase.Winning;
         internal bool HoldingFirstArrival => NetworkServer.active
-            ? Progress.Stages <= 1 && !Progress.Started && arrivalAge < 20f
+            ? Progress.State == ShipRepairProgress.Phase.Arriving && Progress.Stages <= 1 && !Progress.Started && arrivalAge < 20f
             : !hydrated || (remoteStages <= 1 && remotePhase <= ShipRepairProgress.Phase.Arriving);
 
         void Awake()
@@ -319,7 +320,6 @@ namespace OlimarTest
             if (!run || !ShipRepairMode.Active) return;
             if (run.isGameOverServer || (Terminal && !Winning))
             {
-                if (lastResultRun == runId) GUI.Box(new Rect(20, 100, 420, 100), lastResult);
                 return;
             }
             GUI.Box(new Rect(20, 100, 340, 70), $"S.S. Dolphin — {Count}/30 parts\nRepair time {FormatTime(Seconds)}\n{parts.Count(p => !p.delivered)} parts remaining on this stage");
