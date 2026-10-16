@@ -103,7 +103,9 @@ namespace OlimarTest
                 StartCoroutine(Spawn(world, Progress.Epoch));
                 Broadcast();
             }
-            bool loading = !sceneReady || stage != Stage.instance || run.NetworkinSceneTransition;
+            // Run.inSceneTransition starts at the exit countdown, while hauling is
+            // still playable. Count that time; close only at actual AdvanceStage.
+            bool loading = !sceneReady || stage != Stage.instance || Progress.State == ShipRepairProgress.Phase.Loading;
             Progress.Tick(Time.fixedDeltaTime, loading || Time.timeScale == 0f);
             if (loading) return;
             if (Progress.State == ShipRepairProgress.Phase.Arriving)

@@ -1870,6 +1870,7 @@ namespace OlimarTest
         // An enemy's hit on anything also hurts the Pikmin around where it landed.
         void OnDamageDealt(DamageReport r)
         {
+            if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal) return;
             if (sim == IntPtr.Zero || !NetworkServer.active || r?.damageInfo == null) return;
             if (stepping)
             {
@@ -1896,6 +1897,7 @@ namespace OlimarTest
         // proc coefficient.
         void Freeze(Vector3 at, float radiusMetres, float procCoefficient)
         {
+            if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal) return;
             if (sim == IntPtr.Zero || !NetworkServer.active) return;
             if (stepping)
             {

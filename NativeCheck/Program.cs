@@ -208,6 +208,59 @@ static class Program
         Native.pik_sim_free(sim);
     }
 
+    static void CheckShipRepair(string assets, ref Native.Host host)
+    {
+        IntPtr sim = Native.pik_sim_new(Native.CString(assets), 43);
+        Check(sim != IntPtr.Zero, "ship repair sim created");
+        if (sim == IntPtr.Zero) return;
+        try
+        {
+            for (uint part = 0; part < 30; part++)
+            {
+                uint weight = Native.pik_sim_ship_part_weight(sim, part);
+                Check(weight > 0 && weight <= 100, $"ship part {part} disc weight {weight}");
+            }
+            var name = new byte[128];
+            Check(Native.pik_sim_ship_part_name(sim, 4, name, 128) > 0, "part name crosses UTF-8 ABI");
+            var origin = new Native.Vec3(0, 0, 0);
+            var goal = new Native.Vec3(-300, 0, 0);
+            int captain = Native.pik_sim_add_captain(sim, ref origin);
+            int onion = Native.pik_sim_add_onion(sim, ref goal, 7);
+            Native.pik_sim_add_ship(sim, ref origin, 0);
+            Native.pik_sim_set_ship_part_onion_delivery(sim, 1);
+            Native.pik_sim_set_auto_carry(sim, 1000f);
+            int pellet = Native.pik_sim_spawn_ship_part(sim, 4, ref origin, 0);
+            Check(pellet >= 0 && Native.pik_sim_spawn_ship_part(sim, 30, ref origin, 0) == -1, "disc part spawn and ID validation");
+            uint weightNeeded = Native.pik_sim_ship_part_weight(sim, 4);
+            for (int i = 0; i < weightNeeded + 5; i++)
+            {
+                var at = new Native.Vec3(-25 + i, 0, -25);
+                Native.pik_sim_spawn_piki(sim, Native.Red, ref at, captain);
+            }
+            var events = new Native.Event[256];
+            int receipts = 0;
+            for (int tick = 0; tick < 1800; tick++)
+            {
+                Native.pik_sim_advance(sim, ref host, 1f / 30f);
+                uint count;
+                do
+                {
+                    count = Native.pik_sim_events(sim, events, (uint)events.Length);
+                    for (int i = 0; i < count; i++) if (events[i].kind == Native.EventKind.ShipPartCollected)
+                    {
+                        receipts++;
+                        Check(events[i].a == pellet && events[i].b == onion && events[i].c == 4 && events[i].value == 0,
+                            "host receives part identity and Onion at completed suction");
+                    }
+                } while (count == events.Length);
+            }
+            Check(receipts == 1 && Native.pik_sim_poisoned(sim) == 0, "P/Invoke haul completes exactly once without poisoning");
+            uint samples = Native.pik_victory_pcm(Native.CString(assets), null, 0, out uint rate);
+            Check(samples > rate * 2 && rate == 44100, "complete-ending PCM crosses ABI");
+        }
+        finally { Native.pik_sim_free(sim); }
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -224,6 +277,7 @@ static class Program
             walls = Marshal.GetFunctionPointerForDelegate(wallsFn),
             damage = Marshal.GetFunctionPointerForDelegate(damageFn),
         };
+        if (args.Length > 1) CheckShipRepair(args[1], ref host);
         CheckOnionRevival(ref host);
         // An assets folder as the second argument checks the disc tuning loads too.
         IntPtr sim = Native.pik_sim_new(args.Length > 1 ? Native.CString(args[1]) : null, 7);
