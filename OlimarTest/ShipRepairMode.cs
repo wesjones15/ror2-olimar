@@ -218,7 +218,7 @@ namespace OlimarTest
         {
             if (ShipRepairMode.LobbyActive)
                 GUI.Box(new Rect(20, 100, 430, 80), "Ship Repair — recover 30 unique parts\n" +
-                    (ShipRepairMode.LobbyError() ?? "All players: Olimar. Artifacts: off.\nCarry parts to a landed Onion; missed parts can return."));
+                    (ShipRepairMode.LobbyError() ?? "All players: Olimar. Artifacts: off.\nCarry parts to the Dolphin; missed parts can return."));
             else if (RunAudio.Ended && ShipRepairSession.ResultSummary != null && FindObjectOfType<GameOverController>())
                 GUI.Box(new Rect(20, 100, 430, 100), ShipRepairSession.ResultSummary);
         }

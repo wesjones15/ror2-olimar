@@ -201,7 +201,7 @@ namespace OlimarTest
             if (part == null || !Progress.Accepting) return;
             bool receiver = false;
             for (int i = 0; i < world.OnionCount; i++)
-                if (world.Onions[i].id == receipt.b && world.Onions[i].is_ship == 0) receiver = true;
+                if (world.Onions[i].id == receipt.b && world.Onions[i].is_ship != 0) receiver = true;
             if (!receiver || !Progress.Receive(Progress.Epoch, part.id)) return;
             part.delivered = true;
             world.FitShipPart((uint)part.id);

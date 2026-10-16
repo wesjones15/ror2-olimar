@@ -524,7 +524,7 @@ namespace OlimarTest
                 return false;
             }
             simStage = Stage.instance;
-            Native.pik_sim_set_ship_part_onion_delivery(sim, ShipRepairMode.Active ? (byte)1 : (byte)0);
+            Native.pik_sim_set_ship_part_host_delivery(sim, ShipRepairMode.Active ? (byte)1 : (byte)0);
             reportedPoison = false;
             epoch++;
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);

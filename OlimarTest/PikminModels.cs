@@ -24,7 +24,11 @@ namespace OlimarTest
         /// This frame's instances (after Update).
         public int DrawCount => Models.DrawCount;
         public ViewDraw DrawAt(int i) => Models.DrawAt(i);
-        public void Celebrate(bool enabled) => Native.pik_view_set_celebrating(view, enabled ? (byte)1 : (byte)0);
+        public void Celebrate(bool enabled)
+        {
+            Native.pik_view_set_ship_repair_mode(view, ShipRepairMode.Active ? (byte)1 : (byte)0);
+            Native.pik_view_set_celebrating(view, enabled ? (byte)1 : (byte)0);
+        }
         public uint RepairsPending => Native.pik_view_repairs_pending(view);
 
         PikminModels(IntPtr view, ModelView models, Transform parent)

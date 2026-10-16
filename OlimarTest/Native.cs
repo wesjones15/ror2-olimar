@@ -14,6 +14,8 @@ namespace OlimarTest
     {
         public const string Dll = "pikmin";
         public const uint AbiVersion = 30;
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_ship_repair_mode(IntPtr view, byte enabled);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_ship_part_host_delivery(IntPtr sim, byte enabled);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_victory_pcm(byte[] assets, float[] output, uint cap, out uint rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_celebrating(IntPtr view, byte enabled);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_repairs_pending(IntPtr view);

@@ -225,9 +225,9 @@ static class Program
             var origin = new Native.Vec3(0, 0, 0);
             var goal = new Native.Vec3(-300, 0, 0);
             int captain = Native.pik_sim_add_captain(sim, ref origin);
-            int onion = Native.pik_sim_add_onion(sim, ref goal, 7);
-            Native.pik_sim_add_ship(sim, ref origin, 0);
-            Native.pik_sim_set_ship_part_onion_delivery(sim, 1);
+            Native.pik_sim_add_onion(sim, ref origin, 7);
+            int ship = Native.pik_sim_add_ship(sim, ref goal, 0);
+            Native.pik_sim_set_ship_part_host_delivery(sim, 1);
             Native.pik_sim_set_auto_carry(sim, 1000f);
             int pellet = Native.pik_sim_spawn_ship_part(sim, 4, ref origin, 0);
             Check(pellet >= 0 && Native.pik_sim_spawn_ship_part(sim, 30, ref origin, 0) == -1, "disc part spawn and ID validation");
@@ -249,8 +249,8 @@ static class Program
                     for (int i = 0; i < count; i++) if (events[i].kind == Native.EventKind.ShipPartCollected)
                     {
                         receipts++;
-                        Check(events[i].a == pellet && events[i].b == onion && events[i].c == 4 && events[i].value == 0,
-                            "host receives part identity and Onion at completed suction");
+                        Check(events[i].a == pellet && events[i].b == ship && events[i].c == 4 && events[i].value == 0,
+                            "host receives part identity and Dolphin at completed suction");
                     }
                 } while (count == events.Length);
             }
