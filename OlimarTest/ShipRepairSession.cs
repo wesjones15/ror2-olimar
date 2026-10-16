@@ -14,7 +14,6 @@ namespace OlimarTest
     public sealed class ShipRepairSession : MonoBehaviour
     {
         const short StateMessage = 0x4F04, RecoveryMessage = 0x4F05;
-        const byte Protocol = 1;
         internal static ShipRepairSession Instance { get; private set; }
         internal readonly ShipRepairProgress Progress = new ShipRepairProgress();
         sealed class Part
@@ -38,6 +37,7 @@ namespace OlimarTest
         int remoteStages, receivedCount;
         ShipRepairProgress.Phase remotePhase;
         bool hydrated, playedVictory, sentResults;
+        int[] remoteOrder = Array.Empty<int>();
         Action pendingFailure;
         static string lastResult;
         static string lastResultRun;
@@ -69,6 +69,7 @@ namespace OlimarTest
 
         internal static void RegisterMessages()
         {
+            if (ShipRepairPacket.Abi != Native.AbiVersion) throw new InvalidOperationException("Repair protocol ABI does not match Native.cs.");
             Mp.Register(StateMessage, null, (from, reader) => {
                 if (NetworkServer.active) return;
                 if (Instance) Instance.Receive(reader);
@@ -282,55 +283,32 @@ namespace OlimarTest
         void Broadcast()
         {
             if (!NetworkServer.active) return;
-            var writer = new ByteWriter();
-            writer.U8(Protocol); writer.U8((byte)Native.AbiVersion); writer.Str(runId);
-            writer.U32(Progress.Epoch); writer.U32(Progress.Mask); writer.U8((byte)Progress.State);
-            writer.F32((float)Progress.Seconds); writer.I32(Progress.Stages);
-            writer.U8((byte)Progress.Order.Count); foreach (int part in Progress.Order) writer.U8((byte)part);
-            writer.U8((byte)parts.Count);
-            foreach (var part in parts)
-            {
-                writer.U8((byte)part.id); writer.U32(part.pellet); writer.Str(part.name); writer.U32(part.weight);
-                writer.F32(part.pos.x); writer.F32(part.pos.y); writer.F32(part.pos.z);
-                writer.Bool(part.discovered); writer.Bool(part.delivered); writer.Bool(part.stalled >= 30f);
-            }
-            Mp.SendToAll(StateMessage, writer.ToArray(), true);
+            if (Progress.Epoch == 0) return;
+            var packet = new ShipRepairPacket {
+                RunId = runId, Epoch = Progress.Epoch, Mask = Progress.Mask, State = Progress.State,
+                Seconds = (float)Progress.Seconds, Stages = Progress.Stages, Order = Progress.Order.ToArray(),
+                Parts = parts.Select(p => new ShipRepairPacket.Part { Id = p.id, Pellet = p.pellet, Name = p.name, Weight = p.weight,
+                    X = p.pos.x, Y = p.pos.y, Z = p.pos.z, Discovered = p.discovered, Delivered = p.delivered, Stalled = p.stalled >= 30f }).ToArray(),
+            };
+            Mp.SendToAll(StateMessage, packet.Write(), true);
         }
         void Receive(ByteReader reader)
         {
-            if (reader.U8() != Protocol || reader.U8() != Native.AbiVersion) return;
-            if (reader.Str() != runId) return;
-            uint epoch = reader.U32(), mask = reader.U32();
-            var phase = (ShipRepairProgress.Phase)reader.U8();
-            float seconds = reader.F32(); int stages = reader.I32(); int orderCount = reader.U8();
-            if (orderCount > 30 || (mask & ~ShipRepairProgress.AllParts) != 0 || phase > ShipRepairProgress.Phase.Results || !Finite(seconds) || seconds < 0) return;
-            var order = new List<int>(); uint checkMask = 0;
-            for (int i = 0; i < orderCount; i++)
-            {
-                int id = reader.U8(); if (id >= 30 || (checkMask & (1u << id)) != 0) return;
-                checkMask |= 1u << id; order.Add(id);
-            }
-            if (checkMask != mask) return;
-            int count = reader.U8(); if (count > 10) return;
-            var received = new List<Part>();
-            for (int i = 0; i < count; i++)
-            {
-                var part = new Part { id = reader.U8(), pellet = reader.U32(), name = reader.Str(), weight = reader.U32(),
-                    pos = new Vector3(reader.F32(), reader.F32(), reader.F32()), discovered = reader.Bool(), delivered = reader.Bool(), stalled = reader.Bool() ? 30f : 0f };
-                if (part.id >= 30 || !Finite(part.pos.x + part.pos.y + part.pos.z) || part.weight > 100 || received.Any(p => p.id == part.id)) return;
-                received.Add(part);
-            }
-            if (reader.Failed || !reader.Done || epoch < remoteEpoch || orderCount < receivedCount) return;
-            if (hydrated && orderCount > receivedCount)
-                ShowToast($"Ship part recovered — {orderCount}/30");
-            parts.Clear(); parts.AddRange(received);
-            remoteEpoch = epoch; remoteMask = mask; remotePhase = phase; remoteSeconds = seconds; remoteStages = stages;
-            receivedCount = orderCount; hydrated = true;
+            if (!ShipRepairPacket.Read(reader, out var packet) || packet.RunId != runId || packet.Epoch < remoteEpoch ||
+                packet.Order.Length < receivedCount || packet.Seconds < remoteSeconds || (packet.Mask & remoteMask) != remoteMask ||
+                !remoteOrder.SequenceEqual(packet.Order.Take(remoteOrder.Length))) return;
+            if (hydrated && packet.Order.Length > receivedCount)
+                ShowToast($"Ship part recovered — {packet.Order.Length}/30");
+            parts.Clear();
+            parts.AddRange(packet.Parts.Select(p => new Part { id = p.Id, pellet = p.Pellet, name = p.Name, weight = p.Weight,
+                pos = new Vector3(p.X, p.Y, p.Z), discovered = p.Discovered, delivered = p.Delivered, stalled = p.Stalled ? 30f : 0f }));
+            remoteEpoch = packet.Epoch; remoteMask = packet.Mask; remotePhase = packet.State; remoteSeconds = packet.Seconds; remoteStages = packet.Stages;
+            remoteOrder = packet.Order; receivedCount = packet.Order.Length; hydrated = true;
             if (Winning && !playedVictory) { playedVictory = true; SpawnMusic.PlayVictory(); }
-            if (phase >= ShipRepairProgress.Phase.Winning)
+            if (packet.State >= ShipRepairProgress.Phase.Winning)
             {
                 lastResultRun = runId;
-                lastResult = $"Ship Repair — {(mask == ShipRepairProgress.AllParts ? "Dolphin repaired" : "Run ended")}\n{Count}/30 parts · {FormatTime(Seconds)} · {remoteStages} stages\nSeed {run.seed} · {run.selectedDifficulty}";
+                lastResult = $"Ship Repair — {(remoteMask == ShipRepairProgress.AllParts ? "Dolphin repaired" : "Run ended")}\n{Count}/30 parts · {FormatTime(Seconds)} · {remoteStages} stages\nSeed {run.seed} · {run.selectedDifficulty}";
             }
         }
 
@@ -370,7 +348,6 @@ namespace OlimarTest
             }
         }
         static int CountBits(uint mask) { int n = 0; while (mask != 0) { mask &= mask - 1; n++; } return n; }
-        static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
         static string FormatTime(double seconds) => TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss");
     }
 }

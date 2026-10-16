@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using OlimarTest;
+using Ror2Common;
 
 static class Program
 {
@@ -41,7 +42,27 @@ static class Program
         var failure = new ShipRepairProgress(); failure.EnterStage(); failure.Release(); failure.Tick(4, false); failure.Fail(); failure.Tick(20, false);
         Check(failure.State == ShipRepairProgress.Phase.Failed && failure.Seconds == 4, "failure freezes metrics");
         Check(new ShipRepairProgress().Count == 0, "new run starts empty");
-        Console.WriteLine("PASS: sampling, receipts, epoch boundaries, clocks, failure, victory, and restart.");
+        var packet = new ShipRepairPacket { RunId = Guid.NewGuid().ToString(), Epoch = 2, Mask = 1u << 4,
+            State = ShipRepairProgress.Phase.Playing, Seconds = 124.5f, Stages = 2, Order = new[] { 4 },
+            Parts = new[] { new ShipRepairPacket.Part { Id = 4, Pellet = 22, Name = "Main Engine", Weight = 20, Delivered = true },
+                new ShipRepairPacket.Part { Id = 5, Pellet = 23, Name = "Radar", Weight = 10, X = 15.5f } } };
+        var bytes = packet.Write();
+        Check(ShipRepairPacket.Read(new ByteReader(bytes), out var decoded) && decoded.RunId == packet.RunId && decoded.Parts[1].X == 15.5f, "objective packet round trip");
+        for (int length = 0; length < bytes.Length; length++)
+            Check(!ShipRepairPacket.Read(new ByteReader(bytes.Take(length).ToArray()), out _), "truncated packet accepted");
+        var corrupt = (byte[])bytes.Clone(); corrupt[0] = 99;
+        Check(!ShipRepairPacket.Read(new ByteReader(corrupt), out _), "wrong protocol");
+        corrupt = (byte[])bytes.Clone(); corrupt[1] = 29;
+        Check(!ShipRepairPacket.Read(new ByteReader(corrupt), out _), "wrong ABI");
+        packet.Order = new[] { 4, 4 };
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "duplicate journal identity");
+        packet.Order = new[] { 4 }; packet.Seconds = float.NaN;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "invalid clock");
+        packet.Seconds = 10; packet.State = ShipRepairProgress.Phase.Winning;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "win without thirty parts");
+        packet.State = ShipRepairProgress.Phase.Playing; packet.Parts[1].Id = 30;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "out-of-range world part");
+        Console.WriteLine("PASS: sampling, receipts, epoch boundaries, clocks, failure, victory, restart, and objective packet validation.");
         return 0;
     }
 }
