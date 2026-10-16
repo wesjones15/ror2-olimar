@@ -44,10 +44,16 @@ static class Program
         Check(new ShipRepairProgress().Count == 0, "new run starts empty");
         var packet = new ShipRepairPacket { RunId = Guid.NewGuid().ToString(), Epoch = 2, Mask = 1u << 4,
             State = ShipRepairProgress.Phase.Playing, Seconds = 124.5f, Stages = 2, Order = new[] { 4 },
-            Parts = new[] { new ShipRepairPacket.Part { Id = 4, Pellet = 22, Name = "Main Engine", Weight = 20, Delivered = true },
-                new ShipRepairPacket.Part { Id = 5, Pellet = 23, Name = "Radar", Weight = 10, X = 15.5f } } };
+            Parts = new[] { new ShipRepairPacket.Part { Id = 4, Pellet = 22, Name = "Main Engine", Weight = 20, Delivered = true, Spawned = true },
+                new ShipRepairPacket.Part { Id = 5, Pellet = uint.MaxValue - 5, Name = "Radar", Weight = 10, X = 15.5f, EnemyDrop = true } } };
         var bytes = packet.Write();
         Check(ShipRepairPacket.Read(new ByteReader(bytes), out var decoded) && decoded.RunId == packet.RunId && decoded.Parts[1].X == 15.5f, "objective packet round trip");
+        Check(decoded.Parts[1].EnemyDrop && !decoded.Parts[1].Spawned, "pending enemy objective round trip");
+        packet.Parts[1].Delivered = true;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "unspawned enemy objective cannot be delivered");
+        packet.Parts[1].Delivered = false; packet.Parts[1].Spawned = true; packet.Parts[1].Pellet = 23;
+        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Parts[1].Spawned, "physical enemy drop round trip");
+        packet.Parts[1].Spawned = false; packet.Parts[1].Pellet = uint.MaxValue - 5;
         for (int length = 0; length < bytes.Length; length++)
             Check(!ShipRepairPacket.Read(new ByteReader(bytes.Take(length).ToArray()), out _), "truncated packet accepted");
         var corrupt = (byte[])bytes.Clone(); corrupt[0] = 99;

@@ -23,14 +23,15 @@ namespace OlimarTest
             public string name;
             public uint weight;
             public Vector3 pos, safe, last;
-            public bool discovered, delivered;
+            public bool discovered, delivered, enemyDrop, spawned;
             public float stalled;
         }
         readonly List<Part> parts = new List<Part>(10);
+        readonly HashSet<int> rewardedEnemies = new HashSet<int>();
         Run run;
         Stage stage;
         IntPtr stageSim;
-        float arrivalAge, sendAge, winningAge, toastUntil;
+        float arrivalAge, sendAge, winningAge, takeoffAge, toastUntil;
         string runId, toast;
         uint remoteEpoch, remoteMask;
         float remoteSeconds;
@@ -99,7 +100,7 @@ namespace OlimarTest
                 CloseStage();
                 ShipPartNavigation.Reset();
                 stage = Stage.instance; stageSim = world.SimHandle;
-                parts.Clear(); arrivalAge = 0;
+                parts.Clear(); rewardedEnemies.Clear(); arrivalAge = 0;
                 Progress.EnterStage();
                 StartCoroutine(Spawn(world, Progress.Epoch));
                 Broadcast();
@@ -128,6 +129,18 @@ namespace OlimarTest
         IEnumerator Spawn(PikminWorld world, uint epoch)
         {
             if (!ShipRepairMode.Eligible(SceneCatalog.GetSceneDefForCurrentScene())) yield break;
+            // The receiver's carry goal moves with its arrival pose. Place against
+            // its landed goal, otherwise the first frame's airborne goal rejects every site.
+            float deadline = Time.unscaledTime + 20f;
+            bool landed = false;
+            while (!landed && Time.unscaledTime < deadline)
+            {
+                if (!world || !world.StageReady || Progress.Epoch != epoch || Progress.State == ShipRepairProgress.Phase.Loading || Terminal) yield break;
+                for (int i = 0; i < world.OnionCount; i++)
+                    if (world.Onions[i].is_ship != 0 && world.Onions[i].anim == 0) landed = true;
+                if (!landed) yield return null;
+            }
+            if (!landed) { Plugin.Log.LogWarning("Ship Repair: no landed Dolphin; this stage has no parts."); yield break; }
             var graph = SceneInfo.instance ? SceneInfo.instance.groundNodes : null;
             var body = CharacterBody.readOnlyInstancesList.FirstOrDefault(b => b.isPlayerControlled && b.GetComponent<OlimarDriver>());
             if (!graph || !body) { Plugin.Log.LogWarning("Ship Repair: no ground graph or arrival body; this stage has no parts."); yield break; }
@@ -136,8 +149,9 @@ namespace OlimarTest
                     throw new InvalidOperationException("Ship Repair requires all 30 extracted ship part models and configs. Missing part " + id);
             var nodes = graph.GetActiveNodesForHullMask(HullMask.Human);
             var rng = new System.Random(unchecked((int)run.seed ^ (int)Progress.Epoch * 7919));
-            var route = new List<Vector3>();
-            foreach (int id in Progress.Sample(run.seed))
+            var sample = Progress.Sample(run.seed);
+            int groundCount = sample.Length - Math.Min(3, sample.Length / 3);
+            foreach (int id in sample)
             {
                 Vector3 point = default;
                 bool found = false;
@@ -151,17 +165,16 @@ namespace OlimarTest
                         || hit.normal.y < 0.7f) continue;
                     point = hit.point;
                     if (Physics.CheckSphere(point + Vector3.up * 2.2f, 2f, UnityHost.Mask, QueryTriggerInteraction.Ignore)) continue;
-                    if (!ShipPartNavigation.TryPath(point, body.footPosition, route)) continue;
+                    if (!ReachableDolphin(world, point)) continue;
                     found = true; break;
                 }
                 if (!found) { Plugin.Log.LogWarning($"Ship Repair: no safe reachable site for part {id} after 200 attempts."); continue; }
-                var pos = UnityHost.ToSim(point);
-                int pellet = Native.pik_sim_spawn_ship_part(world.SimHandle, (uint)id, ref pos, (float)rng.NextDouble() * Mathf.PI * 2f);
-                if (pellet < 0) { Plugin.Log.LogError("Ship Repair: native part spawn refused " + id); continue; }
                 var name = new byte[128];
                 Native.pik_sim_ship_part_name(world.SimHandle, (uint)id, name, (uint)name.Length);
-                parts.Add(new Part { id = id, pellet = (uint)pellet, name = Native.Utf8(name), weight = Native.pik_sim_ship_part_weight(world.SimHandle, (uint)id),
-                    pos = point, last = point, safe = point });
+                var part = new Part { id = id, pellet = uint.MaxValue - (uint)id, name = Native.Utf8(name), weight = Native.pik_sim_ship_part_weight(world.SimHandle, (uint)id),
+                    pos = point, last = point, safe = point, enemyDrop = Array.IndexOf(sample, id) >= groundCount };
+                parts.Add(part);
+                if (!part.enemyDrop && !SpawnPart(world, part, point, (float)rng.NextDouble() * Mathf.PI * 2f)) parts.Remove(part);
                 Broadcast();
                 yield return null;
             }
@@ -170,9 +183,14 @@ namespace OlimarTest
 
         void TrackParts(PikminWorld world)
         {
+            // Reserve within the ten-part budget. If combat produces no usable death
+            // callback, release physical wreckage when the teleporter finishes.
+            if (TeleporterInteraction.instance && TeleporterInteraction.instance.isCharged)
+                foreach (var part in parts.Where(p => p.enemyDrop && !p.spawned))
+                    if (SpawnPart(world, part, part.safe)) ShowToast(part.name + " revealed in the wreckage — carry it to the Dolphin.");
             foreach (var part in parts)
             {
-                if (part.delivered) continue;
+                if (part.delivered || !part.spawned) continue;
                 for (int i = 0; i < world.PelletCount; i++)
                 {
                     var pellet = world.Pellets[i];
@@ -194,10 +212,54 @@ namespace OlimarTest
             }
         }
 
+        static bool ReachableDolphin(PikminWorld world, Vector3 from)
+        {
+            var route = new List<Vector3>();
+            for (int i = 0; i < world.OnionCount; i++)
+                if (world.Onions[i].is_ship != 0 && Native.pik_sim_onion_goal(world.SimHandle, world.Onions[i].id, out var goal) != 0 &&
+                    ShipPartNavigation.TryPath(from, UnityHost.ToUnity(goal), route)) return true;
+            return false;
+        }
+
+        bool SpawnPart(PikminWorld world, Part part, Vector3 point, float yaw = 0f)
+        {
+            if (part.spawned) return false;
+            var pos = UnityHost.ToSim(point);
+            int pellet = Native.pik_sim_spawn_ship_part(world.SimHandle, (uint)part.id, ref pos, yaw);
+            if (pellet < 0) { Plugin.Log.LogError("Ship Repair: native part spawn refused " + part.id); return false; }
+            part.pellet = (uint)pellet; part.spawned = true;
+            part.pos = part.safe = part.last = point;
+            return true;
+        }
+
+        internal void EnemyDefeated(PikminWorld world, DamageReport report)
+        {
+            if (!NetworkServer.active || !Progress.Accepting || stage != Stage.instance || stageSim != world.SimHandle) return;
+            var victim = report.victimBody;
+            if (!victim || report.victimTeamIndex != TeamIndex.Monster) return;
+            bool boss = victim.isBoss || victim.isChampion;
+            if (!boss && victim.baseMaxHealth < 600f && !(victim.isElite && victim.baseMaxHealth >= 200f)) return;
+            if (!rewardedEnemies.Add(victim.GetInstanceID())) return;
+            var drops = parts.Where(p => p.enemyDrop && !p.spawned).Take(boss ? 3 : 1).ToArray();
+            for (int i = 0; i < drops.Length; i++)
+            {
+                var part = drops[i];
+                var point = victim.footPosition + new Vector3((i - 1) * 3f, 0f, 0f);
+                if (!Physics.Raycast(point + Vector3.up * 6f, Vector3.down, out var hit, 18f, UnityHost.Mask, QueryTriggerInteraction.Ignore) ||
+                    hit.normal.y < 0.7f || Physics.CheckSphere(hit.point + Vector3.up * 2.2f, 2f, UnityHost.Mask, QueryTriggerInteraction.Ignore) ||
+                    !ReachableDolphin(world, hit.point)) point = part.safe;
+                else point = hit.point;
+                if (!SpawnPart(world, part, point)) continue;
+                part.discovered = true;
+                ShowToast(victim.GetDisplayName() + " dropped " + part.name + " — carry it to the Dolphin.");
+            }
+            Broadcast();
+        }
+
         internal void Receipt(PikminWorld world, Native.Event receipt)
         {
             if (!NetworkServer.active || stage != Stage.instance || stageSim != world.SimHandle) return;
-            var part = parts.FirstOrDefault(p => p.pellet == receipt.a && p.id == receipt.c && !p.delivered);
+            var part = parts.FirstOrDefault(p => p.spawned && p.pellet == receipt.a && p.id == receipt.c && !p.delivered);
             if (part == null || !Progress.Accepting) return;
             bool receiver = false;
             for (int i = 0; i < world.OnionCount; i++)
@@ -218,7 +280,7 @@ namespace OlimarTest
 
         void Recover(int id, bool fell = false)
         {
-            var part = parts.FirstOrDefault(p => p.id == id && !p.delivered);
+            var part = parts.FirstOrDefault(p => p.spawned && p.id == id && !p.delivered);
             var world = PikminWorld.Instance;
             if (part == null || !world || world.SimHandle != stageSim || Terminal || (!fell && part.stalled < 30f)) return;
             var pos = UnityHost.ToSim(part.safe);
@@ -236,8 +298,14 @@ namespace OlimarTest
                 playedVictory = true;
                 SpawnMusic.PlayVictory();
             }
-            if (winningAge >= 8f) world.ShipTakeoff(Mathf.Clamp01((winningAge - 8f) / 4f));
-            if (winningAge >= 12f) FinishWin();
+            // Normally 8 + 4 seconds; simultaneous final deliveries may have a
+            // fitting queue. Let it finish before takeoff, with a bounded fallback.
+            if (takeoffAge > 0f || (winningAge >= 8f && (world.RepairsPending == 0 || winningAge >= 65f)))
+            {
+                takeoffAge += Time.fixedDeltaTime;
+                world.ShipTakeoff(Mathf.Clamp01(takeoffAge / 4f));
+                if (takeoffAge >= 4f) FinishWin();
+            }
         }
         void FinishWin()
         {
@@ -275,7 +343,7 @@ namespace OlimarTest
                 string directory = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "OlimarShipRepairReports");
                 Directory.CreateDirectory(directory);
                 File.WriteAllText(System.IO.Path.Combine(directory, runId + ".txt"), lastResult +
-                    "\nRules: 30 unique parts; up to 10 per normal stage; all Olimar; no artifacts; ABI 30/protocol 1" +
+                    "\nRules: 30 unique parts; up to 7 ground + 3 enemy parts per normal stage; Dolphin delivery; all Olimar; no artifacts; ABI 30/protocol 2" +
                     $"\nPlayers: {run.participatingPlayerCount}; starting squad R/Y/B: {Plugin.StartRed.Value}/{Plugin.StartYellow.Value}/{Plugin.StartBlue.Value}" +
                     "\nParts: " + string.Join(",", Progress.Order));
             }
@@ -291,7 +359,8 @@ namespace OlimarTest
                 RunId = runId, Epoch = Progress.Epoch, Mask = Progress.Mask, State = Progress.State,
                 Seconds = (float)Progress.Seconds, Stages = Progress.Stages, Order = Progress.Order.ToArray(),
                 Parts = parts.Select(p => new ShipRepairPacket.Part { Id = p.id, Pellet = p.pellet, Name = p.name, Weight = p.weight,
-                    X = p.pos.x, Y = p.pos.y, Z = p.pos.z, Discovered = p.discovered, Delivered = p.delivered, Stalled = p.stalled >= 30f }).ToArray(),
+                    X = p.pos.x, Y = p.pos.y, Z = p.pos.z, Discovered = p.discovered, Delivered = p.delivered, Stalled = p.stalled >= 30f,
+                    EnemyDrop = p.enemyDrop, Spawned = p.spawned }).ToArray(),
             };
             Mp.SendToAll(StateMessage, packet.Write(), true);
         }
@@ -304,7 +373,8 @@ namespace OlimarTest
                 ShowToast($"Ship part recovered — {packet.Order.Length}/30");
             parts.Clear();
             parts.AddRange(packet.Parts.Select(p => new Part { id = p.Id, pellet = p.Pellet, name = p.Name, weight = p.Weight,
-                pos = new Vector3(p.X, p.Y, p.Z), discovered = p.Discovered, delivered = p.Delivered, stalled = p.Stalled ? 30f : 0f }));
+                pos = new Vector3(p.X, p.Y, p.Z), discovered = p.Discovered, delivered = p.Delivered, stalled = p.Stalled ? 30f : 0f,
+                enemyDrop = p.EnemyDrop, spawned = p.Spawned }));
             remoteEpoch = packet.Epoch; remoteMask = packet.Mask; remotePhase = packet.State; remoteSeconds = packet.Seconds; remoteStages = packet.Stages;
             remoteOrder = packet.Order; receivedCount = packet.Order.Length; hydrated = true;
             if (Winning && !playedVictory) { playedVictory = true; SpawnMusic.PlayVictory(); }
@@ -322,7 +392,7 @@ namespace OlimarTest
             {
                 return;
             }
-            GUI.Box(new Rect(20, 100, 340, 70), $"S.S. Dolphin — {Count}/30 parts\nRepair time {FormatTime(Seconds)}\n{parts.Count(p => !p.delivered)} parts remaining on this stage");
+            GUI.Box(new Rect(20, 100, 340, 70), $"S.S. Dolphin — {Count}/30 parts\nRepair time {FormatTime(Seconds)}\n{parts.Count(p => !p.delivered)} remaining · {parts.Count(p => !p.spawned)} held by powerful enemies");
             if (Time.unscaledTime < toastUntil) GUI.Box(new Rect(Screen.width / 2f - 260, 75, 520, 45), toast);
             if (Winning)
             {

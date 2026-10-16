@@ -227,6 +227,8 @@ static class Program
             int captain = Native.pik_sim_add_captain(sim, ref origin);
             Native.pik_sim_add_onion(sim, ref origin, 7);
             int ship = Native.pik_sim_add_ship(sim, ref goal, 0);
+            Check(Native.pik_sim_onion_goal(sim, (uint)ship, out var shipGoal) == 1 && shipGoal.z != goal.z &&
+                Native.pik_sim_onion_goal(sim, uint.MaxValue, out _) == 0, "Dolphin carry goal and invalid receiver cross ABI");
             Native.pik_sim_set_ship_part_host_delivery(sim, 1);
             Native.pik_sim_set_auto_carry(sim, 1000f);
             int pellet = Native.pik_sim_spawn_ship_part(sim, 4, ref origin, 0);

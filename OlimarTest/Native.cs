@@ -378,6 +378,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_pikis(IntPtr sim, [Out] Piki[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_pellets(IntPtr sim, [Out] Pellet[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onions(IntPtr sim, [Out] Onion[] outArr, uint max);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onion_goal(IntPtr sim, uint id, out Vec3 goal);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_sprouts(IntPtr sim, [Out] Sprout[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_events(IntPtr sim, [Out] Event[] outArr, uint max);
 

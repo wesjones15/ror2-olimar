@@ -135,6 +135,7 @@ namespace OlimarTest
         readonly Native.Event[] events = new Native.Event[64];
 
         PikminView view;
+        internal uint RepairsPending => view ? view.RepairsPending : 0;
 
         // RoR2 events raised while the sim is stepping (a Pikmin hit kills an enemy, whose
         // death would spawn a pellet) wait here: calling back into the sim mid-step isn't
@@ -607,7 +608,7 @@ namespace OlimarTest
             int id = dolphins.TryGetValue(captain, out var old) ? old.id
                 : Native.pik_sim_add_ship(sim, ref pos, UnityHost.Yaw(body.transform.forward));
             if (id < 0) { driver.Arriving = false; if (bringSquad) BringPikmin(captain, driver); return; }
-            // Without the ship-parts mode (not built yet) the Dolphin is the repaired one.
+            // Ship Repair restores the shared ledger; other modes use a repaired Dolphin.
             if (!dolphins.ContainsKey(captain))
             {
                 if (ShipRepairMode.Active)
@@ -2014,6 +2015,7 @@ namespace OlimarTest
                 return;
             }
             if (!v || r.victimTeamIndex == TeamIndex.Player) return;
+            if (ShipRepairMode.Active && ShipRepairSession.Instance) ShipRepairSession.Instance.EnemyDefeated(this, r);
             if (v.isElite) affixes.EliteDied(v, r.attackerBody, Pikis, PikiCount, Id(v));
             // The Pikmin that fought it earn the kill (growth), whoever struck the last blow.
             Native.pik_sim_credit_kill(sim, Id(v));

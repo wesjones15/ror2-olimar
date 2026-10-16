@@ -9,7 +9,7 @@ namespace OlimarTest
     // makes malformed/truncated messages testable without loading Unity or the game.
     internal sealed class ShipRepairPacket
     {
-        public const byte Protocol = 1, Abi = 30;
+        public const byte Protocol = 2, Abi = 30;
         public string RunId;
         public uint Epoch, Mask;
         public ShipRepairProgress.Phase State;
@@ -23,7 +23,7 @@ namespace OlimarTest
             public uint Pellet, Weight;
             public string Name;
             public float X, Y, Z;
-            public bool Discovered, Delivered, Stalled;
+            public bool Discovered, Delivered, Stalled, EnemyDrop, Spawned;
         }
         public byte[] Write()
         {
@@ -36,6 +36,7 @@ namespace OlimarTest
             {
                 w.U8((byte)p.Id); w.U32(p.Pellet); w.Str(p.Name); w.U32(p.Weight);
                 w.F32(p.X); w.F32(p.Y); w.F32(p.Z); w.Bool(p.Discovered); w.Bool(p.Delivered); w.Bool(p.Stalled);
+                w.Bool(p.EnemyDrop); w.Bool(p.Spawned);
             }
             return w.ToArray();
         }
@@ -59,8 +60,9 @@ namespace OlimarTest
             for (int i = 0; i < count; i++)
             {
                 var part = new Part { Id = r.U8(), Pellet = r.U32(), Name = r.Str(), Weight = r.U32(), X = r.F32(), Y = r.F32(), Z = r.F32(),
-                    Discovered = r.Bool(), Delivered = r.Bool(), Stalled = r.Bool() };
+                    Discovered = r.Bool(), Delivered = r.Bool(), Stalled = r.Bool(), EnemyDrop = r.Bool(), Spawned = r.Bool() };
                 if (part.Id >= 30 || !Finite(part.X) || !Finite(part.Y) || !Finite(part.Z) || part.Weight == 0 || part.Weight > 100 ||
+                    (!part.Spawned && (!part.EnemyDrop || part.Discovered || part.Delivered || part.Stalled || part.Pellet != uint.MaxValue - part.Id)) ||
                     part.Delivered != ((mask & (1u << part.Id)) != 0) || parts.Any(other => other.Id == part.Id || other.Pellet == part.Pellet)) return false;
                 parts.Add(part);
             }

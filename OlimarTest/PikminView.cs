@@ -15,6 +15,7 @@ namespace OlimarTest
     {
         public PikminWorld world;
         PikminModels models;
+        internal uint RepairsPending => models?.RepairsPending ?? 0;
         readonly HashSet<int> drawnCaptains = new HashSet<int>();
 
         static readonly Color[] PikiColours =
