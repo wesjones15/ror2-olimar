@@ -150,6 +150,8 @@ namespace OlimarTest
             all.Add(this);
         }
 
+        readonly GroundGate ground = new GroundGate();
+
         void FixedUpdate()
         {
             if (!Body) return;
@@ -165,6 +167,13 @@ namespace OlimarTest
             {
                 // Register during the Dolphin arrival so the ship and airborne Onion draw together.
                 if (Body.currentVehicle || (health && !health.alive) || !OnPlayersTeam) return;
+                // A stage's floor can load after the body appears: wait in place for it, with RoR2's motor
+                // off so he doesn't fall meanwhile (it comes back on below when the sim hands him back).
+                if (!ground.Ready(Body.footPosition, Time.fixedDeltaTime, "Olimar"))
+                {
+                    if (motor && motor.Motor.enabled) motor.Motor.enabled = false;
+                    return;
+                }
                 captain = server ? PikminWorld.Ensure().Register(this) : PikminWorld.RegisterLocal(this);
                 if (captain < 0) return;
                 feetToOrigin = transform.position - Body.footPosition;
