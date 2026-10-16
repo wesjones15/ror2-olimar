@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.3.3")]
+    [BepInPlugin(Guid, "Olimar", "0.3.4")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -67,6 +67,8 @@ namespace OlimarTest
         internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
         internal static ConfigEntry<bool> CursorHoming, PikminJump, ShipParts, CompetitiveMode;
         internal static ConfigEntry<float> EnemyPartIntervalSeconds;
+        internal static ConfigEntry<bool> StageMusic, AdaptiveStageMusic;
+        internal static ConfigEntry<float> StageMusicVolume;
         internal static ConfigEntry<float> PunchDamage, StrikeChargeSeconds;
         internal static ConfigEntry<bool> StrikeStun, StrikeKillReset;
         internal static ConfigEntry<int> KillsPerStage;
@@ -170,6 +172,9 @@ namespace OlimarTest
                 "Host rule, locked at run start. True: each player repairs their own Dolphin; first to 30 unique parts wins. False: shared cooperative repair.");
             EnemyPartIntervalSeconds = Config.Bind("ShipRepair", "EnemyPartIntervalSeconds", 30f,
                 "Host rule, locked at run start. Minimum seconds between each player's successful ordinary enemy part drops. Independent per player; stage-boss reward bypasses this gate. Range 0-600.");
+            StageMusic = Config.Bind("ShipRepair", "StageMusic", true, "Local audio: replace exploration music with Impact Site on stage one and a seeded random Pikmin stage song later. Retains RoR2 boss music.");
+            AdaptiveStageMusic = Config.Bind("ShipRepair", "AdaptiveStageMusic", true, "Local audio: nearby RoR2 enemies activate the original Pikmin enemy-proximity musical layers.");
+            StageMusicVolume = Config.Bind("ShipRepair", "StageMusicVolume", 1f, "Local Pikmin stage music gain, multiplied by RoR2 music/master volume (0-2).");
             PikminJump = Config.Bind("Pikmin", "OlimarUsesPikminJump", true,
                 "Olimar jumps with the Pikmin's own jump animation (they share the game's motion table). Off: his geyser-ride pose, tipped upright.");
             CursorHoming = Config.Bind("Combat", "CursorHoming", true,

@@ -295,6 +295,20 @@ static class Program
             Check(salvage == 1 && Native.pik_sim_poisoned(sim) == 0, "duplicate salvage intake completes exactly once without poisoning");
             uint samples = Native.pik_victory_pcm(Native.CString(assets), null, 0, out uint rate);
             Check(samples > rate * 2 && rate == 44100, "complete-ending PCM crosses ABI");
+            IntPtr music = Native.pik_music_new(Native.CString(assets));
+            Check(music != IntPtr.Zero, "independent stage-music stream opens from the disc cache");
+            if (music != IntPtr.Zero)
+            {
+                try
+                {
+                    foreach (uint song in new uint[] { 4, 5, 10, 9, 17 })
+                        Check(Native.pik_music_update(music, song, 1, 0f, 1) == 1, "stage song, enemy layers and pause cross music ABI: " + song);
+                    Check(Native.pik_music_update(music, 99, 0, 0f, 0) == 0 && Native.pik_music_update(music, 4, 0, 0f, 0) == 1,
+                        "invalid stage song is rejected without poisoning the music stream");
+                    Check(Native.pik_music_update(music, 0, 0, 0f, 0) == 1, "stage music stops for vanilla bosses/results");
+                }
+                finally { Native.pik_music_free(music); }
+            }
         }
         finally { Native.pik_sim_free(sim); }
     }

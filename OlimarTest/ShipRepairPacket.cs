@@ -9,7 +9,7 @@ namespace OlimarTest
     // makes malformed/truncated messages testable without loading Unity or the game.
     internal sealed class ShipRepairPacket
     {
-        public const byte Protocol = 3, Abi = 32;
+        public const byte Protocol = 3, Abi = 33;
         public bool Competitive;
         public uint Winner;
         public ShipRepairRacer[] Racers = Array.Empty<ShipRepairRacer>();

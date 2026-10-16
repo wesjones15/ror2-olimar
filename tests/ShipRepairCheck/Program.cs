@@ -42,6 +42,19 @@ static class Program
         var failure = new ShipRepairProgress(); failure.EnterStage(); failure.Release(); failure.Tick(4, false); failure.Fail(); failure.Tick(20, false);
         Check(failure.State == ShipRepairProgress.Phase.Failed && failure.Seconds == 4, "failure freezes metrics");
         Check(new ShipRepairProgress().Count == 0, "new run starts empty");
+        Check(ShipRepairMusicPolicy.Track(123, 0) == 4, "Impact Site on stage one");
+        uint previousSong = 4;
+        for (int musicStage = 1; musicStage < 30; musicStage++)
+        {
+            uint song = ShipRepairMusicPolicy.Track(123, musicStage);
+            Check(ShipRepairMusicPolicy.Tracks.Contains(song) && song != previousSong && song == ShipRepairMusicPolicy.Track(123, musicStage), "seeded stage music without consecutive repetition or dependence on join time");
+            previousSong = song;
+        }
+        Check(ShipRepairMusicPolicy.Explore(true, true, true, false, false) &&
+            !ShipRepairMusicPolicy.Explore(true, true, true, false, true) &&
+            !ShipRepairMusicPolicy.Explore(true, false, true, false, false) &&
+            !ShipRepairMusicPolicy.Explore(true, true, true, true, false) &&
+            !ShipRepairMusicPolicy.Explore(false, true, true, false, false), "stage music yields to bosses, other modes, victory and local opt-out");
         var pacing = new ShipRepairDropPacing();
         Check(pacing.Ready(11, 0) && pacing.Ready(22, 0), "each player can earn an initial drop");
         pacing.Dropped(11, 0, 30);
