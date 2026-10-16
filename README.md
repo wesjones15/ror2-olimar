@@ -1,4 +1,4 @@
-> modern/1.5.0 branch: targets RiskOfRain2_DLC4 (Unity 2021.3.45f2). Build/API validation only; in-game validation is pending. Legacy instructions below describe the previous release.
+> feature/ship-part-mode: Olimar 0.3.0 preview for RiskOfRain2_DLC4 (Unity 2021.3.45f2), native ABI 30 / repair protocol 2. Ship Repair uses shared 30-part progress and Dolphin delivery, original disc repair animations, and up to 7 ground + 3 powerful-enemy parts per stage. Build/API validation passes; in-game validation is pending. Legacy instructions below describe the previous release.
 
 # ror2-olimar
 
