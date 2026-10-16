@@ -889,8 +889,7 @@ namespace OlimarTest
             for (int i = 0; i < PelletCount; i++)
             {
                 var p = Pellets[i];
-                if (p.state == 3) continue;
-                if (p.state > 0 && p.onion != flight.id) continue;
+                if (!OnionPickupPolicy.CanTrack(p, flight.id)) continue;
                 if (flight.pickup == (int)p.id) { pi = i; break; }
                 if (flight.pickup >= 0 || p.state > 1) continue;
                 var at = UnityHost.ToUnity(p.pos);

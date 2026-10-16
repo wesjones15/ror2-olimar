@@ -11,6 +11,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\OlimarTest\Native.cs" Link="Native.cs" />
+    <Compile Include="../OlimarTest/OnionPickupPolicy.cs" Link="OnionPickupPolicy.cs" />
     <Compile Include="..\OlimarTest\JumpWhistleButton.cs" Link="JumpWhistleButton.cs" />
     <Compile Include="..\OlimarTest\DamageNumberAtlas.cs" Link="DamageNumberAtlas.cs" />
     <Compile Include="../OlimarTest/PikminEnvelope.cs" Link="PikminEnvelope.cs" />

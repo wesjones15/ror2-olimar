@@ -233,6 +233,20 @@ static class Program
             Native.pik_sim_set_auto_carry(sim, 1000f);
             int pellet = Native.pik_sim_spawn_ship_part(sim, 4, ref origin, 0);
             Check(pellet >= 0 && Native.pik_sim_spawn_ship_part(sim, 30, ref origin, 0) == -1, "disc part spawn and ID validation");
+            var pickups = new Native.Pellet[4];
+            Native.pik_sim_pellets(sim, pickups, (uint)pickups.Length);
+            var partFrame = Array.Find(pickups, p => p.id == pellet);
+            Check(partFrame.has_ship_part == 1, "native ship-part classification crosses the ABI");
+            for (byte state = 0; state <= 3; state++)
+                foreach (int receiver in new[] { -1, onion, ship })
+                {
+                    partFrame.state = state; partFrame.onion = receiver;
+                    Check(!OnionPickupPolicy.CanTrack(partFrame, onion), $"Onion tracking rejects ship part in state {state}, receiver {receiver}");
+                }
+            var regular = new Native.Pellet { state = 0, onion = -1 };
+            Check(OnionPickupPolicy.CanTrack(regular, onion), "ordinary loose pellet pickup stays available");
+            regular.state = 1; regular.onion = ship;
+            Check(!OnionPickupPolicy.CanTrack(regular, onion), "ordinary hauls to another receiver are not intercepted");
             uint weightNeeded = Native.pik_sim_ship_part_weight(sim, 4);
             for (int i = 0; i < weightNeeded + 5; i++)
             {
