@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -96,7 +97,7 @@ namespace OlimarTest
                 stage = Stage.instance; stageSim = world.SimHandle;
                 parts.Clear(); arrivalAge = 0;
                 Progress.EnterStage();
-                Spawn(world);
+                StartCoroutine(Spawn(world, Progress.Epoch));
                 Broadcast();
             }
             bool loading = !sceneReady || stage != Stage.instance || run.NetworkinSceneTransition;
@@ -118,12 +119,12 @@ namespace OlimarTest
             if (sendAge > 0.5f) { sendAge = 0; Broadcast(); }
         }
 
-        void Spawn(PikminWorld world)
+        IEnumerator Spawn(PikminWorld world, uint epoch)
         {
-            if (!ShipRepairMode.Eligible(SceneCatalog.GetSceneDefForCurrentScene())) return;
+            if (!ShipRepairMode.Eligible(SceneCatalog.GetSceneDefForCurrentScene())) yield break;
             var graph = SceneInfo.instance ? SceneInfo.instance.groundNodes : null;
             var body = CharacterBody.readOnlyInstancesList.FirstOrDefault(b => b.isPlayerControlled && b.GetComponent<OlimarDriver>());
-            if (!graph || !body) { Plugin.Log.LogWarning("Ship Repair: no ground graph or arrival body; this stage has no parts."); return; }
+            if (!graph || !body) { Plugin.Log.LogWarning("Ship Repair: no ground graph or arrival body; this stage has no parts."); yield break; }
             for (uint id = 0; id < 30; id++)
                 if (Native.pik_sim_ship_part_weight(world.SimHandle, id) == 0)
                     throw new InvalidOperationException("Ship Repair requires all 30 extracted ship part models and configs. Missing part " + id);
@@ -136,6 +137,8 @@ namespace OlimarTest
                 bool found = false;
                 for (int attempt = 0; attempt < 200 && nodes.Count > 0; attempt++)
                 {
+                    if (attempt % 8 == 7) yield return null;
+                    if (!world || !world.StageReady || Progress.Epoch != epoch || Progress.State == ShipRepairProgress.Phase.Loading || Terminal) yield break;
                     if (!graph.GetNodePosition(nodes[rng.Next(nodes.Count)], out point)) continue;
                     if (Vector3.Distance(point, body.footPosition) < 20f || parts.Any(p => Vector3.Distance(point, p.pos) < 15f)) continue;
                     if (!Physics.Raycast(point + Vector3.up * 3f, Vector3.down, out var hit, 6f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
@@ -153,6 +156,8 @@ namespace OlimarTest
                 Native.pik_sim_ship_part_name(world.SimHandle, (uint)id, name, (uint)name.Length);
                 parts.Add(new Part { id = id, pellet = (uint)pellet, name = Native.Utf8(name), weight = Native.pik_sim_ship_part_weight(world.SimHandle, (uint)id),
                     pos = point, last = point, safe = point });
+                Broadcast();
+                yield return null;
             }
             Plugin.Log.LogInfo($"Ship Repair: stage {Progress.Epoch}, {parts.Count} reachable parts, {Progress.Count}/30 recovered.");
         }

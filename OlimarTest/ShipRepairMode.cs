@@ -137,13 +137,14 @@ namespace OlimarTest
             var menu = MainMenuController.instance;
             if (!menu || !menu.extraGameModeMenuScreen) return;
             var screen = menu.extraGameModeMenuScreen;
-            if (screen.transform.Find("ShipRepairButton")) return;
+            if (screen.GetComponentsInChildren<HGButton>(true).Any(b => b.name == "ShipRepairButton")) return;
             var buttons = screen.GetComponentsInChildren<HGButton>(true);
             var source = buttons.FirstOrDefault(b => b.name.IndexOf("Eclipse", StringComparison.OrdinalIgnoreCase) >= 0)
                 ?? buttons.FirstOrDefault(b => b.interactable && b.name.IndexOf("Back", StringComparison.OrdinalIgnoreCase) < 0);
             if (!source) { Plugin.Log.LogWarning("No extra-mode button template found. Ship Repair remains in the host mode picker."); return; }
             var button = UnityEngine.Object.Instantiate(source, source.transform.parent);
             button.name = "ShipRepairButton";
+            button.interactable = true;
             button.transform.SetSiblingIndex(source.transform.GetSiblingIndex() + 1);
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(() => RoR2.Console.instance.SubmitCmd((NetworkUser)null, "gamemode " + PrefabName + "; host 0;", false));
