@@ -42,10 +42,23 @@ static class Program
         var failure = new ShipRepairProgress(); failure.EnterStage(); failure.Release(); failure.Tick(4, false); failure.Fail(); failure.Tick(20, false);
         Check(failure.State == ShipRepairProgress.Phase.Failed && failure.Seconds == 4, "failure freezes metrics");
         Check(new ShipRepairProgress().Count == 0, "new run starts empty");
+        var race = new ShipRepairRace();
+        race.Enroll(11, "A"); race.Enroll(22, "B");
+        Check(race.Receive(11, 4) && race.Receive(22, 4), "same part is independently unique for each racer");
+        Check(!race.Receive(11, 4) && !race.Salvage(11, 5), "duplicate progress and unowned salvage rejected");
+        Check(race.Salvage(11, 4) && race.Players[11].Salvaged == 1 && race.Players[11].Order.Count == 1, "Onion salvage does not advance victory count");
+        Check(ShipRepairRace.EnemyBudget(4, true) == 28 && ShipRepairRace.EnemyBudget(4, false) == 7, "non-boss supply scales only for races");
+        var soloIds = ShipRepairRace.StageIds(123, 1, 10, new uint[] { 0 });
+        var groupIds = ShipRepairRace.StageIds(123, 1, 31, new uint[] { 0, 0, 0, 0 });
+        Check(soloIds.Length == 10 && soloIds.Distinct().Count() == 10 && groupIds.Length == 31, "solo and four-player supply");
+        Check(ShipRepairRace.StageIds(5, 3, 31, new[] { ShipRepairProgress.AllParts ^ 1u, ShipRepairProgress.AllParts ^ 2u }).OrderBy(p => p).SequenceEqual(new[] { 0, 1 }), "near-complete races only offer needed copies");
+        foreach (int id in Enumerable.Range(0, 30).Where(p => p != 4)) Check(race.Receive(22, id), "rival recovery");
+        Check(race.Winner == 22 && !race.Receive(11, 5) && !race.Salvage(11, 4), "first completed Dolphin secures race");
+        Check(race.Enroll(11, "A renamed").Order.Count == 1, "stage enrollment retains progress");
         var packet = new ShipRepairPacket { RunId = Guid.NewGuid().ToString(), Epoch = 2, Mask = 1u << 4,
             State = ShipRepairProgress.Phase.Playing, Seconds = 124.5f, Stages = 2, Order = new[] { 4 },
-            Parts = new[] { new ShipRepairPacket.Part { Id = 4, Pellet = 22, Name = "Main Engine", Weight = 20, Delivered = true, Spawned = true },
-                new ShipRepairPacket.Part { Id = 5, Pellet = uint.MaxValue - 5, Name = "Radar", Weight = 10, X = 15.5f, EnemyDrop = true } } };
+            Parts = new[] { new ShipRepairPacket.Part { Id = 4, Slot = 4, Pellet = 22, Name = "Main Engine", Weight = 20, Delivered = true, Spawned = true },
+                new ShipRepairPacket.Part { Id = 5, Slot = 5, Pellet = uint.MaxValue - 5, Name = "Radar", Weight = 10, X = 15.5f, EnemyDrop = true } } };
         var bytes = packet.Write();
         Check(ShipRepairPacket.Read(new ByteReader(bytes), out var decoded) && decoded.RunId == packet.RunId && decoded.Parts[1].X == 15.5f, "objective packet round trip");
         Check(decoded.Parts[1].EnemyDrop && !decoded.Parts[1].Spawned, "pending enemy objective round trip");
@@ -68,6 +81,19 @@ static class Program
         Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "win without thirty parts");
         packet.State = ShipRepairProgress.Phase.Playing; packet.Parts[1].Id = 30;
         Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "out-of-range world part");
+        packet.Parts[1].Id = 5;
+        packet.Competitive = true; packet.Racers = race.Players.Values.ToArray();
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "complete racer requires authoritative winner");
+        packet.Winner = 22; packet.State = ShipRepairProgress.Phase.Winning;
+        packet.Mask = ShipRepairProgress.AllParts; packet.Order = race.Players[22].Order.ToArray();
+        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Winner == 22 && decoded.Racers.First(p => p.User == 11).Salvaged == 1, "race winner and salvage packet round trip");
+        packet.State = ShipRepairProgress.Phase.Playing; packet.Winner = 0;
+        packet.Racers = new[] { new ShipRepairRacer { User = 11, Name = "A" }, new ShipRepairRacer { User = 22, Name = "B" } };
+        packet.Mask = 0; packet.Order = Array.Empty<int>();
+        packet.Parts[1].EnemyDrop = false; packet.Parts[1].Recycling = true;
+        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Parts[1].Recycling, "map part recycling round trip");
+        packet.Parts[1].Recycling = false;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "unspawned map part needs recycle state");
         Console.WriteLine("PASS: sampling, receipts, epoch boundaries, clocks, failure, victory, restart, and objective packet validation.");
         return 0;
     }

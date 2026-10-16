@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.3.0")]
+    [BepInPlugin(Guid, "Olimar", "0.3.1")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -65,7 +65,7 @@ namespace OlimarTest
         internal static ConfigEntry<float> SecondsPerStage, FlowerSeconds;
         // The dismiss strike and Pikmin pace (see PikminWorld.StartSim).
         internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
-        internal static ConfigEntry<bool> CursorHoming, PikminJump, ShipParts;
+        internal static ConfigEntry<bool> CursorHoming, PikminJump, ShipParts, CompetitiveMode;
         internal static ConfigEntry<float> PunchDamage, StrikeChargeSeconds;
         internal static ConfigEntry<bool> StrikeStun, StrikeKillReset;
         internal static ConfigEntry<int> KillsPerStage;
@@ -165,6 +165,8 @@ namespace OlimarTest
             ShipParts = Config.Bind("Dolphin", "ShipPartsMode", false,
                 "Retired setting, ignored. Select Ship Repair in the game-mode menu instead.");
             if (ShipParts.Value) Log.LogInfo("Dolphin.ShipPartsMode is retired. Select Ship Repair from the mode menu.");
+            CompetitiveMode = Config.Bind("ShipRepair", "CompetitiveMode", true,
+                "Host rule, locked at run start. True: each player repairs their own Dolphin; first to 30 unique parts wins. False: shared cooperative repair.");
             PikminJump = Config.Bind("Pikmin", "OlimarUsesPikminJump", true,
                 "Olimar jumps with the Pikmin's own jump animation (they share the game's motion table). Off: his geyser-ride pose, tipped upright.");
             CursorHoming = Config.Bind("Combat", "CursorHoming", true,

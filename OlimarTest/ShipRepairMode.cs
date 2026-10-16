@@ -27,6 +27,15 @@ namespace OlimarTest
         static readonly List<Hook> hooks = new List<Hook>();
         static bool checkedAssets;
         static string assetError;
+        const short RuleMessage = 0x4F06;
+        static bool? remoteCompetitive;
+        internal static string LobbyRule => NetworkServer.active ? (Plugin.CompetitiveMode.Value ? "Competitive Dolphin race" : "Shared cooperative repair") :
+            remoteCompetitive.HasValue ? (remoteCompetitive.Value ? "Competitive Dolphin race" : "Shared cooperative repair") : "Waiting for host rules";
+        internal static void SendLobbyRule()
+        {
+            var writer = new ByteWriter(); writer.Bool(Plugin.CompetitiveMode.Value);
+            Mp.SendToAll(RuleMessage, writer.ToArray(), true);
+        }
         static readonly BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         public static bool Active => IsRepair(Run.instance);
         public static bool IsRepair(Run run) => run && run.GetComponent<ShipRepairMarker>();
@@ -62,7 +71,7 @@ namespace OlimarTest
         {
             plugin.AddComponent<ShipRepairHint>();
             NetworkModCompatibilityHelper.networkModList = NetworkModCompatibilityHelper.networkModList
-                .Concat(new[] { Plugin.Guid + ";ship-repair-abi30-v2" });
+                .Concat(new[] { Plugin.Guid + ";ship-repair-abi31-v3" });
             hooks.Add(new Hook(typeof(Run).GetProperty("spawnWithPod").GetMethod,
                 (Func<Func<Run, bool>, Run, bool>)((orig, run) => IsRepair(run) || orig(run))));
             hooks.Add(new Hook(typeof(PreGameController).GetMethod("StartLaunch", flags),
@@ -117,6 +126,9 @@ namespace OlimarTest
             Language.onCurrentLanguageChanged += Tokens;
             Tokens();
             ShipRepairSession.RegisterMessages();
+            Mp.Register(RuleMessage, null, (from, reader) => {
+                bool value = reader.Bool(); if (!NetworkServer.active && !reader.Failed && reader.Done) remoteCompetitive = value;
+            });
         }
 
         static void HookPicker<T>() where T : Component
@@ -214,11 +226,19 @@ namespace OlimarTest
 
     public sealed class ShipRepairHint : MonoBehaviour
     {
+        float ruleSendAt;
+        void Update()
+        {
+            if (NetworkServer.active && ShipRepairMode.LobbyActive && Time.unscaledTime >= ruleSendAt)
+            {
+                ruleSendAt = Time.unscaledTime + 1f; ShipRepairMode.SendLobbyRule();
+            }
+        }
         void OnGUI()
         {
             if (ShipRepairMode.LobbyActive)
                 GUI.Box(new Rect(20, 100, 430, 80), "Ship Repair — recover 30 unique parts\n" +
-                    (ShipRepairMode.LobbyError() ?? "All players: Olimar. Artifacts: off.\nCarry parts to the Dolphin; missed parts can return."));
+                    (ShipRepairMode.LobbyError() ?? "All players: Olimar. Artifacts: off.\n" + ShipRepairMode.LobbyRule));
             else if (RunAudio.Ended && ShipRepairSession.ResultSummary != null && FindObjectOfType<GameOverController>())
                 GUI.Box(new Rect(20, 100, 430, 100), ShipRepairSession.ResultSummary);
         }

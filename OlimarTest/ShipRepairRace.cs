@@ -1,0 +1,63 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace OlimarTest
+{
+    internal sealed class ShipRepairRacer
+    {
+        public uint User;
+        public string Name;
+        public uint Mask;
+        public int Salvaged;
+        public readonly List<int> Order = new List<int>();
+        public bool Receive(int part)
+        {
+            if (part < 0 || part >= 30 || (Mask & (1u << part)) != 0) return false;
+            Mask |= 1u << part; Order.Add(part); return true;
+        }
+    }
+
+    internal sealed class ShipRepairRace
+    {
+        public readonly Dictionary<uint, ShipRepairRacer> Players = new Dictionary<uint, ShipRepairRacer>();
+        public uint Winner { get; private set; }
+        public ShipRepairRacer Enroll(uint user, string name)
+        {
+            if (user == 0) throw new ArgumentOutOfRangeException(nameof(user));
+            if (!Players.TryGetValue(user, out var player)) Players.Add(user, player = new ShipRepairRacer { User = user });
+            player.Name = name; return player;
+        }
+        public bool Receive(uint user, int part)
+        {
+            if (Winner != 0 || !Players.TryGetValue(user, out var player) || !player.Receive(part)) return false;
+            if (player.Mask == ShipRepairProgress.AllParts) Winner = user;
+            return true;
+        }
+        public bool Salvage(uint user, int part)
+        {
+            if (Winner != 0 || part < 0 || part >= 30 || !Players.TryGetValue(user, out var player) || (player.Mask & (1u << part)) == 0) return false;
+            player.Salvaged++; return true;
+        }
+        public void Hydrate(IEnumerable<ShipRepairRacer> players, uint winner)
+        {
+            Players.Clear(); foreach (var player in players) Players.Add(player.User, player); Winner = winner;
+        }
+        public static int EnemyBudget(int players, bool competitive) => 7 * (competitive ? Math.Max(1, players) : 1);
+        public static int[] StageIds(ulong seed, uint epoch, int count, IEnumerable<uint> missingMasks)
+        {
+            var masks = missingMasks.ToArray();
+            var order = new ShipRepairProgress().Sample(seed ^ ((ulong)epoch << 32), 30);
+            var used = new int[30];
+            var result = new List<int>();
+            for (int slot = 0; slot < count; slot++)
+            {
+                int id = order.Where(p => used[p] < masks.Count(mask => (mask & (1u << p)) == 0))
+                    .OrderBy(p => used[p]).DefaultIfEmpty(-1).First();
+                if (id < 0) break;
+                result.Add(id); used[id]++;
+            }
+            return result.ToArray();
+        }
+    }
+}

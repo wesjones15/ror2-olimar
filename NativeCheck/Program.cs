@@ -225,7 +225,7 @@ static class Program
             var origin = new Native.Vec3(0, 0, 0);
             var goal = new Native.Vec3(-300, 0, 0);
             int captain = Native.pik_sim_add_captain(sim, ref origin);
-            Native.pik_sim_add_onion(sim, ref origin, 7);
+            int onion = Native.pik_sim_add_onion(sim, ref origin, 7);
             int ship = Native.pik_sim_add_ship(sim, ref goal, 0);
             Check(Native.pik_sim_onion_goal(sim, (uint)ship, out var shipGoal) == 1 && shipGoal.z != goal.z &&
                 Native.pik_sim_onion_goal(sim, uint.MaxValue, out _) == 0, "Dolphin carry goal and invalid receiver cross ABI");
@@ -257,6 +257,28 @@ static class Program
                 } while (count == events.Length);
             }
             Check(receipts == 1 && Native.pik_sim_poisoned(sim) == 0, "P/Invoke haul completes exactly once without poisoning");
+            Native.pik_sim_give_ship_part(sim, (uint)ship, 4);
+            Native.pik_sim_set_ship_part_competitive_delivery(sim, 1);
+            Native.pik_sim_set_ship_part_owner(sim, (uint)ship, (uint)captain);
+            Native.pik_sim_set_ship_part_owner(sim, (uint)onion, (uint)captain);
+            int duplicate = Native.pik_sim_spawn_ship_part(sim, 4, ref origin, 0);
+            int salvage = 0;
+            for (int tick = 0; tick < 1800; tick++)
+            {
+                Native.pik_sim_advance(sim, ref host, 1f / 30f);
+                uint count;
+                do
+                {
+                    count = Native.pik_sim_events(sim, events, (uint)events.Length);
+                    for (int i = 0; i < count; i++) if (events[i].kind == Native.EventKind.ShipPartCollected && events[i].a == duplicate)
+                    {
+                        salvage++;
+                        Check(events[i].b == onion && events[i].c == 4 && events[i].value == 0, "competitive duplicate travels to its owner's Onion through P/Invoke");
+                        Native.pik_sim_give_onion_seeds(sim, (uint)onion, Native.Red, weightNeeded * 2);
+                    }
+                } while (count == events.Length);
+            }
+            Check(salvage == 1 && Native.pik_sim_poisoned(sim) == 0, "duplicate salvage intake completes exactly once without poisoning");
             uint samples = Native.pik_victory_pcm(Native.CString(assets), null, 0, out uint rate);
             Check(samples > rate * 2 && rate == 44100, "complete-ending PCM crosses ABI");
         }

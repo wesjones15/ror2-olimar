@@ -250,10 +250,25 @@ namespace OlimarTest
         /// moves him on a client (his own captain there is its only one).
         internal IntPtr SimHandle => ClientMode ? moverSim : sim;
 
-        internal void FitShipPart(uint part)
+        internal uint UserForCaptain(int captain)
+        {
+            if (!driverOf.TryGetValue(captain, out var driver) || !driver || !driver.Body || !driver.Body.master) return 0;
+            var controller = driver.Body.master.GetComponent<PlayerCharacterMasterController>();
+            return controller && controller.networkUser ? controller.networkUser.netId.Value : 0;
+        }
+
+        internal uint UserForShip(uint ship)
+        {
+            foreach (var dolphin in dolphins.Values) if (dolphin.id == ship) return UserForCaptain(dolphin.captain);
+            foreach (var onion in onionOf.Values) if (onion.id == ship) return UserForCaptain(onion.captain);
+            return 0;
+        }
+
+        internal void FitShipPart(uint part, uint user = 0)
         {
             if (sim == IntPtr.Zero || ClientMode) return;
-            foreach (var dolphin in dolphins.Values) Native.pik_sim_give_ship_part(sim, (uint)dolphin.id, part);
+            foreach (var dolphin in dolphins.Values)
+                if (user == 0 || UserForCaptain(dolphin.captain) == user) Native.pik_sim_give_ship_part(sim, (uint)dolphin.id, part);
         }
 
         internal void ShipTakeoff(float progress)
@@ -261,6 +276,7 @@ namespace OlimarTest
             if (sim == IntPtr.Zero || ClientMode) return;
             foreach (var dolphin in dolphins.Values)
             {
+                if (ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive && UserForCaptain(dolphin.captain) != ShipRepairSession.Instance.Winner) continue;
                 var pos = UnityHost.ToSim(dolphin.landing + Vector3.up * (progress * progress * 40f));
                 Native.pik_sim_set_onion_pose(sim, (uint)dolphin.id, ref pos, 1);
                 Native.pik_sim_set_onion_flight_motion(sim, (uint)dolphin.id, 0, progress);
@@ -526,6 +542,7 @@ namespace OlimarTest
             }
             simStage = Stage.instance;
             Native.pik_sim_set_ship_part_host_delivery(sim, ShipRepairMode.Active ? (byte)1 : (byte)0);
+            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive) Native.pik_sim_set_ship_part_competitive_delivery(sim, 1);
             reportedPoison = false;
             epoch++;
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
@@ -583,6 +600,8 @@ namespace OlimarTest
             var flight = new OnionFlight { id = id, captain = captain, owner = owner,
                 position = d.Body.footPosition + Vector3.up * 5f };
             onionOf[captain] = flight;
+            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive)
+                Native.pik_sim_set_ship_part_owner(sim, (uint)id, (uint)captain);
             WriteFlight(flight);
         }
 
@@ -614,11 +633,13 @@ namespace OlimarTest
                 if (ShipRepairMode.Active)
                 {
                     if (ShipRepairSession.Instance)
-                        foreach (int part in ShipRepairSession.Instance.Progress.Order) Native.pik_sim_give_ship_part(sim, (uint)id, (uint)part);
+                        foreach (int part in ShipRepairSession.Instance.PartsFor(UserForCaptain(captain))) Native.pik_sim_give_ship_part(sim, (uint)id, (uint)part);
                 }
                 else for (uint part = 0; part < 30; part++) Native.pik_sim_give_ship_part(sim, (uint)id, part);
             }
             dolphins[captain] = new DolphinFlight { id = id, captain = captain, start = start, landing = landing, bringSquad = bringSquad };
+            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive)
+                Native.pik_sim_set_ship_part_owner(sim, (uint)id, (uint)captain);
             if (driver.Arriving)
             {
                 Native.pik_sim_set_onion_pose(sim, (uint)id, ref pos, 1);

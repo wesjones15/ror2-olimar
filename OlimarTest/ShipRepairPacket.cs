@@ -9,7 +9,10 @@ namespace OlimarTest
     // makes malformed/truncated messages testable without loading Unity or the game.
     internal sealed class ShipRepairPacket
     {
-        public const byte Protocol = 2, Abi = 30;
+        public const byte Protocol = 3, Abi = 31;
+        public bool Competitive;
+        public uint Winner;
+        public ShipRepairRacer[] Racers = Array.Empty<ShipRepairRacer>();
         public string RunId;
         public uint Epoch, Mask;
         public ShipRepairProgress.Phase State;
@@ -19,11 +22,11 @@ namespace OlimarTest
         public Part[] Parts;
         internal sealed class Part
         {
-            public int Id;
+            public int Id, Slot;
             public uint Pellet, Weight;
             public string Name;
             public float X, Y, Z;
-            public bool Discovered, Delivered, Stalled, EnemyDrop, Spawned;
+            public bool Discovered, Delivered, Stalled, EnemyDrop, Spawned, StageBoss, Recycling;
         }
         public byte[] Write()
         {
@@ -31,12 +34,20 @@ namespace OlimarTest
             w.U8(Protocol); w.U8(Abi); w.Str(RunId); w.U32(Epoch); w.U32(Mask); w.U8((byte)State);
             w.F32(Seconds); w.I32(Stages); w.U8((byte)Order.Length);
             foreach (int id in Order) w.U8((byte)id);
-            w.U8((byte)Parts.Length);
+            w.Bool(Competitive); w.U32(Winner); w.U8((byte)Racers.Length);
+            foreach (var racer in Racers)
+            {
+                w.U32(racer.User); w.Str(racer.Name); w.U32(racer.Mask); w.I32(racer.Salvaged); w.U8((byte)racer.Order.Count);
+                foreach (int id in racer.Order) w.U8((byte)id);
+            }
+            w.U16((ushort)Parts.Length);
             foreach (var p in Parts)
             {
-                w.U8((byte)p.Id); w.U32(p.Pellet); w.Str(p.Name); w.U32(p.Weight);
+                w.U8((byte)p.Id); w.I32(p.Slot); w.U32(p.Pellet); w.Str(p.Name); w.U32(p.Weight);
                 w.F32(p.X); w.F32(p.Y); w.F32(p.Z); w.Bool(p.Discovered); w.Bool(p.Delivered); w.Bool(p.Stalled);
                 w.Bool(p.EnemyDrop); w.Bool(p.Spawned);
+                w.Bool(p.StageBoss);
+                w.Bool(p.Recycling);
             }
             return w.ToArray();
         }
@@ -55,15 +66,36 @@ namespace OlimarTest
                 mask |= 1u << id; p.Order[i] = id;
             }
             if (mask != p.Mask || ((p.State == ShipRepairProgress.Phase.Winning || p.State == ShipRepairProgress.Phase.Results) && mask != ShipRepairProgress.AllParts)) return false;
-            count = r.U8(); if (count > 10) return false;
+            p.Competitive = r.Bool(); p.Winner = r.U32(); count = r.U8();
+            if (count > 64 || (!p.Competitive && (count != 0 || p.Winner != 0))) return false;
+            var racers = new List<ShipRepairRacer>();
+            for (int i = 0; i < count; i++)
+            {
+                var racer = new ShipRepairRacer { User = r.U32(), Name = r.Str() };
+                uint expected = r.U32(); racer.Salvaged = r.I32(); int deliveries = r.U8();
+                if (racer.User == 0 || racer.Salvaged < 0 || racers.Any(other => other.User == racer.User) || deliveries > 30) return false;
+                for (int j = 0; j < deliveries; j++) if (!racer.Receive(r.U8())) return false;
+                if (racer.Mask != expected) return false;
+                racers.Add(racer);
+            }
+            if (p.Competitive && (racers.Count == 0 ||
+                (p.Winner == 0 && racers.Any(player => player.Mask == ShipRepairProgress.AllParts)) ||
+                (p.Winner != 0 && !racers.Any(player => player.User == p.Winner && player.Mask == ShipRepairProgress.AllParts)) ||
+                (p.Winner != 0 && !p.Order.SequenceEqual(racers.First(player => player.User == p.Winner).Order)) ||
+                ((p.State == ShipRepairProgress.Phase.Winning || p.State == ShipRepairProgress.Phase.Results) != (p.Winner != 0)))) return false;
+            p.Racers = racers.ToArray();
+            count = r.U16(); if (count > 451) return false;
             var parts = new List<Part>();
             for (int i = 0; i < count; i++)
             {
-                var part = new Part { Id = r.U8(), Pellet = r.U32(), Name = r.Str(), Weight = r.U32(), X = r.F32(), Y = r.F32(), Z = r.F32(),
-                    Discovered = r.Bool(), Delivered = r.Bool(), Stalled = r.Bool(), EnemyDrop = r.Bool(), Spawned = r.Bool() };
+                var part = new Part { Id = r.U8(), Slot = r.I32(), Pellet = r.U32(), Name = r.Str(), Weight = r.U32(), X = r.F32(), Y = r.F32(), Z = r.F32(),
+                    Discovered = r.Bool(), Delivered = r.Bool(), Stalled = r.Bool(), EnemyDrop = r.Bool(), Spawned = r.Bool(), StageBoss = r.Bool(), Recycling = r.Bool() };
                 if (part.Id >= 30 || !Finite(part.X) || !Finite(part.Y) || !Finite(part.Z) || part.Weight == 0 || part.Weight > 100 ||
-                    (!part.Spawned && (!part.EnemyDrop || part.Discovered || part.Delivered || part.Stalled || part.Pellet != uint.MaxValue - part.Id)) ||
-                    part.Delivered != ((mask & (1u << part.Id)) != 0) || parts.Any(other => other.Id == part.Id || other.Pellet == part.Pellet)) return false;
+                    part.Slot < 0 || part.Slot >= 451 || (part.StageBoss && !part.EnemyDrop) ||
+                    (part.Recycling && (!p.Competitive || part.Spawned || part.Delivered)) ||
+                    (!part.Spawned && ((!part.EnemyDrop && !part.Recycling) || part.Discovered || part.Delivered || part.Stalled || part.Pellet != uint.MaxValue - part.Slot)) ||
+                    (!p.Competitive && part.Delivered != ((mask & (1u << part.Id)) != 0)) ||
+                    parts.Any(other => other.Slot == part.Slot || (!p.Competitive && other.Id == part.Id) || other.Pellet == part.Pellet)) return false;
                 parts.Add(part);
             }
             if (r.Failed || !r.Done) return false;

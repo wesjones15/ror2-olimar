@@ -16,18 +16,25 @@ namespace OlimarTest
         const short StateMessage = 0x4F04, RecoveryMessage = 0x4F05;
         internal static ShipRepairSession Instance { get; private set; }
         internal readonly ShipRepairProgress Progress = new ShipRepairProgress();
+        readonly ShipRepairRace race = new ShipRepairRace();
+        internal bool Competitive { get; private set; }
+        internal uint Winner => race.Winner;
+        public IEnumerable<int> PartsFor(uint user) => Competitive
+            ? race.Players.TryGetValue(user, out var player) ? player.Order : Enumerable.Empty<int>() : Progress.Order;
         sealed class Part
         {
-            public int id;
+            public int id, slot;
             public uint pellet;
             public string name;
             public uint weight;
-            public Vector3 pos, safe, last;
-            public bool discovered, delivered, enemyDrop, spawned;
+            public Vector3 pos, safe, last, origin;
+            public bool discovered, delivered, enemyDrop, spawned, stageBoss;
             public float stalled;
+            public float recycleAt;
         }
         readonly List<Part> parts = new List<Part>(10);
         readonly HashSet<int> rewardedEnemies = new HashSet<int>();
+        System.Random bonusRng;
         Run run;
         Stage stage;
         IntPtr stageSim;
@@ -46,7 +53,11 @@ namespace OlimarTest
         static byte[] pendingPacket;
 
         internal bool Winning => NetworkServer.active ? Progress.State == ShipRepairProgress.Phase.Winning : remotePhase == ShipRepairProgress.Phase.Winning;
-        int Count => NetworkServer.active ? Progress.Count : CountBits(remoteMask);
+        uint LocalUserId => LocalUserManager.GetFirstLocalUser()?.currentNetworkUser ? LocalUserManager.GetFirstLocalUser().currentNetworkUser.netId.Value : 0;
+        int Count => Competitive ? race.Players.TryGetValue(LocalUserId, out var player) ? player.Order.Count : 0
+            : NetworkServer.active ? Progress.Count : CountBits(remoteMask);
+        string Standings => string.Join("\n", race.Players.Values.OrderByDescending(p => p.Order.Count).ThenBy(p => p.User).Select(p => p.Name + " — " + p.Order.Count + "/30 · " + p.Salvaged + " salvaged"));
+        string WinText => Competitive ? (race.Players.TryGetValue(Winner, out var winner) ? winner.Name : "A player") + " repaired their Dolphin!" : "The Dolphin is repaired!";
         double Seconds => NetworkServer.active ? Progress.Seconds : remoteSeconds;
         internal bool Terminal => NetworkServer.active ? Progress.State >= ShipRepairProgress.Phase.Winning : remotePhase >= ShipRepairProgress.Phase.Winning;
         internal bool HoldingFirstArrival => NetworkServer.active
@@ -58,8 +69,16 @@ namespace OlimarTest
             Instance = this;
             run = GetComponent<Run>();
             runId = run.GetUniqueId().ToString();
+            Competitive = NetworkServer.active && Plugin.CompetitiveMode.Value;
+            if (NetworkServer.active) EnrollPlayers();
             lastResult = lastResultRun = null;
             if (pendingPacket != null) { var packet = pendingPacket; pendingPacket = null; Receive(new ByteReader(packet)); }
+        }
+        void EnrollPlayers()
+        {
+            if (!Competitive) return;
+            foreach (var user in NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating))
+                race.Enroll(user.netId.Value, user.userName.Length > 60 ? user.userName.Substring(0, 60) : user.userName);
         }
         void OnDestroy()
         {
@@ -93,6 +112,7 @@ namespace OlimarTest
         void FixedUpdate()
         {
             if (!NetworkServer.active) return;
+            EnrollPlayers();
             var world = PikminWorld.Instance;
             bool sceneReady = Stage.instance && world && world.StageReady && world.SimHandle != IntPtr.Zero;
             if (sceneReady && (stage != Stage.instance || stageSim != world.SimHandle))
@@ -102,6 +122,7 @@ namespace OlimarTest
                 stage = Stage.instance; stageSim = world.SimHandle;
                 parts.Clear(); rewardedEnemies.Clear(); arrivalAge = 0;
                 Progress.EnterStage();
+                bonusRng = new System.Random(unchecked((int)run.seed ^ (int)Progress.Epoch * 104729));
                 StartCoroutine(Spawn(world, Progress.Epoch));
                 Broadcast();
             }
@@ -149,10 +170,15 @@ namespace OlimarTest
                     throw new InvalidOperationException("Ship Repair requires all 30 extracted ship part models and configs. Missing part " + id);
             var nodes = graph.GetActiveNodesForHullMask(HullMask.Human);
             var rng = new System.Random(unchecked((int)run.seed ^ (int)Progress.Epoch * 7919));
-            var sample = Progress.Sample(run.seed);
-            int groundCount = sample.Length - Math.Min(3, sample.Length / 3);
-            foreach (int id in sample)
+            var active = NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating).Select(u => u.netId.Value).ToArray();
+            var masks = Competitive ? active.Select(id => race.Players[id].Mask).ToArray() : new[] { Progress.Mask };
+            int budget = 3 + ShipRepairRace.EnemyBudget(active.Length, Competitive);
+            var sample = ShipRepairRace.StageIds(run.seed, epoch, budget, masks);
+            // Slot 0: guaranteed stage-boss part. Slots 1-2: shared map parts.
+            // All remaining slots are non-stage-boss enemy drops.
+            for (int slot = 0; slot < sample.Length; slot++)
             {
+                int id = sample[slot];
                 Vector3 point = default;
                 bool found = false;
                 for (int attempt = 0; attempt < 200 && nodes.Count > 0; attempt++)
@@ -171,8 +197,8 @@ namespace OlimarTest
                 if (!found) { Plugin.Log.LogWarning($"Ship Repair: no safe reachable site for part {id} after 200 attempts."); continue; }
                 var name = new byte[128];
                 Native.pik_sim_ship_part_name(world.SimHandle, (uint)id, name, (uint)name.Length);
-                var part = new Part { id = id, pellet = uint.MaxValue - (uint)id, name = Native.Utf8(name), weight = Native.pik_sim_ship_part_weight(world.SimHandle, (uint)id),
-                    pos = point, last = point, safe = point, enemyDrop = Array.IndexOf(sample, id) >= groundCount };
+                var part = new Part { id = id, slot = slot, pellet = uint.MaxValue - (uint)slot, name = Native.Utf8(name), weight = Native.pik_sim_ship_part_weight(world.SimHandle, (uint)id),
+                    pos = point, last = point, safe = point, origin = point, stageBoss = slot == 0, enemyDrop = slot == 0 || slot >= 3 };
                 parts.Add(part);
                 if (!part.enemyDrop && !SpawnPart(world, part, point, (float)rng.NextDouble() * Mathf.PI * 2f)) parts.Remove(part);
                 Broadcast();
@@ -186,10 +212,14 @@ namespace OlimarTest
             // Reserve within the ten-part budget. If combat produces no usable death
             // callback, release physical wreckage when the teleporter finishes.
             if (TeleporterInteraction.instance && TeleporterInteraction.instance.isCharged)
-                foreach (var part in parts.Where(p => p.enemyDrop && !p.spawned))
+                foreach (var part in parts.Where(p => p.enemyDrop && !p.spawned && p.recycleAt == 0f))
                     if (SpawnPart(world, part, part.safe)) ShowToast(part.name + " revealed in the wreckage — carry it to the Dolphin.");
             foreach (var part in parts)
             {
+                if (part.recycleAt > 0f && Time.time >= part.recycleAt)
+                {
+                    if (SpawnPart(world, part, part.origin)) { ShowToast(part.name + " returned to the map."); Broadcast(); }
+                }
                 if (part.delivered || !part.spawned) continue;
                 for (int i = 0; i < world.PelletCount; i++)
                 {
@@ -201,7 +231,7 @@ namespace OlimarTest
                     if (moved) part.last = part.pos;
                     if (pellet.state != 2 && Physics.Raycast(part.pos + Vector3.up * 2f, Vector3.down, out var floor, 5f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
                         && floor.normal.y > 0.65f) part.safe = floor.point;
-                    if (part.pos.y < part.safe.y - 30f) Recover(part.id, true);
+                    if (part.pos.y < part.safe.y - 30f) Recover(part.slot, true);
                     if (!part.discovered && CharacterBody.readOnlyInstancesList.Any(b => b.isPlayerControlled && Vector3.Distance(b.footPosition, part.pos) < 25f))
                     {
                         part.discovered = true;
@@ -228,6 +258,7 @@ namespace OlimarTest
             int pellet = Native.pik_sim_spawn_ship_part(world.SimHandle, (uint)part.id, ref pos, yaw);
             if (pellet < 0) { Plugin.Log.LogError("Ship Repair: native part spawn refused " + part.id); return false; }
             part.pellet = (uint)pellet; part.spawned = true;
+            part.recycleAt = part.stalled = 0f;
             part.pos = part.safe = part.last = point;
             return true;
         }
@@ -237,10 +268,19 @@ namespace OlimarTest
             if (!NetworkServer.active || !Progress.Accepting || stage != Stage.instance || stageSim != world.SimHandle) return;
             var victim = report.victimBody;
             if (!victim || report.victimTeamIndex != TeamIndex.Monster) return;
-            bool boss = victim.isBoss || victim.isChampion;
-            if (!boss && victim.baseMaxHealth < 600f && !(victim.isElite && victim.baseMaxHealth >= 200f)) return;
+            bool stageBoss = TeleporterInteraction.instance && TeleporterInteraction.instance.bossGroup &&
+                TeleporterInteraction.instance.bossGroup.combatSquad.ContainsMember(victim.master);
+            bool powerful = victim.isBoss || victim.isChampion || victim.baseMaxHealth >= 600f || (victim.isElite && victim.baseMaxHealth >= 200f);
+            if (!stageBoss && !powerful) return;
             if (!rewardedEnemies.Add(victim.GetInstanceID())) return;
-            var drops = parts.Where(p => p.enemyDrop && !p.spawned).Take(boss ? 3 : 1).ToArray();
+            // Exactly one reserved stage-boss reward across multi-member boss groups.
+            // Stage bosses never drain the separately scaled miniboss/elite quota.
+            var drops = parts.Where(p => p.enemyDrop && !p.spawned && p.recycleAt == 0f && !p.delivered && p.stageBoss == stageBoss).Take(1).ToArray();
+            if (!stageBoss && drops.Length == 0 && bonusRng != null && bonusRng.NextDouble() < 0.2)
+            {
+                var bonus = BonusPart(world, victim.footPosition);
+                if (bonus != null) drops = new[] { bonus };
+            }
             for (int i = 0; i < drops.Length; i++)
             {
                 var part = drops[i];
@@ -256,18 +296,64 @@ namespace OlimarTest
             Broadcast();
         }
 
+        Part BonusPart(PikminWorld world, Vector3 fallback)
+        {
+            var active = NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating).Select(u => u.netId.Value).ToArray();
+            var masks = Competitive ? active.Where(id => race.Players.ContainsKey(id)).Select(id => race.Players[id].Mask).ToArray() : new[] { Progress.Mask };
+            var ids = ShipRepairRace.StageIds(run.seed ^ (uint)bonusRng.Next(), Progress.Epoch, 1, masks);
+            if (ids.Length == 0) return null;
+            // Bound simultaneous world records, not the number earned in a stage.
+            // Consumed slots are recycled, so farming can keep yielding parts.
+            var part = parts.FirstOrDefault(p => p.delivered);
+            if (part == null && parts.Count >= 451) return null;
+            var safe = parts.FirstOrDefault()?.origin ?? fallback;
+            var name = new byte[128];
+            Native.pik_sim_ship_part_name(world.SimHandle, (uint)ids[0], name, 128);
+            var next = new Part { id = ids[0], slot = part?.slot ?? parts.Count, name = Native.Utf8(name),
+                weight = Native.pik_sim_ship_part_weight(world.SimHandle, (uint)ids[0]), enemyDrop = true,
+                pos = safe, safe = safe, origin = safe, last = safe };
+            next.pellet = uint.MaxValue - (uint)next.slot;
+            if (part != null) parts.Remove(part);
+            parts.Add(next);
+            return next;
+        }
+
         internal void Receipt(PikminWorld world, Native.Event receipt)
         {
             if (!NetworkServer.active || stage != Stage.instance || stageSim != world.SimHandle) return;
             var part = parts.FirstOrDefault(p => p.spawned && p.pellet == receipt.a && p.id == receipt.c && !p.delivered);
             if (part == null || !Progress.Accepting) return;
-            bool receiver = false;
+            bool receiver = false, onion = false;
             for (int i = 0; i < world.OnionCount; i++)
-                if (world.Onions[i].id == receipt.b && world.Onions[i].is_ship != 0) receiver = true;
-            if (!receiver || !Progress.Receive(Progress.Epoch, part.id)) return;
+                if (world.Onions[i].id == receipt.b) { receiver = true; onion = world.Onions[i].is_ship == 0; }
+            if (!receiver) return;
+            uint user = Competitive ? world.UserForShip((uint)receipt.b) : 0;
+            if (Competitive && onion && race.Salvage(user, part.id))
+            {
+                uint seeds = part.weight * 2;
+                for (uint color = 0; color < 3; color++) Native.pik_sim_give_onion_seeds(world.SimHandle, (uint)receipt.b, color, seeds / 3 + (color < seeds % 3 ? 1u : 0u));
+                ShowToast(race.Players[user].Name + " fed " + part.name + " to their Onion — " + seeds + " seeds!");
+                if (NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating).Any(u => race.Players.TryGetValue(u.netId.Value, out var rival) && (rival.Mask & (1u << part.id)) == 0))
+                {
+                    part.spawned = part.discovered = false; part.stalled = 0f;
+                    part.pellet = uint.MaxValue - (uint)part.slot; part.recycleAt = Time.time + 5f;
+                }
+                else part.delivered = true;
+                Broadcast(); return;
+            }
+            if (onion) return;
+            bool accepted = Competitive ? user != 0 && race.Receive(user, part.id) : Progress.Receive(Progress.Epoch, part.id);
+            if (!accepted)
+            {
+                // Two copies can finish intake in the same native tick. Put the
+                // rejected physical copy back; another racer may still need it.
+                part.spawned = false; SpawnPart(world, part, part.safe); Broadcast(); return;
+            }
+            if (Competitive && Winner != 0)
+                foreach (int id in race.Players[Winner].Order) Progress.Receive(Progress.Epoch, id);
             part.delivered = true;
-            world.FitShipPart((uint)part.id);
-            ShowToast($"{part.name} recovered — {Progress.Count}/30");
+            world.FitShipPart((uint)part.id, user);
+            ShowToast(Competitive ? race.Players[user].Name + " recovered " + part.name + " — " + race.Players[user].Order.Count + "/30" : $"{part.name} recovered — {Progress.Count}/30");
             Plugin.Log.LogInfo($"Ship Repair: delivered {part.id} ({part.name}) at {Progress.Seconds:F2}s; {Progress.Count}/30.");
             if (Winning)
             {
@@ -280,7 +366,7 @@ namespace OlimarTest
 
         void Recover(int id, bool fell = false)
         {
-            var part = parts.FirstOrDefault(p => p.spawned && p.id == id && !p.delivered);
+            var part = parts.FirstOrDefault(p => p.spawned && p.slot == id && !p.delivered);
             var world = PikminWorld.Instance;
             if (part == null || !world || world.SimHandle != stageSim || Terminal || (!fell && part.stalled < 30f)) return;
             var pos = UnityHost.ToSim(part.safe);
@@ -337,15 +423,16 @@ namespace OlimarTest
         void SaveSummary(bool won)
         {
             lastResultRun = runId;
-            lastResult = $"Ship Repair — {(won ? "Dolphin repaired" : "Run ended")}\n{Count}/30 parts · {FormatTime(Seconds)} · {Progress.Stages} stages\nSeed {run.seed} · {run.selectedDifficulty}";
+            lastResult = $"Ship Repair — {(won ? WinText : "Run ended")}\n{FormatTime(Seconds)} · {Progress.Stages} stages · Seed {run.seed} · {run.selectedDifficulty}\n" +
+                (Competitive ? Standings : Count + "/30 parts");
             try
             {
                 string directory = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "OlimarShipRepairReports");
                 Directory.CreateDirectory(directory);
                 File.WriteAllText(System.IO.Path.Combine(directory, runId + ".txt"), lastResult +
-                    "\nRules: 30 unique parts; up to 7 ground + 3 enemy parts per normal stage; Dolphin delivery; all Olimar; no artifacts; ABI 30/protocol 2" +
+                    $"\nRules: competitive={Competitive}; 30 unique parts; 2 map + 1 stage boss + 7 other enemy parts per {(Competitive ? "player" : "team")}; Dolphin delivery; all Olimar; no artifacts; ABI 31/protocol 3" +
                     $"\nPlayers: {run.participatingPlayerCount}; starting squad R/Y/B: {Plugin.StartRed.Value}/{Plugin.StartYellow.Value}/{Plugin.StartBlue.Value}" +
-                    "\nParts: " + string.Join(",", Progress.Order));
+                    "\nParts: " + (Competitive ? string.Join("\n", race.Players.Values.Select(p => p.User + " " + p.Name + ": " + string.Join(",", p.Order))) : string.Join(",", Progress.Order)));
             }
             catch (Exception e) { Plugin.Log.LogWarning("Repair report could not be saved: " + e.Message); }
         }
@@ -358,9 +445,10 @@ namespace OlimarTest
             var packet = new ShipRepairPacket {
                 RunId = runId, Epoch = Progress.Epoch, Mask = Progress.Mask, State = Progress.State,
                 Seconds = (float)Progress.Seconds, Stages = Progress.Stages, Order = Progress.Order.ToArray(),
-                Parts = parts.Select(p => new ShipRepairPacket.Part { Id = p.id, Pellet = p.pellet, Name = p.name, Weight = p.weight,
+                Competitive = Competitive, Winner = Winner, Racers = Competitive ? race.Players.Values.ToArray() : Array.Empty<ShipRepairRacer>(),
+                Parts = parts.Select(p => new ShipRepairPacket.Part { Id = p.id, Slot = p.slot, Pellet = p.pellet, Name = p.name, Weight = p.weight,
                     X = p.pos.x, Y = p.pos.y, Z = p.pos.z, Discovered = p.discovered, Delivered = p.delivered, Stalled = p.stalled >= 30f,
-                    EnemyDrop = p.enemyDrop, Spawned = p.spawned }).ToArray(),
+                    EnemyDrop = p.enemyDrop, Spawned = p.spawned, StageBoss = p.stageBoss, Recycling = p.recycleAt > 0f }).ToArray(),
             };
             Mp.SendToAll(StateMessage, packet.Write(), true);
         }
@@ -369,19 +457,27 @@ namespace OlimarTest
             if (!ShipRepairPacket.Read(reader, out var packet) || packet.RunId != runId || packet.Epoch < remoteEpoch ||
                 packet.Order.Length < receivedCount || packet.Seconds < remoteSeconds || (packet.Mask & remoteMask) != remoteMask ||
                 !remoteOrder.SequenceEqual(packet.Order.Take(remoteOrder.Length))) return;
+            if (hydrated && packet.Competitive != Competitive) return;
+            if (packet.Competitive && race.Players.Values.Any(previous => !packet.Racers.Any(next => next.User == previous.User &&
+                (next.Mask & previous.Mask) == previous.Mask && next.Salvaged >= previous.Salvaged && previous.Order.SequenceEqual(next.Order.Take(previous.Order.Count))))) return;
+            int before = Count;
+            Competitive = packet.Competitive;
+            race.Hydrate(packet.Racers, packet.Winner);
+            if (hydrated && Competitive && Count > before) ShowToast("Your Dolphin — " + Count + "/30");
             if (hydrated && packet.Order.Length > receivedCount)
                 ShowToast($"Ship part recovered — {packet.Order.Length}/30");
             parts.Clear();
-            parts.AddRange(packet.Parts.Select(p => new Part { id = p.Id, pellet = p.Pellet, name = p.Name, weight = p.Weight,
+            parts.AddRange(packet.Parts.Select(p => new Part { id = p.Id, slot = p.Slot, pellet = p.Pellet, name = p.Name, weight = p.Weight,
                 pos = new Vector3(p.X, p.Y, p.Z), discovered = p.Discovered, delivered = p.Delivered, stalled = p.Stalled ? 30f : 0f,
-                enemyDrop = p.EnemyDrop, spawned = p.Spawned }));
+                enemyDrop = p.EnemyDrop, spawned = p.Spawned, stageBoss = p.StageBoss, recycleAt = p.Recycling ? 1f : 0f }));
             remoteEpoch = packet.Epoch; remoteMask = packet.Mask; remotePhase = packet.State; remoteSeconds = packet.Seconds; remoteStages = packet.Stages;
             remoteOrder = packet.Order; receivedCount = packet.Order.Length; hydrated = true;
             if (Winning && !playedVictory) { playedVictory = true; SpawnMusic.PlayVictory(); }
             if (packet.State >= ShipRepairProgress.Phase.Winning)
             {
                 lastResultRun = runId;
-                lastResult = $"Ship Repair — {(remoteMask == ShipRepairProgress.AllParts ? "Dolphin repaired" : "Run ended")}\n{Count}/30 parts · {FormatTime(Seconds)} · {remoteStages} stages\nSeed {run.seed} · {run.selectedDifficulty}";
+                lastResult = $"Ship Repair — {(remoteMask == ShipRepairProgress.AllParts ? WinText : "Run ended")}\n{FormatTime(Seconds)} · {remoteStages} stages · Seed {run.seed} · {run.selectedDifficulty}\n" +
+                    (Competitive ? Standings : Count + "/30 parts");
             }
         }
 
@@ -393,10 +489,11 @@ namespace OlimarTest
                 return;
             }
             GUI.Box(new Rect(20, 100, 340, 70), $"S.S. Dolphin — {Count}/30 parts\nRepair time {FormatTime(Seconds)}\n{parts.Count(p => !p.delivered)} remaining · {parts.Count(p => !p.spawned)} held by powerful enemies");
+            if (Competitive) GUI.Box(new Rect(Screen.width - 310, 100, 290, 40 + race.Players.Count * 22), "Dolphin race\n" + Standings);
             if (Time.unscaledTime < toastUntil) GUI.Box(new Rect(Screen.width / 2f - 260, 75, 520, 45), toast);
             if (Winning)
             {
-                GUI.Box(new Rect(Screen.width / 2f - 220, 130, 440, 60), "The Dolphin is repaired!\n" + FormatTime(Seconds));
+                GUI.Box(new Rect(Screen.width / 2f - 220, 130, 440, 60), WinText + "\n" + FormatTime(Seconds));
                 if (NetworkServer.active && GUI.Button(new Rect(Screen.width / 2f - 75, 200, 150, 30), "Skip celebration")) FinishWin();
                 return;
             }
@@ -407,8 +504,8 @@ namespace OlimarTest
             {
                 if (part.stalled >= 30f && GUI.Button(new Rect(20, 210 + row++ * 30, 300, 28), "Recover stuck " + part.name))
                 {
-                    if (NetworkServer.active) Recover(part.id);
-                    else { var w = new ByteWriter(); w.Str(runId); w.U32(remoteEpoch); w.I32(part.id); Mp.SendToServer(RecoveryMessage, w.ToArray(), true); }
+                    if (NetworkServer.active) Recover(part.slot);
+                    else { var w = new ByteWriter(); w.Str(runId); w.U32(remoteEpoch); w.I32(part.slot); Mp.SendToServer(RecoveryMessage, w.ToArray(), true); }
                 }
                 var user = LocalUserManager.GetFirstLocalUser();
                 var camera = user?.cameraRigController ? user.cameraRigController.sceneCam : Camera.main;
@@ -416,7 +513,7 @@ namespace OlimarTest
                 var screen = camera.WorldToScreenPoint(part.pos + Vector3.up * 2f);
                 if (screen.z <= 0) continue;
                 GUI.Label(new Rect(Mathf.Clamp(screen.x - 90, 0, Screen.width - 180), Mathf.Clamp(Screen.height - screen.y, 40, Screen.height - 40), 220, 40),
-                    $"◆ {part.name}\n{part.weight} carriers");
+                    $"◆ {part.name}\n{part.weight} carriers" + (Competitive && race.Players.TryGetValue(LocalUserId, out var me) && (me.Mask & (1u << part.id)) != 0 ? " · Onion salvage" : ""));
             }
         }
         static int CountBits(uint mask) { int n = 0; while (mask != 0) { mask &= mask - 1; n++; } return n; }
