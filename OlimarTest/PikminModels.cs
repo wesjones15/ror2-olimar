@@ -13,6 +13,7 @@ namespace OlimarTest
     internal sealed class PikminModels : IDisposable
     {
         IntPtr view;
+        static bool victoryLoaded;
         readonly Particles particles;
 
         /// The meshes (ror2-common), for hosts that place the draws themselves.
@@ -23,6 +24,8 @@ namespace OlimarTest
         /// This frame's instances (after Update).
         public int DrawCount => Models.DrawCount;
         public ViewDraw DrawAt(int i) => Models.DrawAt(i);
+        public void Celebrate(bool enabled) => Native.pik_view_set_celebrating(view, enabled ? (byte)1 : (byte)0);
+        public uint RepairsPending => Native.pik_view_repairs_pending(view);
 
         PikminModels(IntPtr view, ModelView models, Transform parent)
         {
@@ -60,6 +63,19 @@ namespace OlimarTest
             {
                 Native.pik_view_free(v);
                 return null;
+            }
+            if (!victoryLoaded)
+            {
+                uint n = Native.pik_victory_pcm(Native.CString(assetsDir), null, 0, out uint rate);
+                if (n > 0)
+                {
+                    var pcm = new float[n];
+                    if (Native.pik_victory_pcm(Native.CString(assetsDir), pcm, n, out rate) == n)
+                    {
+                        SpawnMusic.SetVictoryPcm(pcm, (int)rate);
+                        victoryLoaded = true;
+                    }
+                }
             }
             return new PikminModels(v, models, parent);
         }

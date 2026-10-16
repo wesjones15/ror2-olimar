@@ -33,7 +33,8 @@ namespace OlimarTest
             if (isAuthority) transform.position = anchor;
             // The host finishes when the Dolphin lands. Clients follow the replicated
             // state transition; they don't need a second native simulation.
-            if (isAuthority && ((!driver || !driver.Arriving) || fixedAge > 20f))
+            if (isAuthority && ((!driver || !driver.Arriving) &&
+                !(ShipRepairSession.Instance && ShipRepairSession.Instance.HoldingFirstArrival) || fixedAge > 20f))
             {
                 if (driver && driver.Arriving)
                     Plugin.Log.LogWarning("Dolphin arrival timed out waiting for the native sim; releasing Olimar.");

@@ -249,6 +249,23 @@ namespace OlimarTest
         /// moves him on a client (his own captain there is its only one).
         internal IntPtr SimHandle => ClientMode ? moverSim : sim;
 
+        internal void FitShipPart(uint part)
+        {
+            if (sim == IntPtr.Zero || ClientMode) return;
+            foreach (var dolphin in dolphins.Values) Native.pik_sim_give_ship_part(sim, (uint)dolphin.id, part);
+        }
+
+        internal void ShipTakeoff(float progress)
+        {
+            if (sim == IntPtr.Zero || ClientMode) return;
+            foreach (var dolphin in dolphins.Values)
+            {
+                var pos = UnityHost.ToSim(dolphin.landing + Vector3.up * (progress * progress * 40f));
+                Native.pik_sim_set_onion_pose(sim, (uint)dolphin.id, ref pos, 1);
+                Native.pik_sim_set_onion_flight_motion(sim, (uint)dolphin.id, 0, progress);
+            }
+        }
+
         /// The sim to read the world from and draw: the real one, or on a client the replica of it.
         internal IntPtr DataHandle => sim;
 
@@ -260,6 +277,7 @@ namespace OlimarTest
 
         /// Running and not stopped by a bug in the sim.
         public bool Healthy => sim != IntPtr.Zero && !reportedPoison;
+        internal bool StageReady => Healthy && !ClientMode && simStage == Stage.instance;
 
         /// How far the clock is between the last tick and the next, for drawing.
         public float RenderAlpha => ClientMode ? 1f :
@@ -378,6 +396,7 @@ namespace OlimarTest
             if (sim != IntPtr.Zero && master && captainOf.TryGetValue(master, out int known))
             {
                 driverOf[known] = d;
+                if (ShipRepairMode.Active) d.Arriving = false;
                 // Back from the dead (a respawn, Dio's, a Larva): on his feet again.
                 Native.pik_sim_down_captain(sim, (uint)known, 0);
                 SpawnDolphin(known, d, false);
@@ -505,6 +524,7 @@ namespace OlimarTest
                 return false;
             }
             simStage = Stage.instance;
+            Native.pik_sim_set_ship_part_onion_delivery(sim, ShipRepairMode.Active ? (byte)1 : (byte)0);
             reportedPoison = false;
             epoch++;
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
@@ -527,6 +547,7 @@ namespace OlimarTest
         // starts the new stage's sim.
         void NewStage()
         {
+            ShipRepairSession.Instance?.CloseStage();
             foreach (var pair in captainOf)
             {
                 if (!cargo.TryGetValue(pair.Key, out var saved)) continue;
@@ -587,8 +608,15 @@ namespace OlimarTest
                 : Native.pik_sim_add_ship(sim, ref pos, UnityHost.Yaw(body.transform.forward));
             if (id < 0) { driver.Arriving = false; if (bringSquad) BringPikmin(captain, driver); return; }
             // Without the ship-parts mode (not built yet) the Dolphin is the repaired one.
-            if (!dolphins.ContainsKey(captain) && !Plugin.ShipParts.Value)
-                for (uint part = 0; part < 30; part++) Native.pik_sim_give_ship_part(sim, (uint)id, part);
+            if (!dolphins.ContainsKey(captain))
+            {
+                if (ShipRepairMode.Active)
+                {
+                    if (ShipRepairSession.Instance)
+                        foreach (int part in ShipRepairSession.Instance.Progress.Order) Native.pik_sim_give_ship_part(sim, (uint)id, (uint)part);
+                }
+                else for (uint part = 0; part < 30; part++) Native.pik_sim_give_ship_part(sim, (uint)id, part);
+            }
             dolphins[captain] = new DolphinFlight { id = id, captain = captain, start = start, landing = landing, bringSquad = bringSquad };
             if (driver.Arriving)
             {
@@ -1151,6 +1179,13 @@ namespace OlimarTest
                 return;
             }
             if (sim == IntPtr.Zero) return;
+            if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal)
+            {
+                ReadBack();
+                view.Snapshot();
+                SendSnapshot(1);
+                return;
+            }
             if (Stage.instance != simStage)
             {
                 // The stage is gone; wait for an Olimar to register in the next one.
@@ -1608,6 +1643,7 @@ namespace OlimarTest
                 for (int i = 0; i < n; i++)
                 {
                     var e = events[i];
+                    if (e.kind == Native.EventKind.ShipPartCollected) ShipRepairSession.Instance?.Receipt(this, e);
                     if (e.kind == Native.EventKind.PelletDelivered && onionMinions.TryGetValue(e.b, out var onion)
                         && onion.Alive && !OnionDisabled(e.b))
                     {

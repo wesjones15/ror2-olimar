@@ -142,6 +142,7 @@ namespace OlimarTest
 
         void DrawModels()
         {
+            models.Celebrate(ShipRepairSession.Instance && ShipRepairSession.Instance.Winning);
             var frame = new Native.ViewFrame
             {
                 dt = Time.deltaTime, listener = -1, volume = Volume(),

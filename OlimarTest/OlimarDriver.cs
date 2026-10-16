@@ -132,7 +132,9 @@ namespace OlimarTest
         bool OnPlayersTeam => !Body.teamComponent || Body.teamComponent.teamIndex == TeamIndex.Player;
 
         /// Alive, ours to steer, and a captain in the sim.
-        public bool Active => !Arriving && captain >= 0 && Body && (Body.hasEffectiveAuthority || IsRemote)
+        public bool Active => !Arriving && !(ShipRepairSession.Instance &&
+                              (ShipRepairSession.Instance.Terminal || ShipRepairSession.Instance.HoldingFirstArrival))
+                              && captain >= 0 && Body && (Body.hasEffectiveAuthority || IsRemote)
                               && !Body.currentVehicle && (!health || health.alive);
 
         public int Captain => captain;

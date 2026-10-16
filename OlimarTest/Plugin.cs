@@ -163,8 +163,8 @@ namespace OlimarTest
                 "How far from an enemy's edge the strike reaches, all around Olimar.");
             StrikeCooldown = Config.Bind("Combat", "StrikeCooldown", 4f, "Seconds between strikes.");
             ShipParts = Config.Bind("Dolphin", "ShipPartsMode", false,
-                "Not built yet: the ship-repair mode, where the Dolphin is wrecked and its parts are scattered over the stages. " +
-                "Off (the only mode for now): the Dolphin is the repaired ship, with all 30 parts and its lights and effects.");
+                "Retired setting, ignored. Select Ship Repair in the game-mode menu instead.");
+            if (ShipParts.Value) Log.LogInfo("Dolphin.ShipPartsMode is retired. Select Ship Repair from the mode menu.");
             PikminJump = Config.Bind("Pikmin", "OlimarUsesPikminJump", true,
                 "Olimar jumps with the Pikmin's own jump animation (they share the game's motion table). Off: his geyser-ride pose, tipped upright.");
             CursorHoming = Config.Bind("Combat", "CursorHoming", true,
@@ -318,10 +318,11 @@ namespace OlimarTest
                 [SkillSlot.Special] = new[] { PadButton.RB },
             });
 
-            ContentProvider.Register(Guid, Content.Fill);
+            ContentProvider.Register(Guid, pack => { Content.Fill(pack); ShipRepairMode.Fill(pack); });
             Language.onCurrentLanguageChanged += AddTokens;
             PikminWorld.Hook();
             PikminNet.Register();
+            ShipRepairMode.Install();
         }
 
         static bool InVr()

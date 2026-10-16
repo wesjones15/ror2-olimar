@@ -34,7 +34,7 @@ namespace OlimarTest
             ground_height = Marshal.GetFunctionPointerForDelegate(groundFn),
             walls = Marshal.GetFunctionPointerForDelegate(wallsFn),
             damage = Marshal.GetFunctionPointerForDelegate(damage),
-            carry_path = IntPtr.Zero, // straight lines for now
+            carry_path = Marshal.GetFunctionPointerForDelegate(ShipPartNavigation.Callback),
         };
 
         public static Vector3 ToUnity(Native.Vec3 v) => new Vector3(v.x, v.y, v.z) * Scale;
