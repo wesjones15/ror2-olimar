@@ -161,13 +161,13 @@ namespace OlimarTest
             if (!ShipRepairMode.Eligible(SceneCatalog.GetSceneDefForCurrentScene())) yield break;
             // The receiver's carry goal moves with its arrival pose. Place against
             // its landed goal, otherwise the first frame's airborne goal rejects every site.
-            float deadline = Time.unscaledTime + 20f;
+            float deadline = Time.unscaledTime + 40f;
             bool landed = false;
             while (!landed && Time.unscaledTime < deadline)
             {
                 if (!world || !world.StageReady || Progress.Epoch != epoch || Progress.State == ShipRepairProgress.Phase.Loading || Terminal) yield break;
                 for (int i = 0; i < world.OnionCount; i++)
-                    if (world.Onions[i].is_ship != 0 && world.Onions[i].anim == 0) landed = true;
+                    if (world.RepairDolphinsReady && world.Onions[i].is_ship != 0 && world.Onions[i].anim == 0) landed = true;
                 if (!landed) yield return null;
             }
             if (!landed) { Plugin.Log.LogWarning("Ship Repair: no landed Dolphin; this stage has no parts."); yield break; }

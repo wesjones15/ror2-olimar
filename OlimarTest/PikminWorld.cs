@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using MonoMod.RuntimeDetour;
 using RoR2;
@@ -108,6 +109,10 @@ namespace OlimarTest
             public Vector3 start, landing;
             public float elapsed;
             public bool complete, bringSquad;
+            public Vector3? dock;
+            public Vector3 relocationStart;
+            public float relocationAge;
+            public bool relocating;
             // The Onion releases the squad; the Dolphin beams Olimar down separately.
             public bool onionDown, squadOut;
             /// Seconds the Onion has stood landed; Olimar's beam-in progress 0..1 (-1 not started).
@@ -295,6 +300,7 @@ namespace OlimarTest
         /// Running and not stopped by a bug in the sim.
         public bool Healthy => sim != IntPtr.Zero && !reportedPoison;
         internal bool StageReady => Healthy && !ClientMode && simStage == Stage.instance;
+        internal bool RepairDolphinsReady => dolphins.Values.Where(d => UserForCaptain(d.captain) != 0).All(d => d.complete);
 
         /// How far the clock is between the last tick and the next, for drawing.
         public float RenderAlpha => ClientMode ? 1f :
@@ -612,6 +618,8 @@ namespace OlimarTest
 
         void SpawnDolphin(int captain, OlimarDriver driver, bool bringSquad = true)
         {
+            // Same-stage respawns retain the existing dock/flight and fitted ship.
+            if (ShipRepairMode.Active && dolphins.ContainsKey(captain)) return;
             var body = driver.Body;
             var back = -Vector3.ProjectOnPlane(body.transform.forward, Vector3.up).normalized;
             if (back.sqrMagnitude < 0.5f) back = Vector3.back;
@@ -665,8 +673,23 @@ namespace OlimarTest
         {
             foreach (var ship in dolphins.Values)
             {
-                if (!driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
                 if (ship.complete) continue;
+                if (ship.relocating)
+                {
+                    ship.relocationAge += Time.fixedDeltaTime;
+                    float age = ship.relocationAge;
+                    Vector3 destination = ship.dock.Value;
+                    Vector3 atDock;
+                    if (age < 2f) atDock = ship.relocationStart + Vector3.up * (Mathf.SmoothStep(0f, 1f, age / 2f) * 20f);
+                    else if (age < 5f) atDock = Vector3.Lerp(ship.relocationStart, destination, Mathf.SmoothStep(0f, 1f, (age - 2f) / 3f)) + Vector3.up * 20f;
+                    else atDock = destination + Vector3.up * ((1f - Mathf.SmoothStep(0f, 1f, (age - 5f) / 3f)) * 20f);
+                    var dockPose = UnityHost.ToSim(atDock);
+                    Native.pik_sim_set_onion_pose(sim, (uint)ship.id, ref dockPose, age < 8f ? (byte)1 : (byte)0);
+                    if (age < 8f) Native.pik_sim_set_onion_flight_motion(sim, (uint)ship.id, age >= 5f ? (byte)1 : (byte)0, age >= 5f ? (age - 5f) / 3f : Mathf.Clamp01(age / 2f));
+                    else { ship.landing = destination; ship.relocating = false; ship.complete = true; Plugin.Log.LogInfo($"Dolphin {ship.id} docked near the teleporter."); }
+                    continue;
+                }
+                if (!driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
                 ship.elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(ship.elapsed / DescentSeconds);
                 // Decelerate into a short landing. The Onion releases Pikmin beside the
@@ -744,10 +767,41 @@ namespace OlimarTest
             ship.complete = true;
             ship.beam = -1f;
             driver.Arriving = false;
+            if (ShipRepairMode.Active && driver.Body && driver.Body.isPlayerControlled && TryRepairDock(ship, driver, out var dock))
+            {
+                ship.dock = dock; ship.relocationStart = ship.landing;
+                ship.relocating = true; ship.relocationAge = 0f; ship.complete = false;
+            }
             // Arriving by the Onion, the squad is already out of it; otherwise (a respawn, an aborted
             // arrival) they appear around Olimar.
             if (ship.bringSquad && !ship.squadOut) BringPikmin(ship.captain, driver);
             Plugin.Log.LogInfo($"Dolphin landed for captain {ship.captain}; " + (ship.onionDown ? "squad out of the Onion, which stays planted." : "Onion following."));
+        }
+
+        bool TryRepairDock(DolphinFlight ship, OlimarDriver driver, out Vector3 point)
+        {
+            point = default;
+            var teleporter = TeleporterInteraction.instance;
+            if (!teleporter) return false;
+            var route = new List<Vector3>();
+            // Grounded spawn-style checks: clear hull volume, gentle floor and a
+            // no-jump route. Reserve separated docks so later arrivals cannot stack.
+            for (int attempt = 0; attempt < 48; attempt++)
+            {
+                float angle = (ship.captain * 137.5f + attempt * 22.5f) * Mathf.Deg2Rad;
+                float radius = 16f + (attempt / 16) * 8f;
+                var candidate = teleporter.transform.position + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * radius;
+                if (!Physics.Raycast(candidate + Vector3.up * 12f, Vector3.down, out var hit, 24f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.7f) continue;
+                candidate = hit.point;
+                if (Physics.CheckCapsule(candidate + Vector3.up * 3.2f, candidate + Vector3.up * 8f, 3f, UnityHost.Mask, QueryTriggerInteraction.Ignore)) continue;
+                if (dolphins.Values.Any(other => other != ship && other.dock.HasValue && Vector3.ProjectOnPlane(candidate - other.dock.Value, Vector3.up).sqrMagnitude < 14f * 14f)) continue;
+                if (Native.pik_sim_onion_goal(sim, (uint)ship.id, out var currentGoal) == 0) continue;
+                var intake = candidate + UnityHost.ToUnity(currentGoal) - ship.landing;
+                if (!ShipPartNavigation.TryPath(driver.Body.footPosition, intake, route)) continue;
+                point = candidate; return true;
+            }
+            Plugin.Log.LogWarning("Ship Repair: no clear, reachable teleporter dock; Dolphin remains at its safe arrival site.");
+            return false;
         }
 
         /// Arriving and not yet beamed in: Olimar isn't drawn.
