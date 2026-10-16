@@ -12,12 +12,31 @@ namespace OlimarTest
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate int PathFn(IntPtr user, ref Native.Vec3 from, ref Native.Vec3 to, IntPtr output, uint capacity);
         internal static readonly PathFn Callback = CarryPath;
+        sealed class CachedPath { public float time; public bool reachable; public Vector3[] points; }
+        static readonly Dictionary<(int, int, int, int, int, int, int), CachedPath> paths =
+            new Dictionary<(int, int, int, int, int, int, int), CachedPath>();
+        internal static void Reset() => paths.Clear();
 
         public static bool TryPath(Vector3 from, Vector3 to, List<Vector3> result)
         {
             result.Clear();
             var graph = SceneInfo.instance ? SceneInfo.instance.groundNodes : null;
             if (!graph) return false;
+            var key = (graph.GetInstanceID(), Mathf.RoundToInt(from.x * 4), Mathf.RoundToInt(from.y * 4), Mathf.RoundToInt(from.z * 4),
+                Mathf.RoundToInt(to.x * 4), Mathf.RoundToInt(to.y * 4), Mathf.RoundToInt(to.z * 4));
+            if (paths.TryGetValue(key, out var cached) && Time.realtimeSinceStartup - cached.time < 0.5f)
+            {
+                if (cached.reachable) { result.AddRange(cached.points); result[result.Count - 1] = to; }
+                return cached.reachable;
+            }
+            bool reachable = ComputePath(graph, from, to, result);
+            if (paths.Count >= 256) paths.Clear();
+            paths[key] = new CachedPath { time = Time.realtimeSinceStartup, reachable = reachable, points = reachable ? result.ToArray() : Array.Empty<Vector3>() };
+            return reachable;
+        }
+
+        static bool ComputePath(NodeGraph graph, Vector3 from, Vector3 to, List<Vector3> result)
+        {
             using (var path = new RoR2.Path(graph))
             {
                 var task = graph.ComputePath(new NodeGraph.PathRequest {

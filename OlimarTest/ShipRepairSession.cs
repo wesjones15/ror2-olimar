@@ -62,6 +62,7 @@ namespace OlimarTest
         void OnDestroy()
         {
             CloseStage();
+            ShipPartNavigation.Reset();
             if (Instance == this) Instance = null;
             pendingPacket = null;
         }
@@ -94,6 +95,7 @@ namespace OlimarTest
             if (sceneReady && (stage != Stage.instance || stageSim != world.SimHandle))
             {
                 CloseStage();
+                ShipPartNavigation.Reset();
                 stage = Stage.instance; stageSim = world.SimHandle;
                 parts.Clear(); arrivalAge = 0;
                 Progress.EnterStage();
