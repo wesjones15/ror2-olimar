@@ -29,6 +29,9 @@ namespace OlimarTest
         CharacterDirection direction;
         HealthComponent health;
         NativeBody native;
+        // His velocity on the last tick in the air, for RoR2's landing event.
+        Vector3 airVelocity;
+        bool wasOnGround = true;
         bool sprintPressed;
         bool deathSoundPlayed;
 
@@ -601,7 +604,13 @@ namespace OlimarTest
             if (native)
             {
                 native.WroteVelocity(UnityHost.ToUnity(c.vel));
-                if (c.on_ground != 0) native.Landed();
+                // Touching down raises RoR2's landing event with the speed he came down at
+                // (Mycelium Cap's spores); standing, it just ends a jump pad's hold.
+                bool onGround = c.on_ground != 0;
+                if (onGround && !wasOnGround) native.Landed(airVelocity);
+                else if (onGround) native.Landed();
+                else airVelocity = UnityHost.ToUnity(c.vel);
+                wasOnGround = onGround;
             }
             else motor.velocity = UnityHost.ToUnity(c.vel);
             motor.Motor.GroundingStatus.IsStableOnGround = c.on_ground != 0;

@@ -1758,13 +1758,18 @@ namespace OlimarTest
             // Each Pikmin procs at most once per Items.ProcInterval, on its own clock.
             float proc = Plugin.ProcCoefficient.Value;
             if (piki && !ProcReady(sourceId)) proc = 0f;
+            // The strike staggers: RoR2's one-second stun (bosses shrug it off).
+            DamageTypeCombo type = strike && Plugin.StrikeStun.Value ? DamageType.Stun1s : DamageType.Generic;
+            // Which skill it came from, for the items that only answer skill hits (Breaching Fin,
+            // Luminous Shot, Infernal Mark, Nightmare Demon, Vile Censer): Pikmin and his punch
+            // are his primary (the throw), the strike his special.
+            type.damageSource = strike ? DamageSource.Special : DamageSource.Primary;
             var spec = new NativeHitSpec
             {
                 coefficient = amount * Plugin.DamageCoefficient.Value,
                 position = at,
                 procCoefficient = proc,
-                // The strike staggers: RoR2's one-second stun (bosses shrug it off).
-                damageType = strike && Plugin.StrikeStun.Value ? DamageType.Stun1s : DamageType.Generic,
+                damageType = type,
             };
             // A Pikmin's hit is Olimar's, measured from the Pikmin (Focus Crystal's range);
             // his own punch is his.

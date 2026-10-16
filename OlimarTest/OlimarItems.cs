@@ -90,6 +90,8 @@ namespace OlimarTest
             float move = 1f + (stats.moveSpeed - 1f) * Mathf.Max(0f, Plugin.MinionMoveScale.Value);
             if (body.isSprinting) move *= Mathf.Max(1f, body.sprintingSpeedMultiplier);
             Native.pik_sim_set_squad_speed(sim, captain, Mathf.Max(0.1f, move));
+            // Jump power and acceleration items (Faraday Spur, Hex of Leaping, Hex of Acceleration).
+            Native.pik_sim_set_captain_motion(sim, captain, NativeBody.JumpScale(body), NativeBody.AccelerationScale(body));
             Native.pik_sim_set_captain_jumps(sim, captain, (uint)Mathf.Max(0, body.maxJumpCount - 1),
                 (byte)(ByName.Count(body, "FallBoots") > 0 ? 1 : 0));
             CooldownBoost = SkillCooldown.Boost(Slot(SkillSlot.Primary), Plugin.CooldownExponent.Value, ref cooldownHeld);
@@ -131,6 +133,9 @@ namespace OlimarTest
                     break;
                 case Native.EventKind.CaptainJumped:
                     if (body.characterMotor) body.characterMotor.jumpCount++;
+                    // RoR2's jump event, for the items that listen (Faraday Spur, Earthbound
+                    // Vessel, Hex of Leaping).
+                    NativeBody.Of(body.gameObject)?.Jumped();
                     if (e.c != 0) Feather(body);
                     else if (body.isSprinting) Quail(world, body, (uint)e.a);
                     break;
