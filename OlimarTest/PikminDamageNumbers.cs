@@ -22,7 +22,8 @@ namespace OlimarTest
         {
             var component = host.AddComponent<PikminDamageNumbers>();
             component.enabledSetting = config.Bind("Look", "PikminDamageNumbers", true,
-                "Use your disc's Pikmin HUD digits for all floating RoR2 damage numbers. " +
+                "Use your disc's Pikmin HUD digits for the floating damage numbers while you play Olimar (every number you " +
+                "see then, whoever dealt it; other survivors keep RoR2's font). " +
                 "Keeps RoR2's damage colours, crit effects and K/M/B suffixes. False restores the original font; can change during play.");
         }
 
@@ -30,7 +31,7 @@ namespace OlimarTest
         {
             if (Time.unscaledTime < next) return;
             next = Time.unscaledTime + 0.5f;
-            if (enabledSetting == null || !enabledSetting.Value)
+            if (enabledSetting == null || !enabledSetting.Value || !PlayingOlimar())
             {
                 Restore();
                 return;
@@ -106,6 +107,16 @@ namespace OlimarTest
                 replacement = null;
                 atlas = null;
             }
+        }
+
+        // Damage numbers are one particle system for everyone on screen, so the font follows who is
+        // playing here: Olimar's player sees the Pikmin digits, anyone else RoR2's own.
+        static bool PlayingOlimar()
+        {
+            foreach (var user in LocalUserManager.readOnlyLocalUsersList)
+                if (user != null && user.cachedBody && user.cachedBody.GetComponent<OlimarDriver>())
+                    return true;
+            return false;
         }
 
         void Restore()

@@ -60,8 +60,9 @@ What works:
   carries over combat.
 - **Damage numbers** (`Look.PikminDamageNumbers`, on): the ten HUD digits from your Pikmin disc replace
   RoR2's floating damage digits. Its colours, critical-hit effects, movement and K/M/B suffixes stay.
-  Set it to false to restore RoR2's font, including during play. This changes all floating damage
-  numbers locally, whichever survivor you use. Missing digits fall back to the original font.
+  Set it to false to restore RoR2's font, including during play. It applies only while you play
+  Olimar (every number you see then, whoever dealt it); other survivors keep RoR2's font. Missing
+  digits fall back to the original font.
   Requires the matching ABI 27 DLLs; no font textures ship with the plugin or go into git.
 - **Looks and sounds**: Olimar, the Pikmin (with leaf, bud or flower), the Onion, pellets,
   sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
