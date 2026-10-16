@@ -34,6 +34,9 @@ namespace OlimarTest
         }
         readonly List<Part> parts = new List<Part>(10);
         readonly HashSet<int> rewardedEnemies = new HashSet<int>();
+        readonly ShipRepairDropPacing dropPacing = new ShipRepairDropPacing();
+        const float PartSpacing = 25f;
+        float enemyPartInterval;
         readonly HashSet<CharacterMaster> stageBossMasters = new HashSet<CharacterMaster>();
         System.Random bonusRng;
         Run run;
@@ -71,6 +74,8 @@ namespace OlimarTest
             run = GetComponent<Run>();
             runId = run.GetUniqueId().ToString();
             Competitive = NetworkServer.active && Plugin.CompetitiveMode.Value;
+            enemyPartInterval = float.IsNaN(Plugin.EnemyPartIntervalSeconds.Value) || float.IsInfinity(Plugin.EnemyPartIntervalSeconds.Value)
+                ? 30f : Mathf.Clamp(Plugin.EnemyPartIntervalSeconds.Value, 0f, 600f);
             if (NetworkServer.active) EnrollPlayers();
             lastResult = lastResultRun = null;
             if (pendingPacket != null) { var packet = pendingPacket; pendingPacket = null; Receive(new ByteReader(packet)); }
@@ -122,6 +127,7 @@ namespace OlimarTest
                 ShipPartNavigation.Reset();
                 stage = Stage.instance; stageSim = world.SimHandle;
                 parts.Clear(); rewardedEnemies.Clear(); stageBossMasters.Clear(); arrivalAge = 0; placementsReady = false;
+                dropPacing.Reset();
                 Progress.EnterStage();
                 bonusRng = new System.Random(unchecked((int)run.seed ^ (int)Progress.Epoch * 104729));
                 StartCoroutine(Spawn(world, Progress.Epoch));
@@ -189,7 +195,7 @@ namespace OlimarTest
                     if (attempt % 8 == 7) yield return null;
                     if (!world || !world.StageReady || Progress.Epoch != epoch || Progress.State == ShipRepairProgress.Phase.Loading || Terminal) yield break;
                     if (!graph.GetNodePosition(nodes[rng.Next(nodes.Count)], out point)) continue;
-                    if (Vector3.Distance(point, body.footPosition) < 20f || parts.Any(p => Vector3.Distance(point, p.pos) < 15f)) continue;
+                    if (Vector3.Distance(point, body.footPosition) < 20f || parts.Any(p => HorizontalDistanceSquared(point, p.origin) < PartSpacing * PartSpacing)) continue;
                     if (!Physics.Raycast(point + Vector3.up * 3f, Vector3.down, out var hit, 6f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
                         || hit.normal.y < 0.7f) continue;
                     point = hit.point;
@@ -217,12 +223,12 @@ namespace OlimarTest
             // callback, release physical wreckage when the teleporter finishes.
             if (TeleporterInteraction.instance && TeleporterInteraction.instance.isCharged)
                 foreach (var part in parts.Where(p => p.enemyDrop && !p.spawned && p.recycleAt == 0f))
-                    if (SpawnPart(world, part, part.safe)) ShowToast(part.name + " revealed in the wreckage — carry it to the Dolphin.");
+                    if (ClearOfParts(part.safe, part) && SpawnPart(world, part, part.safe)) ShowToast(part.name + " revealed in the wreckage — carry it to the Dolphin.");
             foreach (var part in parts)
             {
                 if (part.recycleAt > 0f && Time.time >= part.recycleAt)
                 {
-                    if (SpawnPart(world, part, part.origin)) { ShowToast(part.name + " returned to the map."); Broadcast(); }
+                    if (ClearOfParts(part.origin, part) && SpawnPart(world, part, part.origin)) { ShowToast(part.name + " returned to the map."); Broadcast(); }
                 }
                 if (part.delivered || !part.spawned) continue;
                 for (int i = 0; i < world.PelletCount; i++)
@@ -277,6 +283,8 @@ namespace OlimarTest
             bool powerful = victim.isBoss || victim.isChampion || victim.baseMaxHealth >= 600f || (victim.isElite && victim.baseMaxHealth >= 200f);
             if (!stageBoss && !powerful) return;
             if (!rewardedEnemies.Add(victim.GetInstanceID())) return;
+            uint earner = KillerUser(report);
+            if (!stageBoss && !dropPacing.Ready(earner, Time.time)) return;
             // Exactly one reserved stage-boss reward across multi-member boss groups.
             // Stage bosses never drain the separately scaled miniboss/elite quota.
             var drops = parts.Where(p => p.enemyDrop && !p.spawned && p.recycleAt == 0f && !p.delivered && p.stageBoss == stageBoss).Take(1).ToArray();
@@ -288,16 +296,41 @@ namespace OlimarTest
             for (int i = 0; i < drops.Length; i++)
             {
                 var part = drops[i];
-                var point = victim.footPosition + new Vector3((i - 1) * 3f, 0f, 0f);
-                if (!Physics.Raycast(point + Vector3.up * 6f, Vector3.down, out var hit, 18f, UnityHost.Mask, QueryTriggerInteraction.Ignore) ||
-                    hit.normal.y < 0.7f || Physics.CheckSphere(hit.point + Vector3.up * 2.2f, 2f, UnityHost.Mask, QueryTriggerInteraction.Ignore) ||
-                    !ReachableDolphin(world, hit.point)) point = part.safe;
-                else point = hit.point;
+                if (!DropSite(world, part, victim.footPosition, out var point)) continue;
                 if (!SpawnPart(world, part, point)) continue;
+                if (!stageBoss) dropPacing.Dropped(earner, Time.time, enemyPartInterval);
                 part.discovered = true;
                 ShowToast(victim.GetDisplayName() + " dropped " + part.name + " — carry it to the Dolphin.");
             }
             Broadcast();
+        }
+
+        static uint KillerUser(DamageReport report)
+        {
+            var master = report.attackerMaster;
+            if (!master && report.attackerBody) master = report.attackerBody.master;
+            for (int depth = 0; master && depth < 8; depth++)
+            {
+                var player = master.GetComponent<PlayerCharacterMasterController>();
+                if (player && player.networkUser) return player.networkUser.netId.Value;
+                master = master.minionOwnership ? master.minionOwnership.ownerMaster : null;
+            }
+            return 0;
+        }
+        static float HorizontalDistanceSquared(Vector3 a, Vector3 b) => (a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z);
+        bool ClearOfParts(Vector3 point, Part ignored) => parts.All(p => p == ignored || !p.spawned || p.delivered ||
+            HorizontalDistanceSquared(point, p.pos) >= PartSpacing * PartSpacing);
+        bool DropSite(PikminWorld world, Part part, Vector3 desired, out Vector3 point)
+        {
+            if (Physics.Raycast(desired + Vector3.up * 6f, Vector3.down, out var hit, 18f, UnityHost.Mask, QueryTriggerInteraction.Ignore) &&
+                hit.normal.y >= 0.7f && !Physics.CheckSphere(hit.point + Vector3.up * 2.2f, 2f, UnityHost.Mask, QueryTriggerInteraction.Ignore) &&
+                ClearOfParts(hit.point, part) && ReachableDolphin(world, hit.point))
+            { point = hit.point; return true; }
+            // A kill fest at the teleporter must not build a local pile. Prefer the
+            // reserved site, then another validated site clear of existing hauls.
+            foreach (var safe in new[] { part.origin }.Concat(parts.Select(p => p.origin)).Distinct().Take(32))
+                if (ClearOfParts(safe, part) && ReachableDolphin(world, safe)) { point = safe; return true; }
+            point = default; return false;
         }
 
         Part BonusPart(PikminWorld world)
@@ -438,7 +471,7 @@ namespace OlimarTest
                 string directory = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "OlimarShipRepairReports");
                 Directory.CreateDirectory(directory);
                 File.WriteAllText(System.IO.Path.Combine(directory, runId + ".txt"), lastResult +
-                    $"\nRules: competitive={Competitive}; 30 unique parts; 2 map + 1 stage boss + 7 other enemy parts per {(Competitive ? "player" : "team")}; Dolphin delivery; all Olimar; no artifacts; ABI 31/protocol 3" +
+                    $"\nRules: competitive={Competitive}; 30 unique parts; 2 map + 1 stage boss + 7 other enemy parts per {(Competitive ? "player" : "team")}; per-player enemy interval={enemyPartInterval}s; spacing=25m; Dolphin delivery; all Olimar; no artifacts; ABI 31/protocol 3" +
                     $"\nPlayers: {run.participatingPlayerCount}; starting squad R/Y/B: {Plugin.StartRed.Value}/{Plugin.StartYellow.Value}/{Plugin.StartBlue.Value}" +
                     "\nParts: " + (Competitive ? string.Join("\n", race.Players.Values.Select(p => p.User + " " + p.Name + ": " + string.Join(",", p.Order))) : string.Join(",", Progress.Order)));
             }

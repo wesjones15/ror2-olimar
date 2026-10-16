@@ -42,6 +42,20 @@ static class Program
         var failure = new ShipRepairProgress(); failure.EnterStage(); failure.Release(); failure.Tick(4, false); failure.Fail(); failure.Tick(20, false);
         Check(failure.State == ShipRepairProgress.Phase.Failed && failure.Seconds == 4, "failure freezes metrics");
         Check(new ShipRepairProgress().Count == 0, "new run starts empty");
+        var pacing = new ShipRepairDropPacing();
+        Check(pacing.Ready(11, 0) && pacing.Ready(22, 0), "each player can earn an initial drop");
+        pacing.Dropped(11, 0, 30);
+        Check(!pacing.Ready(11, 29.99) && pacing.Ready(22, 0), "one player's drop never gates another player");
+        pacing.Dropped(22, 10, 30);
+        Check(pacing.Ready(11, 30) && !pacing.Ready(22, 30) && pacing.Ready(22, 40), "independent exact cooldown boundaries");
+        Check(!pacing.Ready(0, 100) && !pacing.Ready(11, double.NaN), "unattributed and invalid clock values rejected");
+        pacing.Reset();
+        int burstDrops = 0;
+        for (int time = 0; time <= 60; time++)
+            foreach (uint user in new uint[] { 11, 22, 33, 44 })
+                if (pacing.Ready(user, time)) { pacing.Dropped(user, time, 30); burstDrops++; }
+        Check(burstDrops == 12, "kill fest yields at most one drop per player per thirty seconds, with no queued burst");
+        pacing.Reset(); Check(pacing.Ready(11, 0), "stage reset clears old cooldowns");
         var race = new ShipRepairRace();
         race.Enroll(11, "A"); race.Enroll(22, "B");
         Check(race.Receive(11, 4) && race.Receive(22, 4), "same part is independently unique for each racer");
