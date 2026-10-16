@@ -34,6 +34,7 @@ namespace OlimarTest
         }
         readonly List<Part> parts = new List<Part>(10);
         readonly HashSet<int> rewardedEnemies = new HashSet<int>();
+        readonly HashSet<CharacterMaster> stageBossMasters = new HashSet<CharacterMaster>();
         System.Random bonusRng;
         Run run;
         Stage stage;
@@ -44,7 +45,7 @@ namespace OlimarTest
         float remoteSeconds;
         int remoteStages, receivedCount;
         ShipRepairProgress.Phase remotePhase;
-        bool hydrated, playedVictory, sentResults;
+        bool hydrated, playedVictory, sentResults, placementsReady;
         int[] remoteOrder = Array.Empty<int>();
         Action pendingFailure;
         static string lastResult;
@@ -120,7 +121,7 @@ namespace OlimarTest
                 CloseStage();
                 ShipPartNavigation.Reset();
                 stage = Stage.instance; stageSim = world.SimHandle;
-                parts.Clear(); rewardedEnemies.Clear(); arrivalAge = 0;
+                parts.Clear(); rewardedEnemies.Clear(); stageBossMasters.Clear(); arrivalAge = 0; placementsReady = false;
                 Progress.EnterStage();
                 bonusRng = new System.Random(unchecked((int)run.seed ^ (int)Progress.Epoch * 104729));
                 StartCoroutine(Spawn(world, Progress.Epoch));
@@ -131,6 +132,8 @@ namespace OlimarTest
             bool loading = !sceneReady || stage != Stage.instance || Progress.State == ShipRepairProgress.Phase.Loading;
             Progress.Tick(Time.fixedDeltaTime, loading || Time.timeScale == 0f);
             if (loading) return;
+            if (TeleporterInteraction.instance && TeleporterInteraction.instance.bossGroup)
+                foreach (var master in TeleporterInteraction.instance.bossGroup.combatSquad.readOnlyMembersList) stageBossMasters.Add(master);
             if (Progress.State == ShipRepairProgress.Phase.Arriving)
             {
                 arrivalAge += Time.fixedDeltaTime;
@@ -205,6 +208,7 @@ namespace OlimarTest
                 yield return null;
             }
             Plugin.Log.LogInfo($"Ship Repair: stage {Progress.Epoch}, {parts.Count} reachable parts, {Progress.Count}/30 recovered.");
+            placementsReady = true;
         }
 
         void TrackParts(PikminWorld world)
@@ -265,11 +269,11 @@ namespace OlimarTest
 
         internal void EnemyDefeated(PikminWorld world, DamageReport report)
         {
-            if (!NetworkServer.active || !Progress.Accepting || stage != Stage.instance || stageSim != world.SimHandle) return;
+            if (!NetworkServer.active || !Progress.Accepting || !placementsReady || stage != Stage.instance || stageSim != world.SimHandle) return;
             var victim = report.victimBody;
             if (!victim || report.victimTeamIndex != TeamIndex.Monster) return;
-            bool stageBoss = TeleporterInteraction.instance && TeleporterInteraction.instance.bossGroup &&
-                TeleporterInteraction.instance.bossGroup.combatSquad.ContainsMember(victim.master);
+            bool stageBoss = stageBossMasters.Contains(victim.master) || (TeleporterInteraction.instance && TeleporterInteraction.instance.bossGroup &&
+                TeleporterInteraction.instance.bossGroup.combatSquad.ContainsMember(victim.master));
             bool powerful = victim.isBoss || victim.isChampion || victim.baseMaxHealth >= 600f || (victim.isElite && victim.baseMaxHealth >= 200f);
             if (!stageBoss && !powerful) return;
             if (!rewardedEnemies.Add(victim.GetInstanceID())) return;
@@ -278,7 +282,7 @@ namespace OlimarTest
             var drops = parts.Where(p => p.enemyDrop && !p.spawned && p.recycleAt == 0f && !p.delivered && p.stageBoss == stageBoss).Take(1).ToArray();
             if (!stageBoss && drops.Length == 0 && bonusRng != null && bonusRng.NextDouble() < 0.2)
             {
-                var bonus = BonusPart(world, victim.footPosition);
+                var bonus = BonusPart(world);
                 if (bonus != null) drops = new[] { bonus };
             }
             for (int i = 0; i < drops.Length; i++)
@@ -296,20 +300,24 @@ namespace OlimarTest
             Broadcast();
         }
 
-        Part BonusPart(PikminWorld world, Vector3 fallback)
+        Part BonusPart(PikminWorld world)
         {
             var active = NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating).Select(u => u.netId.Value).ToArray();
-            var masks = Competitive ? active.Where(id => race.Players.ContainsKey(id)).Select(id => race.Players[id].Mask).ToArray() : new[] { Progress.Mask };
+            uint cooperativeUnavailable = parts.Where(p => !p.delivered).Aggregate(Progress.Mask, (mask, p) => mask | (1u << p.id));
+            var masks = Competitive ? active.Where(id => race.Players.ContainsKey(id)).Select(id => race.Players[id].Mask).ToArray() : new[] { cooperativeUnavailable };
             var ids = ShipRepairRace.StageIds(run.seed ^ (uint)bonusRng.Next(), Progress.Epoch, 1, masks);
             if (ids.Length == 0) return null;
             // Bound simultaneous world records, not the number earned in a stage.
             // Consumed slots are recycled, so farming can keep yielding parts.
             var part = parts.FirstOrDefault(p => p.delivered);
             if (part == null && parts.Count >= 451) return null;
-            var safe = parts.FirstOrDefault()?.origin ?? fallback;
+            var site = parts.FirstOrDefault();
+            if (site == null) return null;
+            var safe = site.origin;
             var name = new byte[128];
             Native.pik_sim_ship_part_name(world.SimHandle, (uint)ids[0], name, 128);
-            var next = new Part { id = ids[0], slot = part?.slot ?? parts.Count, name = Native.Utf8(name),
+            int slot = part?.slot ?? Enumerable.Range(0, 451).First(candidate => parts.All(p => p.slot != candidate));
+            var next = new Part { id = ids[0], slot = slot, name = Native.Utf8(name),
                 weight = Native.pik_sim_ship_part_weight(world.SimHandle, (uint)ids[0]), enemyDrop = true,
                 pos = safe, safe = safe, origin = safe, last = safe };
             next.pellet = uint.MaxValue - (uint)next.slot;

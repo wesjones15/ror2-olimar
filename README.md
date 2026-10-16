@@ -1,4 +1,4 @@
-> feature/ship-part-mode: Olimar 0.3.0 preview for RiskOfRain2_DLC4 (Unity 2021.3.45f2), native ABI 30 / repair protocol 2. Ship Repair uses shared 30-part progress and Dolphin delivery, original disc repair animations, and up to 7 ground + 3 powerful-enemy parts per stage. Build/API validation passes; in-game validation is pending. Legacy instructions below describe the previous release.
+> feature/ship-part-mode: Olimar 0.3.1 preview for RiskOfRain2_DLC4 (Unity 2021.3.45f2), native ABI 31 / repair protocol 3. Ship Repair defaults to competitive Dolphin races; `[ShipRepair] CompetitiveMode = false` enables shared repair. Two map parts, one stage-boss part, seven other enemy drops per player and a 20% bonus-drop chance after the quota. Duplicate parts feed the owner's Onion for seeds and return for rivals. Build/API validation passes; in-game validation is pending. Legacy instructions below describe the previous release.
 
 # ror2-olimar
 

@@ -600,7 +600,7 @@ namespace OlimarTest
             var flight = new OnionFlight { id = id, captain = captain, owner = owner,
                 position = d.Body.footPosition + Vector3.up * 5f };
             onionOf[captain] = flight;
-            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive)
+            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive && UserForCaptain(captain) != 0)
                 Native.pik_sim_set_ship_part_owner(sim, (uint)id, (uint)captain);
             WriteFlight(flight);
         }
@@ -638,7 +638,7 @@ namespace OlimarTest
                 else for (uint part = 0; part < 30; part++) Native.pik_sim_give_ship_part(sim, (uint)id, part);
             }
             dolphins[captain] = new DolphinFlight { id = id, captain = captain, start = start, landing = landing, bringSquad = bringSquad };
-            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive)
+            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive && UserForCaptain(captain) != 0)
                 Native.pik_sim_set_ship_part_owner(sim, (uint)id, (uint)captain);
             if (driver.Arriving)
             {
