@@ -120,7 +120,7 @@ What works:
   the Pikmin, Onion and pellets scale with him. His body's collision capsule and hurtboxes
   shrink to match.
 - **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`).
-  During an enemy lock, Pikmin rush to his hand at four times normal pickup speed for rapid
+  During an enemy lock, Pikmin reach his hand in one simulation tick for rapid
   repeated throws, like feeding the hand with C-stick up; A still presses to grab and releases
   to throw, and projectile flight time stays the same.
   D-pad left or right (or the mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
