@@ -119,8 +119,11 @@ What works:
 - **Size**: Olimar is two thirds of Commando's height (`Scale.OlimarHeight`; try 0.75), and
   the Pikmin, Onion and pellets scale with him. His body's collision capsule and hurtboxes
   shrink to match.
-- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`). D-pad left
-  or right (or the mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
+- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`).
+  During an enemy lock, Pikmin rush to his hand at four times normal pickup speed for rapid
+  repeated throws, like feeding the hand with C-stick up; A still presses to grab and releases
+  to throw, and projectile flight time stays the same.
+  D-pad left or right (or the mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
   in the squad, as in Pikmin 2. The chips above the skill bar show the squad by colour, the
   picked one outlined; until you pick, he throws the nearest Pikmin, as in Pikmin 1.
 - **Rejoining**: Pikmin that get separated (done carrying or fighting, thrown with nothing

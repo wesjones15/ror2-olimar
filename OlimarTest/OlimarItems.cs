@@ -517,6 +517,7 @@ namespace OlimarTest
                 $"<style=cIsDamage>{10f * Plugin.DamageCoefficient.Value * 100f:0}%</style> from a Blue or Yellow. " +
                 "<style=cIsUtility>Hold RT</style> to lock onto an enemy up to " +
                 $"{Plugin.LockRange.Value:0} m away: thrown Pikmin home in on it (<style=cIsUtility>RB</style> cycles targets). " +
+                "Locked on, Pikmin reach his hand four times faster for rapid throws. " +
                 "<style=cIsUtility>D-pad left and right</style> pick Red, Yellow, Blue or Any (the nearest). With no Pikmin to throw, " +
                 "Olimar punches. Attack speed speeds up Pikmin attacks.");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_NAME", "Whistle");
