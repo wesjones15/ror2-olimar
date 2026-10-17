@@ -15,6 +15,7 @@
     <Compile Include="..\OlimarTest\JumpWhistleButton.cs" Link="JumpWhistleButton.cs" />
     <Compile Include="..\OlimarTest\DamageNumberAtlas.cs" Link="DamageNumberAtlas.cs" />
     <Compile Include="../OlimarTest/PikminEnvelope.cs" Link="PikminEnvelope.cs" />
+    <Compile Include="../OlimarTest/OnionMenuPolicy.cs" Link="OnionMenuPolicy.cs" />
     <Compile Include="../../ror2-common/src/ByteIO.cs" Link="Common/ByteIO.cs" />
     <!-- The view structs and native loading Native.cs uses (plain C#, no Unity). -->
     <Compile Include="..\..\ror2-common\src\ViewSource.cs" Link="Common\ViewSource.cs" />

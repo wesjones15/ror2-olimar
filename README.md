@@ -2,6 +2,15 @@
 
 # ror2-olimar
 
+Modern 0.2.4: native-control fall recovery now uses common Unstuck.FellEarly at
+Mario's TOO BAD onset: more than 20m below last safe ground with no floor within
+2000m, or a valid stage return zone. Lower platforms remain valid landing targets.
+Olimar and his squad return together; his Dolphin/Onion arrival stays unchanged.
+Build/API and common detector validation pass; in-game validation is pending.
+All future deploys stage under ../target/BepInEx/plugins/OlimarTest/; the user
+copies files to their game installation. Older direct-install examples below
+are historical.
+
 Risk of Rain 2 host for [libpikmin](../libpikmin): Olimar and his Pikmin in RoR2.
 Targets the 2023 build (1.2.4.4, Unity 2019.4.37, BepInEx 5). Compiles against the reference
 copy in `../Risk Of Rain 2 2023` and installs into the Steam game at
@@ -85,8 +94,15 @@ What works:
   flying Onion where he stands and raises a landed one to follow him (each takes a relocation
   charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
   its menu, and at a chest it opens the chest. D-pad up / Tab opens the menu, including during
-  flight. The Aim scheme uses interact to land it and open the menu. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
-  up/down adjusts transfers and A/left click confirms. Transfers wait until landed; a hovering Onion
+  flight. The menu is a single page for all colours: up/down chooses an exact number to call out
+  or put away, A/left click confirms, and B/right click closes. Counts stop at their limits without wrapping.
+  **X** in the menu releases all stored Pikmin except one (subject to the field cap); press X twice
+  under the Onion to open and release. **Y** in the menu returns the whole squad and consumes that
+  equipment-button press. On keyboard these shortcuts use Utility and Equipment. Raise/lower commands
+  stay on the utility button outside interact prompts, with no movement pages in the menu.
+  Flying Onions use the same page and can release Pikmin directly: they slide halfway down a leg,
+  then let go and fall. Returning Pikmin lands the Onion first using a relocation charge and
+  executes after touchdown while Olimar stays nearby. A hovering Onion
   descends towards nearby pellets before collecting them, and the Pikmin they make stay inside it as leaves instead of being planted. Loose ground pellets are eligible even with no Pikmin alive. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
   moving, so Bustling Fungus only activates after the Onion has landed and stood still for
@@ -103,8 +119,11 @@ What works:
 - **Size**: Olimar is two thirds of Commando's height (`Scale.OlimarHeight`; try 0.75), and
   the Pikmin, Onion and pellets scale with him. His body's collision capsule and hurtboxes
   shrink to match.
-- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`). D-pad left
-  or right (or the mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
+- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`).
+  During an enemy lock, Pikmin rush to his hand at four times normal pickup speed for rapid
+  repeated throws, like feeding the hand with C-stick up; A still presses to grab and releases
+  to throw, and projectile flight time stays the same.
+  D-pad left or right (or the mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
   in the squad, as in Pikmin 2. The chips above the skill bar show the squad by colour, the
   picked one outlined; until you pick, he throws the nearest Pikmin, as in Pikmin 1.
 - **Rejoining**: Pikmin that get separated (done carrying or fighting, thrown with nothing

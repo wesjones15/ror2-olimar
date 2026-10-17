@@ -159,6 +159,14 @@ static class Program
         Check(OnionCommandPacket.Read(new ByteReader(command), out var cmd) && cmd.netId == 9 && cmd.kind == 2 && cmd.colour == 2 && cmd.count == 5, "Onion command round trip");
         command[5] = 77;
         Check(!OnionCommandPacket.Read(new ByteReader(command), out _), "an unknown Onion command is refused");
+        foreach (byte kind in new[] { OnionCommandPacket.CallOutAny, OnionCommandPacket.PutAwayAny,
+            OnionCommandPacket.ReleaseAll, OnionCommandPacket.ReturnAll })
+        {
+            var bulk = OnionCommandPacket.Write(new OnionCommandPacket { netId = 9, kind = kind, count = 0 });
+            Check(OnionCommandPacket.Read(new ByteReader(bulk), out var decoded) && decoded.kind == kind,
+                "mixed-colour Onion command round trip: " + kind);
+            Check(!OnionCommandPacket.Read(new ByteReader(bulk, 0, bulk.Length - 1), out _), "short bulk command refused");
+        }
 
         IntPtr replica = Native.pik_replica_new(null);
         Check(replica != IntPtr.Zero, "replica starts");
@@ -313,6 +321,51 @@ static class Program
         finally { Native.pik_sim_free(sim); }
     }
 
+    static void CheckUnifiedOnionMenu(ref Native.Host host)
+    {
+        IntPtr sim = Native.pik_sim_new(null, 19);
+        try
+        {
+            var origin = new Native.Vec3(0, 0, 0);
+            int captain = Native.pik_sim_add_captain(sim, ref origin);
+            int onion = Native.pik_sim_add_onion(sim, ref origin, 7);
+            var stock = new uint[] { 2, 3, 5 };
+            for (uint colour = 0; colour < 3; colour++)
+                Native.pik_sim_store_in_onion(sim, (uint)onion, colour, 0, stock[colour]);
+            var plan = OnionMenuPolicy.Distribute(OnionMenuPolicy.ReleaseCount(10, 100), 2, 3, 5);
+            for (uint colour = 0; colour < 3; colour++)
+                Check(Native.pik_sim_onion_call_out(sim, (uint)captain, (uint)onion, colour, plan[colour]) == plan[colour],
+                    "mixed release reserves native exits: " + colour);
+            uint inside = 0;
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out var counts);
+                inside += counts.in_onion;
+            }
+            Check(inside == 1 && OnionMenuPolicy.ReleaseCount(inside, 100) == 0,
+                "pending native exits are excluded; a repeated dump keeps the single reserve");
+            for (int tick = 0; tick < 180; tick++) Native.pik_sim_advance(sim, ref host, 1f / 30f);
+            uint squad = 0;
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out var counts);
+                squad += counts.in_squad;
+                Check(Native.pik_sim_onion_put_away(sim, (uint)captain, (uint)onion, colour, counts.in_squad) == counts.in_squad,
+                    "whole-squad return accepts colour " + colour);
+            }
+            Check(squad == 9, "all nine released Pikmin joined the squad");
+            for (int tick = 0; tick < 900; tick++) Native.pik_sim_advance(sim, ref host, 1f / 30f);
+            inside = 0;
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out var counts);
+                inside += counts.in_onion;
+            }
+            Check(inside == 10 && Native.pik_sim_poisoned(sim) == 0, "return stores every colour without losing Pikmin");
+        }
+        finally { Native.pik_sim_free(sim); }
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -331,6 +384,7 @@ static class Program
         };
         if (args.Length > 1) CheckShipRepair(args[1], ref host);
         CheckOnionRevival(ref host);
+        CheckUnifiedOnionMenu(ref host);
         // An assets folder as the second argument checks the disc tuning loads too.
         IntPtr sim = Native.pik_sim_new(args.Length > 1 ? Native.CString(args[1]) : null, 7);
         if (args.Length > 1) Check(Native.pik_assets_complete(Native.CString(args[1])) == 1, "assets complete");
@@ -345,7 +399,7 @@ static class Program
         Native.pik_sim_set_onion_color(arrivalSim, (uint)arrivalOnion, Native.Yellow);
         Native.pik_sim_store_in_onion(arrivalSim, (uint)arrivalOnion, Native.Blue, 0, 4);
         Native.pik_sim_set_onion_pose(arrivalSim, (uint)arrivalOnion, ref air, 1);
-        Check(Native.pik_sim_onion_call_out(arrivalSim, (uint)arrivalCaptain, (uint)arrivalOnion, Native.Blue, 1) == 0, "flying Onion blocks transfers");
+        Check(Native.pik_sim_onion_call_out(arrivalSim, (uint)arrivalCaptain, (uint)arrivalOnion, Native.Blue, 1) == 1, "flying Onion queues leg exits");
         Native.pik_sim_set_onion_flight_motion(arrivalSim, (uint)arrivalOnion, 1, 0.5f);
         int ship = Native.pik_sim_add_ship(arrivalSim, ref air, 0f);
         Native.pik_sim_set_onion_pose(arrivalSim, (uint)ship, ref air, 1);
@@ -357,7 +411,7 @@ static class Program
         Native.pik_sim_set_onion_pose(arrivalSim, (uint)arrivalOnion, ref origin, 0);
         Native.pik_sim_set_onion_pose(arrivalSim, (uint)ship, ref origin, 0);
         Check(Native.pik_sim_onion_counts(arrivalSim, (uint)arrivalOnion, (uint)arrivalCaptain, Native.Blue, out var stock) != 0
-            && stock.in_onion == 4, "cosmetic colour and landing preserve blue storage");
+            && stock.in_onion == 3, "cosmetic colour and landing preserve blue storage minus queued exit");
         Native.pik_sim_free(arrivalSim);
         CheckReplica(ref host);
         IntPtr jumpSim = Native.pik_sim_new(null, 31);
