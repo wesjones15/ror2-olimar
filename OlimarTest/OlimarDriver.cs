@@ -585,14 +585,14 @@ namespace OlimarTest
             Items.Ticked(c);
             if (IsRemote || !SimMoves || !Active) return;
 
-            // Off the map: with his motor off RoR2's kill zones never see him, so he'd fall for ever.
-            // Back to where he last stood with his squad, unhurt (ror2-common's Unstuck.Fell).
+            // Recover at Mario's early clear-void point (or a valid stage zone),
+            // preserving long descents onto lower ground and bringing the squad.
             var feet = UnityHost.ToUnity(c.pos);
             float height = UnityHost.NaviHeight * UnityHost.Scale, radius = Mathf.Max(0.1f, Body.radius);
             Unstuck.GroundProbe stand = (Vector3 s, float rise, float drop, out Vector3 f) =>
                 WorldProbe.StandingGround(s, rise, drop, height, radius, out f);
             fallGuard.Step(feet, false, c.on_ground != 0, false, Time.fixedDeltaTime, height, stand, out _);
-            if (fallGuard.Fell(feet, height, stand, out var back))
+            if (fallGuard.FellEarly(feet, height, stand, out var back))
             {
                 var at = UnityHost.ToSim(back);
                 var world = PikminWorld.Instance;

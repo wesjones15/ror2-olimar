@@ -2,6 +2,15 @@
 
 # ror2-olimar
 
+Modern 0.2.4: native-control fall recovery now uses common Unstuck.FellEarly at
+Mario's TOO BAD onset: more than 20m below last safe ground with no floor within
+2000m, or a valid stage return zone. Lower platforms remain valid landing targets.
+Olimar and his squad return together; his Dolphin/Onion arrival stays unchanged.
+Build/API and common detector validation pass; in-game validation is pending.
+All future deploys stage under ../target/BepInEx/plugins/OlimarTest/; the user
+copies files to their game installation. Older direct-install examples below
+are historical.
+
 Risk of Rain 2 host for [libpikmin](../libpikmin): Olimar and his Pikmin in RoR2.
 Targets the 2023 build (1.2.4.4, Unity 2019.4.37, BepInEx 5). Compiles against the reference
 copy in `../Risk Of Rain 2 2023` and installs into the Steam game at
