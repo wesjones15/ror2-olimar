@@ -100,6 +100,9 @@ namespace OlimarTest
             public bool reviving;
             public int pickup = -1;
             public float pickupDwell;
+            public bool transferPending;
+            public byte transferKind;
+            public uint transferCount;
         }
         readonly Dictionary<CharacterMaster, Cargo> cargo = new Dictionary<CharacterMaster, Cargo>();
         sealed class DolphinFlight
@@ -242,6 +245,12 @@ namespace OlimarTest
                     else PutAway(captain, onion, p.colour, p.count);
                     break;
                 }
+                case OnionCommandPacket.CallOutAny:
+                case OnionCommandPacket.PutAwayAny:
+                case OnionCommandPacket.ReleaseAll:
+                case OnionCommandPacket.ReturnAll:
+                    if (p.count <= 100) ManageOnion(captain, p.kind, p.count);
+                    break;
             }
         }
 
@@ -717,7 +726,7 @@ namespace OlimarTest
                     Mathf.Clamp01(flight.transitionElapsed / flight.transitionDuration));
             if (onionTargets.TryGetValue(flight.id, out var target) && target)
             {
-                target.context = flight.following ? "Land Onion Here" : flight.airborne ? "Onion landing" : "Open the Onion";
+                target.context = "Open the Onion (X again: release all but one)";
                 target.transform.position = flight.airborne && driverOf.TryGetValue(flight.captain, out var d) && d
                     ? d.Body.footPosition : flight.position;
             }
@@ -769,6 +778,7 @@ namespace OlimarTest
             {
                 if (flight.dormant)
                 {
+                    flight.transferPending = false;
                     bool disabled = true;
                     byte anim = 0;
                     for (int i = 0; i < OnionCount; i++)
@@ -824,6 +834,13 @@ namespace OlimarTest
                     if (!flight.airborne) flight.transitionDuration = 0f;
                 }
                 WriteFlight(flight);
+                if (flight.transferPending && !flight.airborne)
+                {
+                    flight.transferPending = false;
+                    if (driverOf.TryGetValue(flight.captain, out var owner) && owner && owner.Active
+                        && OnionInReach(flight.captain) == flight.id)
+                        ApplyOnionTransfer(flight.captain, flight.id, flight.transferKind, flight.transferCount);
+                }
             }
         }
 
@@ -910,6 +927,7 @@ namespace OlimarTest
                 return false;
             }
             if (f.dormant) return false;
+            if (follow) f.transferPending = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
             if (follow == f.following && (follow || f.airborne)) return true;
@@ -962,8 +980,7 @@ namespace OlimarTest
                 who => {
                     if (Driver(who) is OlimarDriver d)
                     {
-                        if (OnionFlying(d.Captain)) CommandOnion(d.Captain, false);
-                        else d.OpenOnionMenu(id);
+                        d.OpenOnionMenu(id);
                     }
                 });
             AddOnionMinion(id, UnityHost.ToUnity(p) + Vector3.up * 3.5f, owner);
@@ -1111,6 +1128,71 @@ namespace OlimarTest
         {
             counts = default;
             return sim != IntPtr.Zero && Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out counts) != 0;
+        }
+
+        public bool OnionTotals(int onion, int captain, out Native.OnionCounts total)
+        {
+            total = default;
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                if (!OnionCounts(onion, captain, colour, out var n)) return false;
+                total.in_onion += n.in_onion;
+                total.in_squad += n.in_squad;
+                total.on_field = n.on_field;
+                total.max_on_field = n.max_on_field;
+            }
+            return true;
+        }
+
+        // Resolve bulk commands on the server, against current stock, not a client's snapshot.
+        // Call-outs work while hovering. Putting away lands first with the normal utility cost.
+        public bool ManageOnion(int captain, byte kind, uint count = 0)
+        {
+            int onion = OnionInReach(captain);
+            if (onion < 0 || kind < OnionCommandPacket.CallOutAny || kind > OnionCommandPacket.ReturnAll) return false;
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(kind, 0, count);
+                return true;
+            }
+            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant) return false;
+            // The newest shortcut replaces any transfer waiting for touchdown. In
+            // particular, an earlier return must never undo a later panic release.
+            flight.transferPending = false;
+            bool release = kind == OnionCommandPacket.CallOutAny || kind == OnionCommandPacket.ReleaseAll;
+            if (flight.airborne && !release)
+            {
+                if (!CommandOnion(captain, false)) return false;
+                flight.transferPending = true;
+                flight.transferKind = kind;
+                flight.transferCount = count;
+            }
+            else ApplyOnionTransfer(captain, onion, kind, count);
+            return true;
+        }
+
+        void ApplyOnionTransfer(int captain, int onion, byte kind, uint count)
+        {
+            if (!OnionTotals(onion, captain, out var total)) return;
+            bool release = kind == OnionCommandPacket.CallOutAny || kind == OnionCommandPacket.ReleaseAll;
+            uint room = total.max_on_field > total.on_field ? total.max_on_field - total.on_field : 0;
+            uint amount = kind == OnionCommandPacket.ReleaseAll ? OnionMenuPolicy.ReleaseCount(total.in_onion, room)
+                : kind == OnionCommandPacket.ReturnAll ? total.in_squad
+                : Math.Min(count, release ? Math.Min(total.in_onion, room) : total.in_squad);
+            var available = new uint[3];
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                OnionCounts(onion, captain, colour, out var n);
+                available[colour] = release ? n.in_onion : n.in_squad;
+            }
+            var plan = OnionMenuPolicy.Distribute(amount, available[0], available[1], available[2]);
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                if (plan[colour] == 0) continue;
+                if (release) CallOut(captain, onion, colour, plan[colour]);
+                else PutAway(captain, onion, colour, plan[colour]);
+            }
         }
 
         public uint CallOut(int captain, int onion, uint colour, uint n)

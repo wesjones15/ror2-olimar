@@ -94,8 +94,15 @@ What works:
   flying Onion where he stands and raises a landed one to follow him (each takes a relocation
   charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
   its menu, and at a chest it opens the chest. D-pad up / Tab opens the menu, including during
-  flight. The Aim scheme uses interact to land it and open the menu. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
-  up/down adjusts transfers and A/left click confirms. Transfers wait until landed; a hovering Onion
+  flight. The menu is a single page for all colours: up/down chooses an exact number to call out
+  or put away, A/left click confirms, and B/right click closes. Counts stop at their limits without wrapping.
+  **X** in the menu releases all stored Pikmin except one (subject to the field cap); press X twice
+  under the Onion to open and release. **Y** in the menu returns the whole squad and consumes that
+  equipment-button press. On keyboard these shortcuts use Utility and Equipment. Raise/lower commands
+  stay on the utility button outside interact prompts, with no movement pages in the menu.
+  Flying Onions use the same page and can release Pikmin directly: they slide halfway down a leg,
+  then let go and fall. Returning Pikmin lands the Onion first using a relocation charge and
+  executes after touchdown while Olimar stays nearby. A hovering Onion
   descends towards nearby pellets before collecting them, and the Pikmin they make stay inside it as leaves instead of being planted. Loose ground pellets are eligible even with no Pikmin alive. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
   moving, so Bustling Fungus only activates after the Onion has landed and stood still for

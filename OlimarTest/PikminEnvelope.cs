@@ -145,6 +145,7 @@ namespace OlimarTest
         public uint count;
 
         public const byte Follow = 0, Land = 1, CallOut = 2, PutAway = 3;
+        public const byte CallOutAny = 4, PutAwayAny = 5, ReleaseAll = 6, ReturnAll = 7;
 
         public static byte[] Write(in OnionCommandPacket p)
         {
@@ -165,7 +166,7 @@ namespace OlimarTest
             p.kind = r.U8();
             p.colour = r.U8();
             p.count = r.U32();
-            return !r.Failed && r.Done && p.kind <= PutAway;
+            return !r.Failed && r.Done && p.kind <= ReturnAll;
         }
     }
 }

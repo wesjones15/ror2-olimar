@@ -528,7 +528,8 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
                 "<style=cIsUtility>Press X</style> with no interact prompt up to lower the Onion where Olimar stands, or to raise it " +
                 $"so it follows him. Each takes a charge, and one returns every <style=cIsUtility>{Plugin.RelocationRecharge.Value:0.#} seconds</style>. " +
-                "Standing under the Onion, X (or D-pad up) opens its menu.");
+                "Under the Onion, X opens its menu; X again releases all but one stored Pikmin. " +
+                "In the menu, Y returns the whole squad. D-pad up also opens it.");
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
                 $"<style=cIsUtility>Press RB</style> to strike every enemy within <style=cIsUtility>{Plugin.StrikeReachMetres.Value:0.#} m</style> for " +

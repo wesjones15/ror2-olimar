@@ -13,13 +13,13 @@ namespace OlimarTest
     // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,
     // jump + secondary whistle, utility relocates the Onion, F strikes, special swarm toward the
     // cursor, jump recentre, C zoom, sprint to run, mouse wheel for the next colour. The Onion window takes the stick or d-pad (WASD
-    // or arrow keys), A or a left click to confirm and B or a right click to cancel.
+    // or arrow keys), A or a left click to confirm, X to release all but one stored Pikmin,
+    // Y to return the whole squad, and B or a right click to cancel.
     //
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap
     // between two 30 Hz ticks still registers. X is also RoR2's interact button: a press made
     // while an interact prompt is on screen (leaving the drop pod, a chest) goes to RoR2 only,
-    // and doesn't relocate until it's let go. Y is left alone: it's RoR2's equipment button,
-    // which still works for Olimar.
+    // and doesn't relocate until it's let go. Y is equipment outside the Onion window.
     internal class Pad
     {
         public Vector2 move, swarm;
@@ -39,12 +39,14 @@ namespace OlimarTest
         public bool Strike => strikeNow || strikeTap;
         public bool Cycle => cycleNow || cycleTap;
         public bool recentre, zoom, topView;
-        // The Onion window: directions held now (-1, 0, 1; up and right positive), and presses.
-        public int menuV, menuH;
-        public bool confirm, cancel, onionMenu;
+        // The Onion window: count direction held now (-1, 0, 1; up positive), and presses.
+        public int menuV;
+        public bool confirm, cancel, onionMenu, releaseAll, returnAll;
         public bool usingPad;
         // Throw and whistle stay up until let go (the press that closed a window).
-        bool swallowThrow, swallowWhistle;
+        bool swallowThrow, swallowWhistle, swallowRelocate, swallowEquipment;
+        bool relocateHeld, equipmentHeld;
+        public bool EquipmentBlocked => swallowEquipment;
 
         /// `interactPrompt`: RoR2 is showing an interact prompt right now.
         public void Read(Player player, bool interactPrompt)
@@ -61,6 +63,10 @@ namespace OlimarTest
                 jumpButton.Read(gp.b.value, gp.leftBumper.value);
                 whistleNow = jumpButton.Whistle;
                 relocateNow = interact.Claim(gp.x.value, interactPrompt);
+                relocateHeld = gp.x.value;
+                equipmentHeld = gp.y.value;
+                releaseAll |= gp.x.justPressed;
+                returnAll |= gp.y.justPressed;
                 cycleNow = gp.dPad.left.value || gp.dPad.right.value;
                 recentre |= Pressed(gp.leftTrigger);
                 zoom |= gp.rightStick.press.justPressed;
@@ -83,7 +89,6 @@ namespace OlimarTest
                 else { look = Vector2.zero; lockHeld = cycleTarget = false; }
                 var ls = gp.leftStick.value;
                 menuV = gp.dPad.up.value || ls.y > 0.5f ? 1 : gp.dPad.down.value || ls.y < -0.5f ? -1 : 0;
-                menuH = gp.dPad.right.value || ls.x > 0.5f ? 1 : gp.dPad.left.value || ls.x < -0.5f ? -1 : 0;
                 onionMenu |= gp.dPad.up.justPressed;
                 confirm |= gp.a.justPressed;
                 cancel |= gp.b.justPressed;
@@ -99,13 +104,16 @@ namespace OlimarTest
                 jumpButton.Read(player.GetButton(Action.SecondarySkill), player.GetButton(Action.Jump));
                 whistleNow = jumpButton.Whistle;
                 relocateNow = player.GetButton(Action.UtilitySkill);
+                relocateHeld = relocateNow;
+                equipmentHeld = player.GetButton(Action.Equipment);
+                releaseAll |= player.GetButtonDown(Action.UtilitySkill);
+                returnAll |= player.GetButtonDown(Action.Equipment);
                 strikeNow = UnityEngine.Input.GetKey(KeyCode.F);
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
                 recentre |= player.GetButtonDown(Action.Jump);
                 zoom |= UnityEngine.Input.GetKeyDown(KeyCode.C);
                 menuV = Key(KeyCode.UpArrow) || move.y > 0.5f ? 1 : Key(KeyCode.DownArrow) || move.y < -0.5f ? -1 : 0;
-                menuH = Key(KeyCode.RightArrow) || move.x > 0.5f ? 1 : Key(KeyCode.LeftArrow) || move.x < -0.5f ? -1 : 0;
                 onionMenu |= UnityEngine.Input.GetKeyDown(KeyCode.Tab);
                 confirm |= player.GetButtonDown(Action.PrimarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Return)
                            || UnityEngine.Input.GetKeyDown(KeyCode.KeypadEnter);
@@ -121,6 +129,12 @@ namespace OlimarTest
                 if (whistleNow) whistleNow = false;
                 else swallowWhistle = false;
             }
+            if (swallowRelocate)
+            {
+                relocateNow = false;
+                if (!relocateHeld) swallowRelocate = false;
+            }
+            if (swallowEquipment && !equipmentHeld) swallowEquipment = false;
             throwTap |= throwNow;
             whistleTap |= whistleNow;
             relocateTap |= relocateNow;
@@ -135,6 +149,8 @@ namespace OlimarTest
         public void Swallow()
         {
             swallowThrow = swallowWhistle = true;
+            swallowRelocate = true;
+            swallowEquipment |= equipmentHeld;
             jumpButton.Swallow();
             throwNow = whistleNow = relocateNow = strikeNow = cycleNow = false;
             throwTap = whistleTap = relocateTap = strikeTap = cycleTap = false;
