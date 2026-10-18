@@ -21,7 +21,7 @@ namespace OlimarTest
     // A teleport (anything that moves him far between ticks) brings his squad with him.
     // RoR2 updates its camera in Update: place the smoothed body before it reads the target.
     [DefaultExecutionOrder(-200)]
-    internal class OlimarDriver : MonoBehaviour
+    internal partial class OlimarDriver : MonoBehaviour
     {
         public CharacterBody Body { get; private set; }
         CharacterMotor motor;
@@ -114,9 +114,11 @@ namespace OlimarTest
         int menuDelta, menuOpenedFrame;
         string menuNote;
         bool onionPressClaimed, strikeSwallow;
+        FlyingXPolicy flyingX;
         /// Locked onto an enemy this tick (RT held).
         public bool LockedOn { get; private set; }
         int lastV;
+        int lastBoundaryV;
         float repeatAt;
         public bool MenuOpen => menuOnion >= 0;
         internal bool BlocksEquipment => MenuOpen || pad.EquipmentBlocked;
@@ -233,6 +235,7 @@ namespace OlimarTest
             pad.recentre = pad.zoom = pad.topView = false;
             OnionPrompt();
             if (MenuOpen && Time.frameCount > menuOpenedFrame) MenuInput();
+            else if (!MenuOpen) FlyingXInput();
             pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = false;
 
         }
@@ -260,6 +263,7 @@ namespace OlimarTest
             InteractTarget.Override(interaction, null);
             if (panelTex) Destroy(panelTex);
             if (stripeTex) Destroy(stripeTex);
+            DisposeBottomHud();
         }
 
         void FindLocalUser()
@@ -401,22 +405,23 @@ namespace OlimarTest
                 native.UpdateSprint(sprintPressed, i.stick_x * i.stick_x + i.stick_y * i.stick_y > 0.01f,
                     hold == NativeBody.Hold.None && !MenuOpen);
             sprintPressed = false;
-            // A utility/X press places a following Onion and stays consumed until release.
+            // A landed Onion raises on X outside its beam. Flying X is handled in
+            // Update: it needs a second-press window before either landing or dumping.
             // RoR2 interactions have first claim on the button.
             bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Relocate : input.skill3.down;
             if (!dismiss) onionPressClaimed = false;
             // Only the landed beam provides an Onion interact prompt. Elsewhere X relocates it.
             bool pikminX = Plugin.Scheme == ControlScheme.Pikmin;
-            bool flying = PikminWorld.Instance.OnionFlying(DataCaptain);
             if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !realPrompt
-                && !InteractPrompt() && (flying || pikminX))
+                && !InteractPrompt() && pikminX && !PikminWorld.Instance.OnionFlying(DataCaptain))
             {
                 if (!onionPressClaimed)
-                    PikminWorld.Instance.CommandOnion(DataCaptain, pikminX && !flying);
+                    PikminWorld.Instance.CommandOnion(DataCaptain, true);
                 onionPressClaimed = true;
             }
             // The Pikmin scheme's strike is its own button; only the aim scheme shares one with the Onion.
-            if (!(Plugin.Scheme == ControlScheme.Pikmin && !IsAi) && (onionPressClaimed || InteractPrompt())) i.dismiss = 0;
+            if (!(Plugin.Scheme == ControlScheme.Pikmin && !IsAi) &&
+                (onionPressClaimed || InteractPrompt() || PikminWorld.Instance.OnionFlying(DataCaptain))) i.dismiss = 0;
             enemyLock.Range = Plugin.LockRange.Value;
             // The strike's cooldown is the Special slot's: no charge, no strike. A press made while it
             // recharges stays spent until the button is let go, so it doesn't fire the moment it is ready.
@@ -644,6 +649,17 @@ namespace OlimarTest
             return interaction;
         }
 
+        void FlyingXInput()
+        {
+            var world = PikminWorld.Instance;
+            if (!world || !Active) { flyingX.Cancel(); return; }
+            var slot = Body && Body.skillLocator ? Body.skillLocator.utility : null;
+            var action = flyingX.Step(Time.unscaledTime, pad.releaseAll, world.OnionFlying(DataCaptain),
+                realPrompt || InteractPrompt(), slot == null || NativeSkills.Ready(slot, OlimarSkills.Relocate));
+            if (action == FlyingXAction.Release) world.ReleaseFlyingOnion(DataCaptain);
+            else if (action == FlyingXAction.Land) world.CommandOnion(DataCaptain, false);
+        }
+
         // Points RoR2's interact prompt at the Onion in reach, or takes it back.
         void OnionPrompt()
         {
@@ -674,11 +690,16 @@ namespace OlimarTest
             menuNote = null;
             menuOpenedFrame = Time.frameCount;
             lastV = 0;
+            lastBoundaryV = 0;
+            flyingX.Cancel();
+            PikminWorld.Instance.PlaySound(0, Body.footPosition);
             pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = false;
         }
 
         void CloseMenu()
         {
+            if (MenuOpen && PikminWorld.Instance && Body)
+                PikminWorld.Instance.PlaySound(3, Body.footPosition);
             menuOnion = -1;
             menuDelta = 0;
             pad.Swallow();
@@ -701,7 +722,7 @@ namespace OlimarTest
             {
                 byte kind = pad.releaseAll ? OnionCommandPacket.ReleaseAll : OnionCommandPacket.ReturnAll;
                 if (world.ManageOnion(DataCaptain, kind)) CloseMenu();
-                else menuNote = "Cannot land here, or no relocation charge ready.";
+                else { menuNote = "Stand in the Onion beam to manage Pikmin."; world.PlaySound(2, Body.footPosition); }
                 return;
             }
             if (pad.heal)
@@ -712,10 +733,13 @@ namespace OlimarTest
             }
             // One step a press; held, after a moment, quickly (the viewer's window does the same).
             int v = pad.menuV;
+            int before = menuDelta;
+            bool stepped = false;
             if (v != 0 && (v != lastV || Time.unscaledTime >= repeatAt))
             {
                 repeatAt = Time.unscaledTime + (v != lastV ? 0.35f : 0.06f);
                 menuDelta += v;
+                stepped = true;
             }
             lastV = v;
             if (world.OnionTotals(menuOnion, DataCaptain, out var n))
@@ -723,24 +747,21 @@ namespace OlimarTest
                 menuDelta = OnionMenuPolicy.Clamp(menuDelta, n.in_squad, n.in_onion,
                     n.max_on_field > n.on_field ? n.max_on_field - n.on_field : 0);
             }
+            if (stepped)
+            {
+                if (menuDelta != before) { world.PlaySound(1, Body.footPosition); lastBoundaryV = 0; }
+                else if (lastBoundaryV != v) { world.PlaySound(2, Body.footPosition); lastBoundaryV = v; }
+            }
+            if (v == 0) lastBoundaryV = 0;
             if (pad.confirm)
             {
                 if (menuDelta == 0 || world.ManageOnion(DataCaptain,
                     menuDelta > 0 ? OnionCommandPacket.CallOutAny : OnionCommandPacket.PutAwayAny,
                     (uint)Math.Abs(menuDelta))) CloseMenu();
-                else menuNote = "Cannot land here, or no relocation charge ready.";
+                else { menuNote = "Stand in the Onion beam to manage Pikmin."; world.PlaySound(2, Body.footPosition); }
             }
         }
 
-        // The unified Onion always manages Red, Yellow and Blue.
-        static readonly uint[] MenuOrder = { Native.Red, Native.Yellow, Native.Blue };
-
-        static readonly Color[] MenuColours =
-        {
-            new Color(0.35f, 0.55f, 1f), // Blue
-            new Color(1f, 0.3f, 0.25f),  // Red
-            new Color(1f, 0.85f, 0.2f),  // Yellow
-        };
         GUIStyle titleStyle, labelStyle, countStyle, noteStyle, hintStyle, hudStyle;
         Texture2D panelTex, stripeTex;
 
@@ -768,65 +789,10 @@ namespace OlimarTest
             return t;
         }
 
-        // The window, in the middle of the screen, laid out for 1080 lines and scaled.
-        readonly int[] squadCounts = new int[3];
-
-        // The squad by colour, above the skill bar: a chip per colour he has, the one he
-        // throws next outlined (the d-pad or the mouse wheel moves it on).
-        void SquadHud()
-        {
-            var world = PikminWorld.Instance;
-            if (localUser == null || !world || !Active || captain < 0) return;
-            world.SquadCounts(DataCaptain, squadCounts);
-            // The colour to throw next, or -1 for Any: the nearest Pikmin (the default, and always while
-            // locked on), shown by a thin outline round every chip.
-            int pick = LockedOn ? -1 : world.ThrowColour(DataCaptain);
-            MenuStyles();
-            float k = Screen.height / 1080f;
-            var saved = GUI.matrix;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
-            float sw = Screen.width / k;
-            const float chip = 64f, gap = 10f;
-            float x = sw - 3 * (chip + gap) - 40f, y = 1080f - 250f;
-            var savedColour = GUI.color;
-            foreach (var c in MenuOrder)
-            {
-                int n = squadCounts[c];
-                var r = new Rect(x, y, chip, chip);
-                x += chip + gap;
-                bool picked = pick == (int)c;
-                GUI.color = new Color(1f, 1f, 1f, n > 0 ? 1f : 0.35f);
-                GUI.DrawTexture(r, panelTex);
-                GUI.color = MenuColours[c] * new Color(1f, 1f, 1f, n > 0 ? 1f : 0.35f);
-                GUI.DrawTexture(new Rect(r.x, r.yMax - 6f, r.width, 6f), stripeTex);
-                if (picked)
-                {
-                    GUI.color = MenuColours[c];
-                    GUI.DrawTexture(new Rect(r.x - 3f, r.y - 3f, r.width + 6f, 3f), stripeTex);
-                    GUI.DrawTexture(new Rect(r.x - 3f, r.yMax, r.width + 6f, 3f), stripeTex);
-                    GUI.DrawTexture(new Rect(r.x - 3f, r.y, 3f, r.height), stripeTex);
-                    GUI.DrawTexture(new Rect(r.xMax, r.y, 3f, r.height), stripeTex);
-                }
-                else if (pick < 0)
-                {
-                    // Any: a thin outline on every chip.
-                    GUI.color = new Color(1f, 1f, 1f, 0.55f);
-                    GUI.DrawTexture(new Rect(r.x - 2f, r.y - 2f, r.width + 4f, 2f), stripeTex);
-                    GUI.DrawTexture(new Rect(r.x - 2f, r.yMax, r.width + 4f, 2f), stripeTex);
-                    GUI.DrawTexture(new Rect(r.x - 2f, r.y, 2f, r.height), stripeTex);
-                    GUI.DrawTexture(new Rect(r.xMax, r.y, 2f, r.height), stripeTex);
-                }
-                GUI.color = savedColour;
-                hudStyle.normal.textColor = n > 0 ? MenuColours[c] : new Color(0.5f, 0.5f, 0.5f);
-                GUI.Label(new Rect(r.x, r.y, r.width, r.height - 6f), n.ToString(), hudStyle);
-            }
-            GUI.color = savedColour;
-            GUI.matrix = saved;
-        }
-
+        // The menu window, laid out for 1080 lines and scaled to screen height.
         void OnGUI()
         {
-            SquadHud();
+            BottomHud();
             if (!MenuOpen || localUser == null || !PikminWorld.Instance) return;
             if (!PikminWorld.Instance.OnionTotals(menuOnion, DataCaptain, out var n)) return;
             MenuStyles();
@@ -848,8 +814,7 @@ namespace OlimarTest
             GUI.Label(new Rect(r.x, y, w, 40f), "Onion — all Pikmin", titleStyle);
             y += 44f;
             noteStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
-            GUI.Label(new Rect(r.x, y, w, 30f), menuNote ?? (PikminWorld.Instance.OnionFlying(DataCaptain)
-                ? "Call out now; putting away lands the Onion first" : "Choose how many to call out or put away"), noteStyle);
+            GUI.Label(new Rect(r.x, y, w, 30f), menuNote ?? "Choose how many to call out or put away", noteStyle);
             y += 36f;
             Row(x, y, cw, "In the Onion", (int)n.in_onion - menuDelta);
             y += 52f;
@@ -863,7 +828,7 @@ namespace OlimarTest
             GUI.Label(new Rect(r.x, y, w, 28f), $"Pikmin on the field: {n.on_field + (uint)Math.Max(menuDelta, 0)} / {n.max_on_field}", noteStyle);
             y += 38f;
             string hint = pad.usingPad
-                ? "Up/down: choose count   A: confirm   B: close"
+                ? "LS up/down: choose count   A: confirm   B: close"
                 : "W/S or arrows: choose count   Click/Enter: confirm   Right-click: close";
             GUI.Label(new Rect(r.x + 20f, y, w - 40f, 44f), hint, hintStyle);
             y += 42f;
