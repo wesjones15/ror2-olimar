@@ -92,6 +92,9 @@ namespace OlimarTest
             Native.pik_sim_set_squad_speed(sim, captain, Mathf.Max(0.1f, move));
             // Jump power and acceleration items (Faraday Spur, Hex of Leaping, Hex of Acceleration).
             Native.pik_sim_set_captain_motion(sim, captain, NativeBody.JumpScale(body), NativeBody.AccelerationScale(body));
+            float baselineJump = body.baseJumpPower + body.levelJumpPower * Mathf.Max(0f, body.level - 1f);
+            Native.pik_sim_set_captain_jump_height(sim, captain,
+                OlimarJump.Height(body.jumpPower, baselineJump, Physics.gravity.y, UnityHost.Scale));
             Native.pik_sim_set_captain_jumps(sim, captain, (uint)Mathf.Max(0, body.maxJumpCount - 1),
                 (byte)(ByName.Count(body, "FallBoots") > 0 ? 1 : 0));
             CooldownBoost = SkillCooldown.Boost(Slot(SkillSlot.Primary), Plugin.CooldownExponent.Value, ref cooldownHeld);
@@ -524,6 +527,7 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
                 "<style=cIsUtility>Hold LB and press B</style>. A circle at the cursor grows to about " +
                 "<style=cIsUtility>3.6 m</style> and calls every Pikmin inside back to the squad, even off an enemy or a corpse. " +
+                "Jumps at least as high as Commando, with the Pikmin matching his height. " +
                 "No cooldown. Olimar can't jump while LB is held.");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Raise / Lower Onion");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",

@@ -33,6 +33,9 @@ namespace OlimarTest
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_attack_rate(IntPtr sim, uint captain, float rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_motion(IntPtr sim, uint captain, float jump, float accel);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_jump_height(IntPtr sim, uint captain, float height);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern float pik_sim_sacrifice_onion(IntPtr sim, uint onion, float missing, out uint killed);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_healing(IntPtr view, uint captain, float progress, uint ghosts);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_speed(IntPtr sim, uint captain, float scale);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_jumps(IntPtr sim, uint captain, uint airJumps, byte stomp);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_boost_captain_jump(IntPtr sim, uint captain, float factor);

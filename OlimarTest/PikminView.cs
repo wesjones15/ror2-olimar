@@ -161,7 +161,12 @@ namespace OlimarTest
             var drivers = FindObjectsOfType<OlimarDriver>();
             // Olimar beams down from the Dolphin; only the Pikmin exit the Onion.
             foreach (var d in drivers)
-                if (d.ViewCaptain >= 0) models.Materialize((uint)d.ViewCaptain, world.BeamProgress((uint)d.ViewCaptain));
+                if (d.ViewCaptain >= 0)
+                {
+                    uint captain = (uint)d.ViewCaptain;
+                    models.Materialize(captain, world.BeamProgress(captain));
+                    models.Heal(captain, world.HealingProgress(captain), world.HealingCount(captain));
+                }
             foreach (var d in drivers)
                 if (d.ViewCaptain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
                     frame.listener = d.ViewCaptain;

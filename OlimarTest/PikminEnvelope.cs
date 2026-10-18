@@ -18,15 +18,18 @@ namespace OlimarTest
         /// The body's network id (0 if it has none), so each machine finds its own copy of him.
         public uint netId;
         public byte flags;
-        /// Olimar's beam-in progress 0..1 while it lasts, else -1.
+        /// Arrival or healing progress 0..1 (distinguished by flags), else -1.
         public float beam;
+        /// Stored Pikmin consumed for the current healing effect (zero otherwise).
+        public byte healingCount;
         /// His Onion's id in the sim, or -1.
         public short onion;
 
-        public const byte Temporary = 1, Arriving = 2, Following = 4, Airborne = 8;
+        public const byte Temporary = 1, Arriving = 2, Following = 4, Airborne = 8, Healing = 16;
 
         public bool IsTemporary => (flags & Temporary) != 0;
         public bool IsArriving => (flags & Arriving) != 0;
+        public bool IsHealing => (flags & Healing) != 0;
         /// His Onion hovers after him (the X button lands it), rather than standing.
         public bool OnionFollowing => (flags & Following) != 0;
         /// His Onion is in the air (following, taking off or landing).
@@ -36,7 +39,7 @@ namespace OlimarTest
     internal static class PikminEnvelope
     {
         /// Bumped whenever a wire format changes; a message with another number is ignored.
-        public const byte Protocol = 2;
+        public const byte Protocol = 3;
         /// pikmin.dll's ABI (Native.AbiVersion), compared so a mismatched build is refused.
         public static byte Abi = 25;
 
@@ -57,6 +60,7 @@ namespace OlimarTest
                 w.U32(c.netId);
                 w.U8(c.flags);
                 w.F32(c.beam);
+                w.U8(c.healingCount);
                 w.I16(c.onion);
             }
             w.U32((uint)snapshotLength);
@@ -80,7 +84,7 @@ namespace OlimarTest
             epoch = r.U32();
             int n = r.U8();
             for (int i = 0; i < n; i++)
-                captains.Add(new CaptainInfo { id = r.U8(), netId = r.U32(), flags = r.U8(), beam = r.F32(), onion = r.I16() });
+                captains.Add(new CaptainInfo { id = r.U8(), netId = r.U32(), flags = r.U8(), beam = r.F32(), healingCount = r.U8(), onion = r.I16() });
             uint length = r.U32();
             if (r.Failed || length != (uint)r.Remaining) return Status.Corrupt;
             snapshot = new byte[length];
@@ -146,6 +150,7 @@ namespace OlimarTest
 
         public const byte Follow = 0, Land = 1, CallOut = 2, PutAway = 3;
         public const byte CallOutAny = 4, PutAwayAny = 5, ReleaseAll = 6, ReturnAll = 7;
+        public const byte Heal = 8;
 
         public static byte[] Write(in OnionCommandPacket p)
         {
@@ -166,7 +171,7 @@ namespace OlimarTest
             p.kind = r.U8();
             p.colour = r.U8();
             p.count = r.U32();
-            return !r.Failed && r.Done && p.kind <= ReturnAll;
+            return !r.Failed && r.Done && p.kind <= Heal;
         }
     }
 }

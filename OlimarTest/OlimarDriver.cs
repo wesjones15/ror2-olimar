@@ -236,7 +236,7 @@ namespace OlimarTest
             pad.onionMenu = false;
             OnionPrompt();
             if (MenuOpen && !openingMenu && Time.frameCount > menuOpenedFrame) MenuInput();
-            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = false;
+            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = false;
 
         }
 
@@ -678,7 +678,7 @@ namespace OlimarTest
             menuNote = null;
             menuOpenedFrame = Time.frameCount;
             lastV = 0;
-            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = false;
+            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = false;
         }
 
         void CloseMenu()
@@ -706,6 +706,12 @@ namespace OlimarTest
                 byte kind = pad.releaseAll ? OnionCommandPacket.ReleaseAll : OnionCommandPacket.ReturnAll;
                 if (world.ManageOnion(DataCaptain, kind)) CloseMenu();
                 else menuNote = "Cannot land here, or no relocation charge ready.";
+                return;
+            }
+            if (pad.heal)
+            {
+                world.HealFromOnion(DataCaptain);
+                CloseMenu();
                 return;
             }
             // One step a press; held, after a moment, quickly (the viewer's window does the same).
@@ -832,7 +838,7 @@ namespace OlimarTest
             var saved = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
             float sw = Screen.width / k;
-            const float w = 680f, h = 440f;
+            const float w = 680f, h = 480f;
             var r = new Rect((sw - w) / 2f, 1080f * 0.5f - h / 2f, w, h);
             var colour = new Color(0.8f, 0.95f, 0.65f);
             var savedColour = GUI.color;
@@ -865,9 +871,9 @@ namespace OlimarTest
                 : "W/S or arrows: choose count   Click/Enter: confirm   Right-click: close";
             GUI.Label(new Rect(r.x + 20f, y, w - 40f, 44f), hint, hintStyle);
             y += 42f;
-            GUI.Label(new Rect(r.x + 20f, y, w - 40f, 60f), pad.usingPad
-                ? "X: release all but one stored Pikmin\nY: return the whole squad"
-                : "Utility: release all but one stored Pikmin\nEquipment: return the whole squad", hintStyle);
+            GUI.Label(new Rect(r.x + 20f, y, w - 40f, 100f), pad.usingPad
+                ? "X: release all but one stored Pikmin\nY: return the whole squad\nRB: heal from Onion stock (keep one)\nLeaf 5% / Bud 10% / Flower 20% health"
+                : "Utility: release all but one stored Pikmin\nEquipment: return the whole squad\nF: heal from Onion stock (keep one)\nLeaf 5% / Bud 10% / Flower 20% health", hintStyle);
             GUI.matrix = saved;
         }
 

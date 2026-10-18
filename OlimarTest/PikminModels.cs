@@ -91,6 +91,11 @@ namespace OlimarTest
             if (view != IntPtr.Zero) Native.pik_view_set_materialize(view, captain, progress);
         }
 
+        public void Heal(uint captain, float progress, uint ghosts)
+        {
+            if (view != IntPtr.Zero) Native.pik_view_set_healing(view, captain, progress, ghosts);
+        }
+
         public void ShowCursors(bool show)
         {
             if (view != IntPtr.Zero) Native.pik_view_show_cursors(view, (byte)(show ? 1 : 0));

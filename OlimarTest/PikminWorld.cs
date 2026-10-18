@@ -53,6 +53,8 @@ namespace OlimarTest
         readonly List<CaptainInfo> sendInfos = new List<CaptainInfo>();
         // What the server said about each captain (client): whose body, arriving, beam-in.
         readonly Dictionary<int, CaptainInfo> remoteInfo = new Dictionary<int, CaptainInfo>();
+        readonly Dictionary<int, (float at, byte count)> healing = new Dictionary<int, (float, byte)>();
+        const float HealingSeconds = 2f;
         static bool warnedAssets, warnedSize;
         // Network ticks per second, and bytes sent in the last report period (Debug.LogNet).
         long bytesSent;
@@ -257,6 +259,9 @@ namespace OlimarTest
                 case OnionCommandPacket.ReturnAll:
                     if (p.count <= 100) ManageOnion(captain, p.kind, p.count);
                     break;
+                case OnionCommandPacket.Heal:
+                    HealFromOnion(captain);
+                    break;
             }
         }
 
@@ -389,6 +394,7 @@ namespace OlimarTest
             driverOf.Clear();
             onionIds.Clear();
             onionOf.Clear();
+            healing.Clear();
             dolphins.Clear();
             foreach (var t in onionTargets.Values)
                 if (t) Destroy(t.gameObject);
@@ -766,7 +772,7 @@ namespace OlimarTest
         /// Olimar's beam-in progress, 0..1 while it lasts, else -1 (the presenter draws him as a column of
         /// light settling into himself).
         public float BeamProgress(uint captain) => ClientMode
-            ? remoteInfo.TryGetValue((int)captain, out var info) && info.beam >= 0f ? Mathf.Clamp01(info.beam) : -1f
+            ? remoteInfo.TryGetValue((int)captain, out var info) && info.IsArriving && info.beam >= 0f ? Mathf.Clamp01(info.beam) : -1f
             : dolphins.TryGetValue((int)captain, out var s) && !s.complete && s.beam >= 0f ? Mathf.Clamp01(s.beam) : -1f;
 
         void FinishArrival(DolphinFlight ship, OlimarDriver driver)
@@ -1247,6 +1253,39 @@ namespace OlimarTest
             return true;
         }
 
+        public float HealingProgress(uint captain)
+        {
+            if (ClientMode) return remoteInfo.TryGetValue((int)captain, out var info) && info.IsHealing ? info.beam : -1f;
+            if (!healing.TryGetValue((int)captain, out var h)) return -1f;
+            float progress = (Time.time - h.at) / HealingSeconds;
+            return progress < 1f ? Mathf.Clamp01(progress) : -1f;
+        }
+
+        public byte HealingCount(uint captain) => ClientMode
+            ? remoteInfo.TryGetValue((int)captain, out var info) && info.IsHealing ? info.healingCount : (byte)0
+            : healing.TryGetValue((int)captain, out var h) ? h.count : (byte)0;
+
+        public bool HealFromOnion(int captain)
+        {
+            int onion = OnionInReach(captain);
+            if (onion < 0) return false;
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(OnionCommandPacket.Heal, 0, 0);
+                return true;
+            }
+            if (!driverOf.TryGetValue(captain, out var driver) || !driver || !driver.Active || !driver.Body) return false;
+            var hp = driver.Body.healthComponent;
+            if (!hp || !hp.alive || hp.fullHealth <= 0f) return false;
+            float deficit = Mathf.Clamp01((hp.fullHealth - hp.health) / hp.fullHealth);
+            float fraction = Native.pik_sim_sacrifice_onion(sim, (uint)onion, deficit, out uint count);
+            if (count == 0) return false;
+            hp.Heal(fraction * hp.fullHealth, default, true);
+            healing[captain] = (Time.time, (byte)Math.Min(count, 255u));
+            return true;
+        }
+
         // Resolve bulk commands on the server, against current stock, not a client's snapshot.
         // Call-outs work while hovering. Putting away lands first with the normal utility cost.
         public bool ManageOnion(int captain, byte kind, uint count = 0)
@@ -1457,7 +1496,11 @@ namespace OlimarTest
                     if (flight.following) flags |= CaptainInfo.Following;
                     if (flight.airborne) flags |= CaptainInfo.Airborne;
                 }
-                sendInfos.Add(new CaptainInfo { id = (byte)kv.Key, netId = d.Body.netId.Value, flags = flags, beam = BeamProgress((uint)kv.Key), onion = onion });
+                float heal = HealingProgress((uint)kv.Key);
+                if (heal >= 0f) flags |= CaptainInfo.Healing;
+                sendInfos.Add(new CaptainInfo { id = (byte)kv.Key, netId = d.Body.netId.Value, flags = flags,
+                    beam = heal >= 0f ? heal : BeamProgress((uint)kv.Key),
+                    healingCount = heal >= 0f ? HealingCount((uint)kv.Key) : (byte)0, onion = onion });
             }
             var payload = PikminEnvelope.Write(epoch, sendInfos, snapshotBuffer, (int)n);
             Mp.SendToAll(PikminNet.SnapshotMsg, payload, Plugin.ReliableSnapshots.Value);

@@ -28,6 +28,12 @@ static class Program
         Check(plan[0] == 3 && plan[1] == 4 && plan[2] == 3, "precise count spans colours");
         Check(Total(OnionMenuPolicy.Distribute(15, 3, 4, 8)) == 15, "whole squad returns across colours");
         Check(Total(OnionMenuPolicy.Distribute(100, 3, 4, 8)) == 15, "stale request cannot exceed available Pikmin");
+        float jump = OlimarJump.Height(15f, 15f, -30f, 0.04f);
+        Check(jump * 0.04f > 15f * 15f / 60f, "Commando jump height plus ledge clearance");
+        Check(OlimarJump.Height(8f, 15f, -30f, 0.04f) == jump, "base Commando height is the minimum");
+        Check(OlimarJump.Height(20f, 15f, -30f, 0.04f) > jump, "jump-power items increase height");
+        Check(Math.Abs(OlimarJump.Height(15f, 15f, -30f, 0.02f) * 0.02f - jump * 0.04f) < 0.001f,
+            "smaller model scale does not reduce world-space jump height");
         Console.WriteLine("OnionMenuCheck: ok (count bounds, field cap, mixed colours, reserve, repeated release)");
     }
 }
