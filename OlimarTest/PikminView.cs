@@ -11,10 +11,18 @@ namespace OlimarTest
     // three legs) and sprouts, plus a ring for each captain's cursor. Either way a ring shows
     // the whistle. Positions are interpolated between the last two 30 Hz ticks. None of this is
     // networked yet.
-    internal class PikminView : MonoBehaviour
+    internal partial class PikminView : MonoBehaviour
     {
         public PikminWorld world;
         PikminModels models;
+        sealed class HealingAudio
+        {
+            public bool active;
+            public int ghosts;
+            public float nextGhost;
+        }
+        readonly Dictionary<int, HealingAudio> healingAudio = new Dictionary<int, HealingAudio>();
+        internal void PlaySound(byte sound, Vector3 at) => models?.PlaySound(sound, UnityHost.ToSim(at));
         readonly HashSet<int> drawnCaptains = new HashSet<int>();
 
         static readonly Color[] PikiColours =
@@ -78,6 +86,7 @@ namespace OlimarTest
 
         void DisposeModels()
         {
+            healingAudio.Clear();
             if (models != null)
             {
                 models.Dispose();
@@ -86,7 +95,11 @@ namespace OlimarTest
             foreach (var d in FindObjectsOfType<OlimarDriver>()) d.HideBody(false);
         }
 
-        void OnDestroy() => DisposeModels();
+        void OnDestroy()
+        {
+            DisposeModels();
+            ReleaseCarryHud();
+        }
 
         public void StopModels() => DisposeModels();
 
@@ -163,7 +176,10 @@ namespace OlimarTest
                 {
                     uint captain = (uint)d.ViewCaptain;
                     models.Materialize(captain, world.BeamProgress(captain));
-                    models.Heal(captain, world.HealingProgress(captain), world.HealingCount(captain));
+                    float progress = world.HealingProgress(captain);
+                    uint ghosts = world.HealingCount(captain);
+                    models.Heal(captain, progress, ghosts);
+                    HealingSounds(d, progress, ghosts);
                 }
             foreach (var d in drivers)
                 if (d.ViewCaptain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
@@ -185,6 +201,29 @@ namespace OlimarTest
             }
             foreach (var d in drivers)
                 d.HideBody(d.Arriving || d.ViewCaptain >= 0 && drawnCaptains.Contains(d.ViewCaptain));
+        }
+
+        void HealingSounds(OlimarDriver driver, float progress, uint count)
+        {
+            int id = driver.ViewCaptain;
+            if (!healingAudio.TryGetValue(id, out var audio))
+                healingAudio[id] = audio = new HealingAudio();
+            var at = driver.Body ? driver.Body.footPosition : driver.transform.position;
+            if (progress >= 0f && !audio.active)
+            {
+                audio.active = true;
+                audio.ghosts = (int)count;
+                audio.nextGhost = Time.unscaledTime + 0.1f;
+                // The heal cue leads; one death/ghost cue follows for each Onion Pikmin spent.
+                PlaySound(4, at);
+            }
+            if (progress < 0f) audio.active = false;
+            while (audio.ghosts > 0 && Time.unscaledTime >= audio.nextGhost)
+            {
+                PlaySound(5, at);
+                audio.ghosts--;
+                audio.nextGhost += 0.055f;
+            }
         }
 
         // RoR2's master and sound-effects volume, times ours.

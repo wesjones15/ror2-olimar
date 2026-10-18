@@ -96,6 +96,7 @@ namespace OlimarTest
             public Vector3 position, landing, transitionStart;
             public float transitionElapsed, transitionDuration;
             public bool following = true, airborne = true;
+            public bool releaseWhenReady;
             public bool dormant;
             /// Seconds dormant, and seconds into the revival (the sim's two phases), for its gauge.
             public float dormantAge, reviveAge;
@@ -137,6 +138,7 @@ namespace OlimarTest
         readonly Native.Event[] events = new Native.Event[64];
 
         PikminView view;
+        internal void PlaySound(byte sound, Vector3 at) { if (view) view.PlaySound(sound, at); }
 
         // RoR2 events raised while the sim is stepping (a Pikmin hit kills an enemy, whose
         // death would spawn a pellet) wait here: calling back into the sim mid-step isn't
@@ -239,7 +241,7 @@ namespace OlimarTest
                 case OnionCommandPacket.PutAway:
                 {
                     int onion = OnionInReach(captain);
-                    if (onion < 0 || p.colour > 2 || p.count > 100) return;
+                    if (onion < 0 || p.colour > 2) return;
                     if (p.kind == OnionCommandPacket.CallOut) CallOut(captain, onion, p.colour, p.count);
                     else PutAway(captain, onion, p.colour, p.count);
                     break;
@@ -248,10 +250,13 @@ namespace OlimarTest
                 case OnionCommandPacket.PutAwayAny:
                 case OnionCommandPacket.ReleaseAll:
                 case OnionCommandPacket.ReturnAll:
-                    if (p.count <= 100) ManageOnion(captain, p.kind, p.count);
+                    ManageOnion(captain, p.kind, p.count);
                     break;
                 case OnionCommandPacket.Heal:
                     HealFromOnion(captain);
+                    break;
+                case OnionCommandPacket.ReleaseFlyingAll:
+                    ReleaseFlyingOnion(captain);
                     break;
             }
         }
@@ -516,6 +521,7 @@ namespace OlimarTest
                 Plugin.Log.LogError("libpikmin's sim didn't start");
                 return false;
             }
+            Native.pik_sim_set_field_limit(sim, int.MaxValue);
             simStage = Stage.instance;
             reportedPoison = false;
             epoch++;
@@ -801,6 +807,18 @@ namespace OlimarTest
                         AddOnionMinion(flight.id, flight.position + Vector3.up * 3.5f, owner.Body);
                     Plugin.Log.LogInfo($"Onion {flight.id} revived; its stored Pikmin are available again.");
                 }
+                if (flight.releaseWhenReady)
+                {
+                    // A newly raised Onion may still be in TakeOff. Wait for Hover so the
+                    // native exit queue can dispense the Pikmin down its legs.
+                    for (int oi = 0; oi < OnionCount; oi++)
+                        if (Onions[oi].id == flight.id && (Onions[oi].anim == 6 || !flight.airborne))
+                        {
+                            flight.releaseWhenReady = false;
+                            ApplyOnionTransfer(flight.captain, flight.id, OnionCommandPacket.ReleaseAll, 0);
+                            break;
+                        }
+                }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
                 if (flight.following && UpdateOnionPickup(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && driverOf.TryGetValue(flight.captain, out var d) && d && d.Body)
@@ -956,6 +974,20 @@ namespace OlimarTest
             f.following = follow;
             f.airborne = true;
             WriteFlight(f);
+            return true;
+        }
+
+        public bool ReleaseFlyingOnion(int captain)
+        {
+            if (ClientMode)
+            {
+                if (!moverDriver || !OnionFlying(captain)) return false;
+                moverDriver.SendOnion(OnionCommandPacket.ReleaseFlyingAll, 0, 0);
+                return true;
+            }
+            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant || !flight.airborne)
+                return false;
+            flight.releaseWhenReady = true;
             return true;
         }
 
@@ -1346,6 +1378,11 @@ namespace OlimarTest
             ticksSinceSend = 0;
             if (snapshotBuffer == null) snapshotBuffer = new byte[128 * 1024];
             uint n = Native.pik_sim_snapshot(sim, snapshotBuffer, (uint)snapshotBuffer.Length);
+            while (n == 0 && snapshotBuffer.Length < 16 * 1024 * 1024)
+            {
+                Array.Resize(ref snapshotBuffer, snapshotBuffer.Length * 2);
+                n = Native.pik_sim_snapshot(sim, snapshotBuffer, (uint)snapshotBuffer.Length);
+            }
             if (n == 0)
             {
                 if (!warnedSize)
@@ -1375,6 +1412,12 @@ namespace OlimarTest
                     healingCount = heal >= 0f ? HealingCount((uint)kv.Key) : (byte)0, onion = onion });
             }
             var payload = PikminEnvelope.Write(epoch, sendInfos, snapshotBuffer, (int)n);
+            if (payload.Length > Fragments.MaxPayload)
+            {
+                if (!warnedSize) Plugin.Log.LogWarning("Pikmin snapshot exceeds multiplayer transport capacity; remote players may not see this swarm.");
+                warnedSize = true;
+                return;
+            }
             Mp.SendToAll(PikminNet.SnapshotMsg, payload, Plugin.ReliableSnapshots.Value);
             if (Plugin.LogNet.Value)
             {

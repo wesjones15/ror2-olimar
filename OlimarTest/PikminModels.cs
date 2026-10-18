@@ -76,6 +76,11 @@ namespace OlimarTest
             if (view != IntPtr.Zero) Native.pik_view_set_healing(view, captain, progress, ghosts);
         }
 
+        public void PlaySound(byte sound, Native.Vec3 at)
+        {
+            if (view != IntPtr.Zero) Native.pik_view_play_sound(view, sound, at);
+        }
+
         public void ShowCursors(bool show)
         {
             if (view != IntPtr.Zero) Native.pik_view_show_cursors(view, (byte)(show ? 1 : 0));
