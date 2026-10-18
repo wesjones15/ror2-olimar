@@ -24,9 +24,12 @@ namespace OlimarTest
         public const string PrefabName = "OlimarShipRepairRun";
         public const string NameToken = "OLIMAR_SHIP_REPAIR_NAME";
         public static GameEndingDef Ending { get; private set; }
+        static readonly BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         static readonly List<Hook> hooks = new List<Hook>();
+        static readonly MethodInfo pickIconBySurvivorDef = typeof(CharacterSelectBarController).GetMethod("PickIconBySurvivorDef", flags);
         static bool checkedAssets;
         static string assetError;
+        static bool selectionShowsRepair;
         const short RuleMessage = 0x4F06;
         static bool? remoteCompetitive;
         internal static string LobbyRule => NetworkServer.active ? (Plugin.CompetitiveMode.Value ? "Competitive Dolphin race" : "Shared cooperative repair") :
@@ -36,7 +39,6 @@ namespace OlimarTest
             var writer = new ByteWriter(); writer.Bool(Plugin.CompetitiveMode.Value);
             Mp.SendToAll(RuleMessage, writer.ToArray(), true);
         }
-        static readonly BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         public static bool Active => IsRepair(Run.instance);
         public static bool IsRepair(Run run) => run && run.GetComponent<ShipRepairMarker>();
         public static bool LobbyActive => PreGameController.instance &&
@@ -72,7 +74,7 @@ namespace OlimarTest
             plugin.AddComponent<ShipRepairHint>();
             plugin.AddComponent<ShipRepairMusic>();
             NetworkModCompatibilityHelper.networkModList = NetworkModCompatibilityHelper.networkModList
-                .Concat(new[] { Plugin.Guid + ";ship-repair-abi33-v3-music1" });
+                .Concat(new[] { Plugin.Guid + ";ship-repair-abi33-v3-music1-pick1" });
             hooks.Add(new Hook(typeof(Run).GetProperty("spawnWithPod").GetMethod,
                 (Func<Func<Run, bool>, Run, bool>)((orig, run) => IsRepair(run) || orig(run))));
             hooks.Add(new Hook(typeof(PreGameController).GetMethod("StartLaunch", flags),
@@ -85,6 +87,18 @@ namespace OlimarTest
                 (Action<Action<CharacterSelectController>, CharacterSelectController>)((orig, ui) => {
                     orig(ui);
                     if (LobbyActive && LobbyError() != null && ui.readyButton) ui.readyButton.interactable = false;
+                })));
+            hooks.Add(new Hook(typeof(CharacterSelectBarController).GetMethod("ShouldDisplaySurvivor", flags),
+                (Func<Func<CharacterSelectBarController, SurvivorDef, bool>, CharacterSelectBarController, SurvivorDef, bool>)
+                    ((orig, bar, survivor) => orig(bar, survivor) && (!LobbyActive || IsOlimar(survivor)))));
+            hooks.Add(new Hook(typeof(CharacterSelectBarController).GetMethod("Build", flags),
+                (Action<Action<CharacterSelectBarController>, CharacterSelectBarController>)((orig, bar) => {
+                    orig(bar);
+                    if (LobbyActive)
+                    {
+                        var olimar = SurvivorCatalog.FindSurvivorDef("OlimarTest");
+                        if (olimar) pickIconBySurvivorDef.Invoke(bar, new object[] { olimar });
+                    }
                 })));
             hooks.Add(new Hook(typeof(Run).GetMethod("AdvanceStage", flags),
                 (Action<Action<Run, SceneDef>, Run, SceneDef>)((orig, run, scene) =>
@@ -194,6 +208,17 @@ namespace OlimarTest
             return false;
         }
 
+        static bool IsOlimar(SurvivorDef survivor) => survivor && survivor.cachedName == "OlimarTest";
+
+        internal static void RefreshSelectionIfModeChanged()
+        {
+            bool repair = LobbyActive;
+            if (selectionShowsRepair == repair) return;
+            selectionShowsRepair = repair;
+            // The host can change game mode while the character screen is already open.
+            foreach (var bar in UnityEngine.Object.FindObjectsOfType<CharacterSelectBarController>()) bar.Build();
+        }
+
         internal static string LobbyError()
         {
             string error = assetError;
@@ -230,6 +255,7 @@ namespace OlimarTest
         float ruleSendAt;
         void Update()
         {
+            ShipRepairMode.RefreshSelectionIfModeChanged();
             if (NetworkServer.active && ShipRepairMode.LobbyActive && Time.unscaledTime >= ruleSendAt)
             {
                 ruleSendAt = Time.unscaledTime + 1f; ShipRepairMode.SendLobbyRule();
