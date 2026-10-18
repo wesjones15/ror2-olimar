@@ -98,8 +98,13 @@ What works:
   or put away, A/left click confirms, and B/right click closes. Counts stop at their limits without wrapping.
   **X** in the menu releases all stored Pikmin except one (subject to the field cap); press X twice
   under the Onion to open and release. **Y** in the menu returns the whole squad and consumes that
-  equipment-button press. On keyboard these shortcuts use Utility and Equipment. Raise/lower commands
-  stay on the utility button outside interact prompts, with no movement pages in the menu.
+  equipment-button press. On keyboard these shortcuts use Utility and Equipment.
+  **RB** (keyboard F) heals Olimar using only Pikmin stored in the Onion, preferring leaves (5% max
+  health), then buds (10%), then flowers (20%). It consumes enough to fill his health or leave one
+  unreserved stored Pikmin, leaves the squad and queued exits untouched, and closes the menu.
+  Dolphin recovery effects play at Olimar for two seconds with one Pikmin ghost per sacrifice;
+  the effect and ghost count are replicated to other players.
+  Raise/lower commands stay on the utility button outside interact prompts, with no movement pages in the menu.
   Flying Onions use the same page and can release Pikmin directly: they slide halfway down a leg,
   then let go and fall. Returning Pikmin lands the Onion first using a relocation charge and
   executes after touchdown while Olimar stays nearby. A hovering Onion
@@ -119,6 +124,9 @@ What works:
 - **Size**: Olimar is two thirds of Commando's height (`Scale.OlimarHeight`; try 0.75), and
   the Pikmin, Onion and pellets scale with him. His body's collision capsule and hurtboxes
   shrink to match.
+  His jump reaches at least Commando's unmodified world-space jump height, with a small clearance
+  margin, regardless of this model scale. Jump-power increases raise it further. Pikmin use the
+  same jump height, including when following him and jumping over obstacles.
 - **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`).
   During an enemy lock, Pikmin reach his hand in one simulation tick for rapid
   repeated throws, like feeding the hand with C-stick up; A still presses to grab and releases

@@ -141,6 +141,12 @@ static class Program
         Check(status == PikminEnvelope.Status.Ok && epoch == 3 && infos.Count == 1 && infos[0].netId == 77
             && infos[0].IsArriving && !infos[0].IsTemporary && infos[0].beam == 0.5f && infos[0].onion == 3
             && infos[0].OnionFollowing && !infos[0].OnionAirborne && snapshot.Length == (int)n, "envelope round trip");
+        sent[0] = new CaptainInfo { id = 0, netId = 77, flags = CaptainInfo.Healing, beam = 0.25f, healingCount = 7, onion = 3 };
+        infos.Clear();
+        var healingEnvelope = PikminEnvelope.Write(3, sent, buffer, (int)n);
+        Check(PikminEnvelope.Read(new ByteReader(healingEnvelope), out _, infos, out _, out _) == PikminEnvelope.Status.Ok
+            && infos[0].IsHealing && !infos[0].IsArriving && infos[0].healingCount == 7 && infos[0].beam == 0.25f,
+            "healing progress and exact ghost count replicate independently of arrival");
         var cut = new byte[20];
         Array.Copy(envelope, cut, 20);
         Check(PikminEnvelope.Read(new ByteReader(cut), out _, new List<CaptainInfo>(), out _, out _) == PikminEnvelope.Status.Corrupt, "a cut envelope is corrupt");
@@ -160,7 +166,7 @@ static class Program
         command[5] = 77;
         Check(!OnionCommandPacket.Read(new ByteReader(command), out _), "an unknown Onion command is refused");
         foreach (byte kind in new[] { OnionCommandPacket.CallOutAny, OnionCommandPacket.PutAwayAny,
-            OnionCommandPacket.ReleaseAll, OnionCommandPacket.ReturnAll })
+            OnionCommandPacket.ReleaseAll, OnionCommandPacket.ReturnAll, OnionCommandPacket.Heal })
         {
             var bulk = OnionCommandPacket.Write(new OnionCommandPacket { netId = 9, kind = kind, count = 0 });
             Check(OnionCommandPacket.Read(new ByteReader(bulk), out var decoded) && decoded.kind == kind,
@@ -257,6 +263,19 @@ static class Program
                 inside += counts.in_onion;
             }
             Check(inside == 10 && Native.pik_sim_poisoned(sim) == 0, "return stores every colour without losing Pikmin");
+            float healed = Native.pik_sim_sacrifice_onion(sim, (uint)onion, 0.11f, out uint sacrificed);
+            Check(sacrificed == 3 && Math.Abs(healed - 0.11f) < 0.0001f, "Onion-only sacrifice count and health fraction cross ABI");
+            Native.pik_sim_set_captain_jump_height(sim, (uint)captain, 150f);
+            var jump = new Native.Input { jump = 1 };
+            Native.pik_sim_set_input(sim, (uint)captain, ref jump);
+            float peak = 0f;
+            for (int tick = 0; tick < 120; tick++)
+            {
+                Native.pik_sim_advance(sim, ref host, 1f / 30f);
+                Native.pik_sim_captain(sim, (uint)captain, out var state);
+                peak = Math.Max(peak, state.pos.y);
+            }
+            Check(peak >= 150f, "host-sized jump reaches its requested apex through ABI");
         }
         finally { Native.pik_sim_free(sim); }
     }

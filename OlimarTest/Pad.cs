@@ -41,10 +41,11 @@ namespace OlimarTest
         public bool recentre, zoom, topView;
         // The Onion window: count direction held now (-1, 0, 1; up positive), and presses.
         public int menuV;
-        public bool confirm, cancel, onionMenu, releaseAll, returnAll;
+        public bool confirm, cancel, onionMenu, releaseAll, returnAll, heal;
         public bool usingPad;
         // Throw and whistle stay up until let go (the press that closed a window).
-        bool swallowThrow, swallowWhistle, swallowRelocate, swallowEquipment;
+        bool swallowThrow, swallowWhistle, swallowRelocate, swallowEquipment, swallowStrike;
+        bool strikeHeld;
         bool relocateHeld, equipmentHeld;
         public bool EquipmentBlocked => swallowEquipment;
 
@@ -72,6 +73,8 @@ namespace OlimarTest
                 zoom |= gp.rightStick.press.justPressed;
                 topView |= Pressed(gp.rightTrigger);
                 strikeNow = gp.rightBumper.value;
+                strikeHeld = gp.rightBumper.value;
+                heal |= gp.rightBumper.justPressed;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
                     look = gp.leftBumper.value ? Vector2.zero : gp.rightStick.value;
@@ -109,6 +112,8 @@ namespace OlimarTest
                 releaseAll |= player.GetButtonDown(Action.UtilitySkill);
                 returnAll |= player.GetButtonDown(Action.Equipment);
                 strikeNow = UnityEngine.Input.GetKey(KeyCode.F);
+                strikeHeld = strikeNow;
+                heal |= UnityEngine.Input.GetKeyDown(KeyCode.F);
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
                 recentre |= player.GetButtonDown(Action.Jump);
@@ -135,6 +140,11 @@ namespace OlimarTest
                 if (!relocateHeld) swallowRelocate = false;
             }
             if (swallowEquipment && !equipmentHeld) swallowEquipment = false;
+            if (swallowStrike)
+            {
+                strikeNow = false;
+                if (!strikeHeld) swallowStrike = false;
+            }
             throwTap |= throwNow;
             whistleTap |= whistleNow;
             relocateTap |= relocateNow;
@@ -150,6 +160,7 @@ namespace OlimarTest
         {
             swallowThrow = swallowWhistle = true;
             swallowRelocate = true;
+            swallowStrike = true;
             swallowEquipment |= equipmentHeld;
             jumpButton.Swallow();
             throwNow = whistleNow = relocateNow = strikeNow = cycleNow = false;
