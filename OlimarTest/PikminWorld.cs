@@ -65,7 +65,6 @@ namespace OlimarTest
         readonly Dictionary<int, OlimarDriver> driverOf = new Dictionary<int, OlimarDriver>();
         readonly List<int> onionIds = new List<int>();
         // Each Onion's RoR2 interactable (the Onion menu's prompt).
-        readonly Dictionary<int, InteractTarget> onionTargets = new Dictionary<int, InteractTarget>();
         // Each Onion's RoR2 body, as its Olimar's minion: his items, its own position.
         readonly Dictionary<int, Minion> onionMinions = new Dictionary<int, Minion>();
         readonly Dictionary<CharacterBody, int> onionBodyIds = new Dictionary<CharacterBody, int>();
@@ -264,6 +263,12 @@ namespace OlimarTest
                 case OnionCommandPacket.ReleaseFlyingAll:
                     ReleaseFlyingOnion(captain);
                     break;
+                case OnionCommandPacket.TriggerPlucker:
+                    TriggerOnionPlucker(captain);
+                    break;
+                case OnionCommandPacket.RecallStuck:
+                    RecallStuckCarriers(captain);
+                    break;
             }
         }
 
@@ -416,9 +421,6 @@ namespace OlimarTest
             onionOf.Clear();
             healing.Clear();
             dolphins.Clear();
-            foreach (var t in onionTargets.Values)
-                if (t) Destroy(t.gameObject);
-            onionTargets.Clear();
             foreach (var m in onionMinions.Values) m.Release();
             onionMinions.Clear();
             onionBodyIds.Clear();
@@ -855,12 +857,6 @@ namespace OlimarTest
             if (flight.airborne && flight.transitionDuration > 0f)
                 Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, flight.following ? (byte)0 : (byte)1,
                     Mathf.Clamp01(flight.transitionElapsed / flight.transitionDuration));
-            if (onionTargets.TryGetValue(flight.id, out var target) && target)
-            {
-                target.context = "Open the Onion (X again: release all but one)";
-                target.transform.position = flight.airborne && driverOf.TryGetValue(flight.captain, out var d) && d
-                    ? d.Body.footPosition : flight.position;
-            }
             if (onionMinions.TryGetValue(flight.id, out var minion))
                 // goal.mod's live pod centre is about 110 sim units (4.4 m) high;
                 // Commando's hidden body has its hurtbox about a metre above its feet.
@@ -1118,18 +1114,6 @@ namespace OlimarTest
             int id = Native.pik_sim_add_onion(sim, ref p, colours);
             if (id < 0) return;
             onionIds.Add(id);
-            // Standing under it shows RoR2's prompt; the button opens the Onion menu
-            // (NaviContainerState, naviState.cpp: the action button within reach of the
-            // Onion's 'cont' sphere). Opening it isn't a chest: no on-interact items.
-            onionTargets[id] = InteractTarget.Make($"Onion {id} (interact)", transform, UnityHost.ToUnity(p),
-                "Open the Onion",
-                who => Driver(who) is OlimarDriver d && d.CanOpenOnion(id),
-                who => {
-                    if (Driver(who) is OlimarDriver d)
-                    {
-                        d.OpenOnionMenu(id);
-                    }
-                });
             AddOnionMinion(id, UnityHost.ToUnity(p) + Vector3.up * 3.5f, owner);
         }
 
@@ -1144,12 +1128,6 @@ namespace OlimarTest
             }
             else Plugin.Log.LogWarning($"Onion {id}'s minion body didn't spawn; it won't get items");
         }
-
-        static OlimarDriver Driver(Interactor who) => who ? who.GetComponent<OlimarDriver>() : null;
-
-        /// Onion `onion`'s interactable, for the interact prompt; null if there's none.
-        public InteractTarget OnionTarget(int onion) =>
-            onionTargets.TryGetValue(onion, out var t) && t ? t : null;
 
         // The squad and Onion stock from the last stage, or the configured start of a run.
         /// The squad he starts a stage with: what he carried out of the last, or the starting counts
@@ -1328,6 +1306,36 @@ namespace OlimarTest
             hp.Heal(fraction * hp.fullHealth, default, true);
             healing[captain] = (Time.time, (byte)Math.Min(count, 255u));
             return true;
+        }
+
+        public bool TriggerOnionPlucker(int captain)
+        {
+            int onion = OnionInReach(captain);
+            if (onion < 0) return false;
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(OnionCommandPacket.TriggerPlucker, 0, 0);
+                return true;
+            }
+            return sim != IntPtr.Zero && Native.pik_sim_trigger_plucker(sim, (uint)onion) != 0;
+        }
+
+        public bool RecallStuckCarriers(int captain)
+        {
+            if (OnionInReach(captain) < 0) return false;
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(OnionCommandPacket.RecallStuck, 0, 0);
+                PlaySound(6, moverDriver.Body.footPosition);
+                return true;
+            }
+            if (sim == IntPtr.Zero) return false;
+            uint recalled = Native.pik_sim_recall_stuck_carriers(sim, (uint)captain);
+            if (driverOf.TryGetValue(captain, out var driver) && driver && driver.Body)
+                PlaySound(6, driver.Body.footPosition);
+            return recalled != 0;
         }
 
         // Resolve bulk commands on the server, against current stock, not a client's snapshot.

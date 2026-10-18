@@ -12,9 +12,9 @@ namespace OlimarTest
     // (the C-stick), LT: recentre the camera, right stick click: zoom, RT: top view (fixed camera).
     // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,
     // jump + secondary whistle, utility relocates the Onion, F strikes, special swarm toward the
-    // cursor, jump recentre, C zoom, sprint to run, mouse wheel for the next colour. The Onion window takes the stick or d-pad (WASD
-    // or arrow keys), A or a left click to confirm, X to release all but one stored Pikmin,
-    // Y to return the whole squad, and B or a right click to cancel.
+    // cursor, jump recentre, C zoom, sprint to run, mouse wheel for the next colour.
+    // Standing in a landed Onion's beam shows direct X/Y/RB/LB/A shortcuts; G recalls
+    // stuck carriers on keyboard.
     //
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap
     // between two 30 Hz ticks still registers. X is also RoR2's interact button: a press made
@@ -39,9 +39,8 @@ namespace OlimarTest
         public bool Strike => strikeNow || strikeTap;
         public bool Cycle => cycleNow || cycleTap;
         public bool recentre, zoom, topView;
-        // The Onion window: count direction held now (-1, 0, 1; up positive), and presses.
-        public int menuV;
-        public bool confirm, cancel, releaseAll, returnAll, heal;
+        // Direct shortcuts while standing in the Onion beam.
+        public bool confirm, cancel, releaseAll, returnAll, heal, recallStuck;
         public bool usingPad;
         // Throw and whistle stay up until let go (the press that closed a window).
         bool swallowThrow, swallowWhistle, swallowRelocate, swallowEquipment, swallowStrike;
@@ -75,6 +74,7 @@ namespace OlimarTest
                 strikeNow = gp.rightBumper.value;
                 strikeHeld = gp.rightBumper.value;
                 heal |= gp.rightBumper.justPressed;
+                recallStuck |= gp.leftBumper.justPressed;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
                     look = gp.leftBumper.value ? Vector2.zero : gp.rightStick.value;
@@ -90,8 +90,6 @@ namespace OlimarTest
                     if (cycleTarget) look = Vector2.zero;
                 }
                 else { look = Vector2.zero; lockHeld = cycleTarget = false; }
-                var ls = gp.leftStick.value;
-                menuV = gp.dPad.up.value || ls.y > 0.5f ? 1 : gp.dPad.down.value || ls.y < -0.5f ? -1 : 0;
                 confirm |= gp.a.justPressed;
                 cancel |= gp.b.justPressed;
             }
@@ -113,11 +111,11 @@ namespace OlimarTest
                 strikeNow = UnityEngine.Input.GetKey(KeyCode.F);
                 strikeHeld = strikeNow;
                 heal |= UnityEngine.Input.GetKeyDown(KeyCode.F);
+                recallStuck |= UnityEngine.Input.GetKeyDown(KeyCode.G);
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
                 recentre |= player.GetButtonDown(Action.Jump);
                 zoom |= UnityEngine.Input.GetKeyDown(KeyCode.C);
-                menuV = Key(KeyCode.UpArrow) || move.y > 0.5f ? 1 : Key(KeyCode.DownArrow) || move.y < -0.5f ? -1 : 0;
                 confirm |= player.GetButtonDown(Action.PrimarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Return)
                            || UnityEngine.Input.GetKeyDown(KeyCode.KeypadEnter);
                 cancel |= player.GetButtonDown(Action.SecondarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Backspace);
@@ -164,8 +162,6 @@ namespace OlimarTest
             throwNow = whistleNow = relocateNow = strikeNow = cycleNow = false;
             throwTap = whistleTap = relocateTap = strikeTap = cycleTap = false;
         }
-
-        static bool Key(KeyCode k) => UnityEngine.Input.GetKey(k);
 
         /// Clears the taps once the sim has run a tick with them.
         public void Ticked()

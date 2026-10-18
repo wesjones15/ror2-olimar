@@ -96,6 +96,11 @@ namespace OlimarTest
             if (view != IntPtr.Zero) Native.pik_view_set_healing(view, captain, progress, ghosts);
         }
 
+        public void SetOnionGround(uint onion, float height)
+        {
+            if (view != IntPtr.Zero) Native.pik_view_set_onion_ground(view, onion, height);
+        }
+
         public void PlaySound(byte sound, Native.Vec3 at)
         {
             if (view != IntPtr.Zero) Native.pik_view_play_sound(view, sound, at);

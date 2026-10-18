@@ -21,6 +21,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_ship_part_competitive_delivery(IntPtr sim, byte enabled);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_ship_part_owner(IntPtr sim, uint ship, uint captain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_ship_repair_mode(IntPtr view, byte enabled);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_onion_ground(IntPtr view, uint onion, float height);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_ship_part_host_delivery(IntPtr sim, byte enabled);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_victory_pcm(byte[] assets, float[] output, uint cap, out uint rate);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_celebrating(IntPtr view, byte enabled);
@@ -53,6 +54,8 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_carry(IntPtr sim, float range);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_give_onion_seeds(IntPtr sim, uint onion, uint color, uint seeds);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_pluck(IntPtr sim, float seconds);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_trigger_plucker(IntPtr sim, uint onion);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_recall_stuck_carriers(IntPtr sim, uint captain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_emergency(IntPtr sim, float seconds, uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_onion_owner(IntPtr sim, uint onion, int captain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern float pik_sim_heal_squad(IntPtr sim, uint captain, float amount);

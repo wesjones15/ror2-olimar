@@ -23,7 +23,12 @@ namespace OlimarTest
             public float nextGhost;
         }
         readonly Dictionary<int, HealingAudio> healingAudio = new Dictionary<int, HealingAudio>();
-        internal void PlaySound(byte sound, Vector3 at) => models?.PlaySound(sound, UnityHost.ToSim(at));
+        float recallWhistleUntil;
+        internal void PlaySound(byte sound, Vector3 at)
+        {
+            models?.PlaySound(sound, UnityHost.ToSim(at));
+            if (sound == 6) recallWhistleUntil = Time.unscaledTime + 0.28f;
+        }
         readonly HashSet<int> drawnCaptains = new HashSet<int>();
 
         static readonly Color[] PikiColours =
@@ -156,6 +161,11 @@ namespace OlimarTest
 
         void DrawModels()
         {
+            if (recallWhistleUntil > 0f && Time.unscaledTime >= recallWhistleUntil)
+            {
+                models.PlaySound(7, default);
+                recallWhistleUntil = 0f;
+            }
             models.Celebrate(ShipRepairSession.Instance && ShipRepairSession.Instance.Winning);
             var frame = new Native.ViewFrame
             {
@@ -186,6 +196,15 @@ namespace OlimarTest
             foreach (var d in drivers)
                 if (d.ViewCaptain >= 0 && user != null && d.Body && d.Body == user.cachedBody)
                     frame.listener = d.ViewCaptain;
+            for (int i = 0; i < world.OnionCount; i++)
+            {
+                var onion = world.Onions[i];
+                if (onion.is_ship != 0) continue;
+                var at = UnityHost.ToUnity(onion.pos);
+                if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var hit,
+                    250f, UnityHost.Mask, QueryTriggerInteraction.Ignore) && hit.normal.y >= .5f)
+                    models.SetOnionGround(onion.id, hit.point.y / UnityHost.Scale);
+            }
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.DataHandle, ref frame, UnityHost.Scale, d =>
                 (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id)

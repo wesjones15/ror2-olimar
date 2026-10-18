@@ -12,9 +12,8 @@ namespace OlimarTest
     {
         static readonly Dictionary<uint, Texture2D> icons = new Dictionary<uint, Texture2D>();
         static readonly Texture2D[] digits = new Texture2D[10];
+        static readonly Dictionary<char, Texture2D> locationGlyphs = new Dictionary<char, Texture2D>();
         static string loadedFrom;
-        static GUIStyle textStyle, locationStyle;
-        static Font locationFont;
         static readonly Color cream = new Color(1f, .94f, .72f);
         static readonly Color gold = new Color(1f, .78f, .28f);
         static readonly Color dim = new Color(.62f, .71f, .65f);
@@ -24,8 +23,9 @@ namespace OlimarTest
         {
             if (!Plugin.AssetsReady || string.IsNullOrEmpty(Plugin.AssetsDir)) return;
             if (loadedFrom == Plugin.AssetsDir) return;
-            foreach (var texture in icons.Values.Concat(digits)) if (texture) UnityEngine.Object.Destroy(texture);
-            icons.Clear(); loadedFrom = Plugin.AssetsDir;
+            foreach (var texture in icons.Values.Concat(digits).Concat(locationGlyphs.Values))
+                if (texture) UnityEngine.Object.Destroy(texture);
+            icons.Clear(); locationGlyphs.Clear(); loadedFrom = Plugin.AssetsDir;
             var path = Native.CString(loadedFrom);
             foreach (uint id in new uint[] { 7, 8, 9, 10, 19, 21 })
             {
@@ -40,6 +40,13 @@ namespace OlimarTest
                 var rgba = new byte[checked((int)(info.width * info.height * 4))];
                 if (Native.pik_number_texture(path, i, 0, out info, rgba, (uint)rgba.Length) != 0)
                     digits[i] = Texture(info, rgba, "Ship Repair bubble digit " + i);
+            }
+            for (uint c = 33; c <= 126; c++)
+            {
+                if (Native.pik_font_glyph_texture(path, c, out var info, null, 0) == 0) continue;
+                var rgba = new byte[checked((int)(info.width * info.height * 4))];
+                if (Native.pik_font_glyph_texture(path, c, out info, rgba, (uint)rgba.Length) != 0)
+                    locationGlyphs[(char)c] = Texture(info, rgba, "Pikmin bigFont " + (char)c);
             }
         }
 
@@ -70,13 +77,7 @@ namespace OlimarTest
             value.Length <= max ? value : value.Substring(0, max - 3) + "...";
         static void Text(string value, float x, float y, float size, Color color, bool centered = false)
         {
-            if (string.IsNullOrEmpty(value)) return;
-            if (textStyle == null) textStyle = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold };
-            textStyle.fontSize = Mathf.RoundToInt(size * .8f);
-            textStyle.normal.textColor = color;
-            var content = new GUIContent(value);
-            float width = textStyle.CalcSize(content).x;
-            GUI.Label(new Rect(centered ? x - width * .5f : x, y, width + 8f, size + 6f), content, textStyle);
+            ShipRepairText.Draw(value, x, y, size, color, centered);
         }
 
         static void BubbleNumber(int value, Rect rect, int minimumDigits = 1, Color? tint = null)
@@ -100,20 +101,26 @@ namespace OlimarTest
         static void LocationText(string value, float center, float y, int size, Color color)
         {
             if (string.IsNullOrEmpty(value)) return;
-            if (locationStyle == null)
+            if (locationGlyphs.Count == 0)
             {
-                locationFont = Font.CreateDynamicFontFromOSFont(new[] { "Comic Sans MS", "Segoe Print" }, 64);
-                locationStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter,
-                    font = locationFont, fontStyle = FontStyle.Bold };
+                Text(value, center, y, size, color, true);
+                return;
             }
-            locationStyle.fontSize = size;
-            var rect = new Rect(center - 690f, y, 1380f, size * 1.65f);
-            locationStyle.normal.textColor = new Color(.1f, .045f, .015f, color.a);
-            for (int dx = -2; dx <= 2; dx += 2)
-                for (int dy = -2; dy <= 2; dy += 2)
-                    GUI.Label(new Rect(rect.x + dx, rect.y + dy, rect.width, rect.height), value, locationStyle);
-            locationStyle.normal.textColor = color;
-            GUI.Label(rect, value, locationStyle);
+            float advance = size * .68f;
+            float x = center - value.Length * advance * .5f;
+            var old = GUI.color;
+            foreach (char c in value)
+            {
+                if (locationGlyphs.TryGetValue(c, out var glyph))
+                {
+                    GUI.color = new Color(.08f, .035f, .01f, color.a);
+                    GUI.DrawTexture(new Rect(x + 2f, y + 2f, size, size), glyph);
+                    GUI.color = color;
+                    GUI.DrawTexture(new Rect(x, y, size, size), glyph);
+                }
+                x += advance;
+            }
+            GUI.color = old;
         }
 
         static float Begin()
@@ -137,16 +144,10 @@ namespace OlimarTest
             Fill(new Rect(x, y, w, 5f), gold);
             Icon(7, new Rect(x + 17f, y + 37f, 81f, 112f));
             Text("SHIP REPAIR", x + 105f, y + 15f, 43f, cream);
-            if (textStyle == null) textStyle = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold };
-            textStyle.wordWrap = true;
-            textStyle.fontSize = 17;
-            textStyle.normal.textColor = gold;
-            GUI.Label(new Rect(x + 105f, y + 67f, w - 123f, 57f),
-                "Compete with your friends to repair your Dolphin first!", textStyle);
-            textStyle.normal.textColor = cream;
-            GUI.Label(new Rect(x + 105f, y + 124f, w - 123f, 72f),
-                "Build your pikmin army! you get bonus points at the end for your pikmin squad size.", textStyle);
-            textStyle.wordWrap = false;
+            ShipRepairText.Draw("Compete with your friends to repair your Dolphin first!",
+                x + 105f, y + 67f, 22f, gold, width: w - 123f, height: 57f);
+            ShipRepairText.Draw("Build your pikmin army! you get bonus points at the end for your pikmin squad size.",
+                x + 105f, y + 124f, 22f, cream, width: w - 123f, height: 72f);
             if (!string.IsNullOrEmpty(error)) Text(error, x + w * .5f, y + 192f, 19f, new Color(1f, .45f, .4f), true);
             GUI.matrix = old;
         }
@@ -195,8 +196,7 @@ namespace OlimarTest
             int oldDepth = GUI.depth;
             GUI.depth = -1000;
             var old = GUI.matrix; float width = Begin();
-            // RoR2's bottom continuation prompt and ready indicators remain visible.
-            Fill(new Rect(0f, 0f, width, 994f), new Color(.015f, .04f, .09f, .98f));
+            // Leave the stock gameover screen and its X/players uncovered.
             float center = width * .5f;
             Fill(new Rect(center - 485f, 57f, 970f, 299f), new Color(.035f, .12f, .2f, .93f));
             Fill(new Rect(center - 485f, 57f, 970f, 4f), new Color(.17f, .49f, .76f));
@@ -228,8 +228,6 @@ namespace OlimarTest
                 BubbleNumber(p.Score, new Rect(x + 759f, at - 4f, 111f, rowHeight - 5f), 2,
                     p.Winner ? new Color(1f, .94f, .62f) : Color.white);
             }
-            Icon(8, new Rect(center - 132f, 907f, 49f, 49f));
-            Text("CONTINUE", center + 15f, 915f, 25f, cream, true);
             GUI.matrix = old;
             GUI.depth = oldDepth;
         }

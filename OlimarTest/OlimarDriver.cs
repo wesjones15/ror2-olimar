@@ -108,18 +108,14 @@ namespace OlimarTest
         public bool HasState;
         public bool Whistling => pad.Whistle;
 
-        // The Onion window: which Onion it's open on (-1 closed), and how many
-        // to call out (> 0) or put away (< 0) on confirm.
+        // The Onion shortcut popup is visible only while Olimar stands in its beam.
         int menuOnion = -1;
-        int menuDelta, menuOpenedFrame;
+        int menuOpenedFrame;
         string menuNote;
         bool onionPressClaimed, strikeSwallow;
         FlyingXPolicy flyingX;
         /// Locked onto an enemy this tick (RT held).
         public bool LockedOn { get; private set; }
-        int lastV;
-        int lastBoundaryV;
-        float repeatAt;
         public bool MenuOpen => menuOnion >= 0;
         internal bool BlocksEquipment => MenuOpen || pad.EquipmentBlocked;
 
@@ -236,7 +232,7 @@ namespace OlimarTest
             OnionPrompt();
             if (MenuOpen && Time.frameCount > menuOpenedFrame) MenuInput();
             else if (!MenuOpen) FlyingXInput();
-            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = false;
+            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.recallStuck = false;
 
         }
 
@@ -347,10 +343,10 @@ namespace OlimarTest
                     Native.pik_sim_launch_captain(world.SimHandle, (uint)captain, ref v,
                         padLaunch ? Mathf.Abs(Physics.gravity.y) / UnityHost.Scale : 0f, B(padLaunch));
                 }
-                // The Onion window has the stick and buttons.
+                // Walking out of the beam dismisses the shortcut popup.
                 if (MenuOpen)
                 {
-                    i.stick_x = i.stick_y = i.swarm_x = i.swarm_y = 0f;
+                    i.swarm_x = i.swarm_y = 0f;
                     i.throw_ = i.whistle = i.dismiss = i.cycle = i.jump = 0;
                 }
             }
@@ -636,13 +632,8 @@ namespace OlimarTest
         static byte B(bool v) => v ? (byte)1 : (byte)0;
 
         // ------------------------------------------------------------------------------------
-        // The Onion menu (NaviContainerState, naviState.cpp). Under an Onion RoR2 shows its own
-        // interact prompt (an InteractTarget, as his InteractionDriver's override), and the
-        // interact button opens a window: up/down sets how many Pikmin come out of the Onion
-        // (or go in) across all colours, A confirms, X releases all but one stored Pikmin,
-        // Y returns the squad and B cancels. Pikmin
-        // pauses the game for it; RoR2 can't (others keep playing), so Olimar stands still and
-        // his Pikmin keep going meanwhile.
+        // The landed Onion's beam offers direct actions. Olimar may walk out
+        // while the popup is visible; RoR2 and his Pikmin keep running.
 
         InteractionDriver Interaction()
         {
@@ -661,40 +652,33 @@ namespace OlimarTest
             else if (action == FlyingXAction.Land) world.CommandOnion(DataCaptain, false);
         }
 
-        // Points RoR2's interact prompt at the Onion in reach, or takes it back.
+        // Show the shortcut popup automatically in the landed beam. Real RoR2
+        // interact prompts still have first claim on X.
         void OnionPrompt()
         {
             var world = PikminWorld.Instance;
-            InteractTarget want = null;
-            // Chests, shrines and other RoR2 interactions keep priority over our prompt.
             var driver = Interaction();
             InteractTarget.Override(driver, null);
             realPrompt = InteractGuard.PromptShown(driver);
-            if (!realPrompt && !MenuOpen && world && localUser != null && Active)
-            {
-                int o = world.OnionInReach(DataCaptain);
-                if (o >= 0) want = world.OnionTarget(o);
-            }
-            InteractTarget.Override(Interaction(), want);
+            int onion = !realPrompt && world && localUser != null && Active
+                ? world.OnionInReach(DataCaptain) : -1;
+            if (onion < 0) { if (MenuOpen) CloseMenu(); }
+            else if (menuOnion != onion) OpenOnionMenu(onion);
         }
 
-        /// Onion `onion` can be opened by him now (its InteractTarget's prompt).
+        /// Onion `onion` has a landed beam Olimar can stand in now.
         public bool CanOpenOnion(int onion) =>
             onion >= 0 && !MenuOpen && Active && PikminWorld.Instance && PikminWorld.Instance.OnionInReach(DataCaptain) == onion;
 
-        /// The interact button on Onion `onion`.
-        public void OpenOnionMenu(int onion)
+        void OpenOnionMenu(int onion)
         {
             if (!CanOpenOnion(onion)) return;
             menuOnion = onion;
-            menuDelta = 0;
             menuNote = null;
             menuOpenedFrame = Time.frameCount;
-            lastV = 0;
-            lastBoundaryV = 0;
             flyingX.Cancel();
             PikminWorld.Instance.PlaySound(0, Body.footPosition);
-            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = false;
+            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.recallStuck = false;
         }
 
         void CloseMenu()
@@ -702,7 +686,6 @@ namespace OlimarTest
             if (MenuOpen && PikminWorld.Instance && Body)
                 PikminWorld.Instance.PlaySound(3, Body.footPosition);
             menuOnion = -1;
-            menuDelta = 0;
             pad.Swallow();
         }
 
@@ -714,70 +697,40 @@ namespace OlimarTest
                 CloseMenu();
                 return;
             }
-            if (pad.cancel)
-            {
-                CloseMenu();
-                return;
-            }
             if (pad.releaseAll || pad.returnAll)
             {
                 byte kind = pad.releaseAll ? OnionCommandPacket.ReleaseAll : OnionCommandPacket.ReturnAll;
-                if (world.ManageOnion(DataCaptain, kind)) CloseMenu();
+                pad.releaseAll = pad.returnAll = false;
+                if (world.ManageOnion(DataCaptain, kind)) menuNote = null;
                 else { menuNote = "Stand in the Onion beam to manage Pikmin."; world.PlaySound(2, Body.footPosition); }
                 return;
             }
             if (pad.heal)
             {
+                pad.heal = false;
                 world.HealFromOnion(DataCaptain);
-                CloseMenu();
                 return;
             }
-            // One step a press; held, after a moment, quickly (the viewer's window does the same).
-            int v = pad.menuV;
-            int before = menuDelta;
-            bool stepped = false;
-            if (v != 0 && (v != lastV || Time.unscaledTime >= repeatAt))
+            if (pad.recallStuck)
             {
-                repeatAt = Time.unscaledTime + (v != lastV ? 0.35f : 0.06f);
-                menuDelta += v;
-                stepped = true;
+                pad.recallStuck = false;
+                world.RecallStuckCarriers(DataCaptain);
+                return;
             }
-            lastV = v;
-            if (world.OnionTotals(menuOnion, DataCaptain, out var n))
-            {
-                menuDelta = OnionMenuPolicy.Clamp(menuDelta, n.in_squad, n.in_onion,
-                    n.max_on_field > n.on_field ? n.max_on_field - n.on_field : 0);
-            }
-            if (stepped)
-            {
-                if (menuDelta != before) { world.PlaySound(1, Body.footPosition); lastBoundaryV = 0; }
-                else if (lastBoundaryV != v) { world.PlaySound(2, Body.footPosition); lastBoundaryV = v; }
-            }
-            if (v == 0) lastBoundaryV = 0;
             if (pad.confirm)
             {
-                if (menuDelta == 0 || world.ManageOnion(DataCaptain,
-                    menuDelta > 0 ? OnionCommandPacket.CallOutAny : OnionCommandPacket.PutAwayAny,
-                    (uint)Math.Abs(menuDelta))) CloseMenu();
-                else { menuNote = "Stand in the Onion beam to manage Pikmin."; world.PlaySound(2, Body.footPosition); }
+                pad.confirm = false;
+                if (!world.TriggerOnionPlucker(DataCaptain))
+                    menuNote = "No ready sprouts near the Onion.";
+                else menuNote = null;
             }
         }
 
-        GUIStyle titleStyle, labelStyle, countStyle, noteStyle, hintStyle, hudStyle;
         Texture2D panelTex, stripeTex;
 
         void MenuStyles()
         {
-            if (titleStyle != null) return;
-            titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleLeft };
-            labelStyle.normal.textColor = new Color(0.85f, 0.85f, 0.85f);
-            countStyle = new GUIStyle(GUI.skin.label) { fontSize = 40, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight };
-            countStyle.normal.textColor = Color.white;
-            noteStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
-            hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, alignment = TextAnchor.MiddleCenter, wordWrap = true };
-            hintStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
-            hudStyle = new GUIStyle(GUI.skin.label) { fontSize = 28, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            if (panelTex) return;
             panelTex = Solid(new Color(0.05f, 0.06f, 0.08f, 0.88f));
             stripeTex = Solid(Color.white);
         }
@@ -799,17 +752,12 @@ namespace OlimarTest
                 HideMenuGlyphs();
                 return;
             }
-            if (!PikminWorld.Instance.OnionTotals(menuOnion, DataCaptain, out var n))
-            {
-                HideMenuGlyphs();
-                return;
-            }
             MenuStyles();
             float k = Screen.height / 1080f;
             var saved = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
             float sw = Screen.width / k;
-            const float w = 680f, h = 480f;
+            const float w = 560f, h = 410f;
             var r = new Rect((sw - w) / 2f, 1080f * 0.5f - h / 2f, w, h);
             var colour = new Color(0.8f, 0.95f, 0.65f);
             var savedColour = GUI.color;
@@ -818,43 +766,8 @@ namespace OlimarTest
             GUI.DrawTexture(new Rect(r.x, r.y, w, 6f), stripeTex);
             GUI.color = savedColour;
 
-            float x = r.x + 40f, cw = w - 80f, y = r.y + 18f;
-            titleStyle.normal.textColor = colour;
-            GUI.Label(new Rect(r.x, y, w, 40f), "Onion — all Pikmin", titleStyle);
-            y += 44f;
-            noteStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
-            GUI.Label(new Rect(r.x, y, w, 30f), menuNote ?? "Choose how many to call out or put away", noteStyle);
-            y += 36f;
-            Row(x, y, cw, "In the Onion", (int)n.in_onion - menuDelta);
-            y += 52f;
-            noteStyle.normal.textColor = menuDelta == 0 ? new Color(0.6f, 0.6f, 0.6f) : colour;
-            string move = menuDelta > 0 ? $"calling {menuDelta} out" : menuDelta < 0 ? $"putting {-menuDelta} away" : "-";
-            GUI.Label(new Rect(r.x, y, w, 30f), move, noteStyle);
-            y += 38f;
-            Row(x, y, cw, "With Olimar", (int)n.in_squad + menuDelta);
-            y += 56f;
-            noteStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
-            string fieldLabel = $"Pikmin on the field: {n.on_field + (uint)Math.Max(menuDelta, 0)}";
-            if (n.max_on_field < int.MaxValue) fieldLabel += $" / {n.max_on_field}";
-            GUI.Label(new Rect(r.x, y, w, 28f), fieldLabel, noteStyle);
-            y += 38f;
-            if (pad.usingPad) ShowMenuGlyphs();
-            else
-            {
-                HideMenuGlyphs();
-                GUI.Label(new Rect(r.x + 20f, y, w - 40f, 44f),
-                    "W/S or arrows: choose count   Click/Enter: confirm   Right-click: close", hintStyle);
-            }
-            y += 42f;
-            if (!pad.usingPad) GUI.Label(new Rect(r.x + 20f, y, w - 40f, 100f),
-                "Utility: release all but one stored Pikmin\nEquipment: return the whole squad\nF: heal from Onion stock (keep one)\nLeaf 5% / Bud 10% / Flower 20% health", hintStyle);
+            ShowMenuGlyphs(menuNote);
             GUI.matrix = saved;
-        }
-
-        void Row(float x, float y, float w, string label, int count)
-        {
-            GUI.Label(new Rect(x, y, w, 46f), label, labelStyle);
-            GUI.Label(new Rect(x, y, w, 46f), count.ToString(), countStyle);
         }
     }
 }

@@ -39,7 +39,7 @@ namespace OlimarTest
     internal static class PikminEnvelope
     {
         /// Bumped whenever a wire format changes; a message with another number is ignored.
-        public const byte Protocol = 4;
+        public const byte Protocol = 5;
         /// pikmin.dll's ABI (Native.AbiVersion), compared so a mismatched build is refused.
         public static byte Abi = 35;
 
@@ -150,7 +150,7 @@ namespace OlimarTest
 
         public const byte Follow = 0, Land = 1, CallOut = 2, PutAway = 3;
         public const byte CallOutAny = 4, PutAwayAny = 5, ReleaseAll = 6, ReturnAll = 7;
-        public const byte Heal = 8, ReleaseFlyingAll = 9;
+        public const byte Heal = 8, ReleaseFlyingAll = 9, TriggerPlucker = 10, RecallStuck = 11;
 
         public static byte[] Write(in OnionCommandPacket p)
         {
@@ -171,7 +171,7 @@ namespace OlimarTest
             p.kind = r.U8();
             p.colour = r.U8();
             p.count = r.U32();
-            return !r.Failed && r.Done && p.kind <= ReleaseFlyingAll;
+            return !r.Failed && r.Done && p.kind <= RecallStuck;
         }
     }
 }

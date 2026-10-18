@@ -8,7 +8,6 @@ namespace OlimarTest
         Texture2D carryDigits;
         float nextCarryDigitLoad;
         readonly int[] carrierColours = new int[3];
-        GUIStyle carryFallback;
 
         // The original LifeGaugeMgr loads intro/item_0_9.bti and GaugeInfo::refresh
         // stacks the required count, dash and current count above a lifted object
@@ -78,20 +77,18 @@ namespace OlimarTest
             float size = Mathf.Clamp(Screen.height / 1080f * 31f, 18f, 52f);
             if (!carryDigits)
             {
-                if (carryFallback == null)
-                    carryFallback = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter,
-                        fontSize = 24, fontStyle = FontStyle.Bold };
-                carryFallback.normal.textColor = tint;
-                GUI.Label(new Rect(x - 45f, y - 68f, 90f, 68f), $"{required}\n—\n{current}", carryFallback);
+                float scale = Screen.height / 1080f;
+                ShipRepairText.Draw($"{current} / {required}", x / scale, (y - 58f) / scale,
+                    24f, tint, true, 120f, 36f);
                 return;
             }
             var saved = GUI.color;
             GUI.color = tint;
             // GaugeInfo::refresh shrinks the less relevant value to 75%.
             bool lifting = current >= required;
-            DrawCarryNumber(x, y - size * 2.1f, required, size * (lifting ? 0.75f : 1f));
+            DrawCarryNumber(x, y - size * 2.1f, current, size * (lifting ? 1f : 0.75f));
             DrawCarryGlyph(x, y - size * 1.1f, 10, size * 0.75f);
-            DrawCarryNumber(x, y - size * 0.2f, current, size * (lifting ? 1f : 0.75f));
+            DrawCarryNumber(x, y - size * 0.2f, required, size * (lifting ? 0.75f : 1f));
             GUI.color = saved;
         }
 
