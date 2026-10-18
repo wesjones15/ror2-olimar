@@ -823,7 +823,9 @@ namespace OlimarTest
             Row(x, y, cw, "With Olimar", (int)n.in_squad + menuDelta);
             y += 56f;
             noteStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
-            GUI.Label(new Rect(r.x, y, w, 28f), $"Pikmin on the field: {n.on_field + (uint)Math.Max(menuDelta, 0)} / {n.max_on_field}", noteStyle);
+            string fieldLabel = $"Pikmin on the field: {n.on_field + (uint)Math.Max(menuDelta, 0)}";
+            if (n.max_on_field < int.MaxValue) fieldLabel += $" / {n.max_on_field}";
+            GUI.Label(new Rect(r.x, y, w, 28f), fieldLabel, noteStyle);
             y += 38f;
             string hint = pad.usingPad
                 ? "LS up/down: choose count   A: confirm   B: close"
