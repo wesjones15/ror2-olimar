@@ -6,6 +6,12 @@ namespace OlimarTest
     // the opposite action; colours are chosen internally only when the transfer executes.
     internal static class OnionMenuPolicy
     {
+        // The landed Onion's central beam (the core's 70-unit container reach), at ground level.
+        internal static bool InBeam(bool airborne, bool following, bool dormant, bool grounded,
+            float x, float y, float z) =>
+            !airborne && !following && !dormant && grounded
+            && Math.Abs(y) < 25f && x * x + z * z < 70f * 70f;
+
         internal static int Clamp(int delta, uint squad, uint stock, uint room) =>
             Math.Max(-(int)squad, Math.Min(delta, (int)Math.Min(stock, room)));
 

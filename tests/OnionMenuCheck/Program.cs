@@ -8,6 +8,14 @@ static class Program
 
     static void Main()
     {
+        Check(OnionMenuPolicy.InBeam(false, false, false, true, 0, 0, 0), "standing in landed beam enables interact");
+        Check(!OnionMenuPolicy.InBeam(true, true, false, true, 0, 0, 0), "following Onion never opens menu");
+        Check(!OnionMenuPolicy.InBeam(true, false, false, true, 0, 0, 0), "landing or taking-off Onion never opens menu");
+        Check(!OnionMenuPolicy.InBeam(false, false, true, true, 0, 0, 0), "dormant Onion never opens menu");
+        Check(!OnionMenuPolicy.InBeam(false, false, false, false, 0, 0, 0), "jumping through beam does not open menu");
+        Check(!OnionMenuPolicy.InBeam(false, false, false, true, 71, 0, 0), "outside beam keeps X for relocation");
+        Check(!OnionMenuPolicy.InBeam(false, false, false, true, 0, 30, 0), "above beam ground level cannot interact");
+        Check(!OnionMenuPolicy.InBeam(false, false, false, true, 0, -30, 0), "below the Onion on another floor cannot interact");
         int delta = 0;
         for (int i = 0; i < 1000; i++) delta = OnionMenuPolicy.Clamp(delta + 1, 20, 30, 100);
         Check(delta == 30, "holding call out stops at stock without wrapping to put away");

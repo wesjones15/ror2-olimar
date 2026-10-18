@@ -93,8 +93,9 @@ What works:
   It arrives airborne alongside the Dolphin, lands to release the squad, and stays planted until raised. With the Pikmin controls X lowers a
   flying Onion where he stands and raises a landed one to follow him (each takes a relocation
   charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
-  its menu, and at a chest it opens the chest. D-pad up / Tab opens the menu, including during
-  flight. The menu is a single page for all colours: up/down chooses an exact number to call out
+  its menu, and at a chest it opens the chest. The menu only opens while Olimar stands in the
+  central beam of his landed Onion, and closes if he leaves it or the Onion takes off.
+  The menu is a single page for all colours: up/down chooses an exact number to call out
   or put away, A/left click confirms, and B/right click closes. Counts stop at their limits without wrapping.
   **X** in the menu releases all stored Pikmin except one (subject to the field cap); press X twice
   under the Onion to open and release. **Y** in the menu returns the whole squad and consumes that
@@ -105,9 +106,8 @@ What works:
   Dolphin recovery effects play at Olimar for two seconds with one Pikmin ghost per sacrifice;
   the effect and ghost count are replicated to other players.
   Raise/lower commands stay on the utility button outside interact prompts, with no movement pages in the menu.
-  Flying Onions use the same page and can release Pikmin directly: they slide halfway down a leg,
-  then let go and fall. Returning Pikmin lands the Onion first using a relocation charge and
-  executes after touchdown while Olimar stays nearby. A hovering Onion
+  Flying, taking-off and landing Onions never show a menu or accept menu commands.
+  Native flying call-outs still slide halfway down a leg, then let go and fall. A hovering Onion
   descends towards nearby pellets before collecting them, and the Pikmin they make stay inside it as leaves instead of being planted. Loose ground pellets are eligible even with no Pikmin alive. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
   moving, so Bustling Fungus only activates after the Onion has landed and stood still for
@@ -170,7 +170,6 @@ position, so your RoR2 binds don't change it:
 | RoR2 sprint bind | sprint              | sprint until movement stops  |
 | RT (fixed camera only) |               | top view                     |
 | X under an Onion | interact            | open the Onion window        |
-| d-pad up         | Tab                 | Onion menu (including in flight) |
 
 The camera is a stand-in for Pikmin's: it looks down from behind and only turns when told
 to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
@@ -337,7 +336,12 @@ particles, and rocket sound start/stop. In-game visual acceptance is still manua
 
 ## Arrival music
 
-Phase 6: the first 3.5 seconds of Impact Site (tutorial.jam) play once per local body when DolphinArrival ends. Stage arrivals and respawns can play it again. SpawnMusic.Enabled and SpawnMusic.Volume control it; master and music volume also apply. The build synthesizes spawn.wav from your extracted disc audio into the ignored dist folder. Rebuild after extracting assets if the clip is missing. No music data is committed.
+The first 3.5 seconds of Impact Site (tutorial.jam) play once per run when Olimar first
+emerges on the first stage. SpawnMusic.Enabled and SpawnMusic.Volume control it; master
+and music volume also apply. Like Mario, the first-run asset worker renders the intro
+from your extracted disc banks into `AssetsDir/ror2_audio/spawn.wav`, with a versioned
+cache. Later starts reuse it without a disc or rebuild, and missing or outdated clips
+are regenerated. Only DLLs and the assets pointer are deployed; no music ships with them.
 
 Olimar's death plays the full vanilla sundown bell. ABI 28 renders it from your disc into
 memory when the sound view loads, then plays it through the death-sting player so game-over

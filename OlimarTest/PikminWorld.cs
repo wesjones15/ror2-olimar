@@ -102,9 +102,6 @@ namespace OlimarTest
             public bool reviving;
             public int pickup = -1;
             public float pickupDwell;
-            public bool transferPending;
-            public byte transferKind;
-            public uint transferCount;
         }
         readonly Dictionary<CharacterMaster, Cargo> cargo = new Dictionary<CharacterMaster, Cargo>();
         sealed class DolphinFlight
@@ -784,7 +781,6 @@ namespace OlimarTest
             {
                 if (flight.dormant)
                 {
-                    flight.transferPending = false;
                     bool disabled = true;
                     byte anim = 0;
                     for (int i = 0; i < OnionCount; i++)
@@ -840,13 +836,6 @@ namespace OlimarTest
                     if (!flight.airborne) flight.transitionDuration = 0f;
                 }
                 WriteFlight(flight);
-                if (flight.transferPending && !flight.airborne)
-                {
-                    flight.transferPending = false;
-                    if (driverOf.TryGetValue(flight.captain, out var owner) && owner && owner.Active
-                        && OnionInReach(flight.captain) == flight.id)
-                        ApplyOnionTransfer(flight.captain, flight.id, flight.transferKind, flight.transferCount);
-                }
             }
         }
 
@@ -933,7 +922,6 @@ namespace OlimarTest
                 return false;
             }
             if (f.dormant) return false;
-            if (follow) f.transferPending = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
             if (follow == f.following && (follow || f.airborne)) return true;
@@ -1115,19 +1103,25 @@ namespace OlimarTest
                 // The server's word on his Onion, and where it stands.
                 if (sim == IntPtr.Zero || !moverDriver || !moverDriver.Body || !remoteInfo.TryGetValue(captain, out var info) || info.onion < 0)
                     return -1;
-                if (OnionDisabled(info.onion)) return -1;
-                if (info.OnionFollowing) return info.onion;
                 for (int i = 0; i < OnionCount; i++)
                     if (Onions[i].id == info.onion)
-                        return Vector3.Distance(moverDriver.Body.footPosition, UnityHost.ToUnity(Onions[i].pos)) < 70f * UnityHost.Scale
-                            ? info.onion : -1;
+                        return InOnionBeam(moverDriver, moverSim, 0, UnityHost.ToUnity(Onions[i].pos),
+                            info.OnionAirborne, info.OnionFollowing, OnionDisabled(info.onion)) ? info.onion : -1;
                 return -1;
             }
             if (sim == IntPtr.Zero || !onionOf.TryGetValue(captain, out var f)
                 || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body) return -1;
-            if (f.dormant) return -1;
-            return f.following || Vector3.Distance(d.Body.footPosition, f.airborne ? f.landing : f.position)
-                < 70f * UnityHost.Scale ? f.id : -1;
+            return InOnionBeam(d, sim, captain, f.position, f.airborne, f.following, f.dormant) ? f.id : -1;
+        }
+
+        static bool InOnionBeam(OlimarDriver driver, IntPtr captainSim, int captain, Vector3 position,
+            bool airborne, bool following, bool dormant)
+        {
+            if (!driver.Active || captainSim == IntPtr.Zero
+                || Native.pik_sim_captain(captainSim, (uint)captain, out var state) == 0) return false;
+            var offset = (driver.Body.footPosition - position) / UnityHost.Scale;
+            return OnionMenuPolicy.InBeam(airborne, following, dormant, state.on_ground != 0,
+                offset.x, offset.y, offset.z);
         }
 
         public bool OnionCounts(int onion, int captain, uint colour, out Native.OnionCounts counts)
@@ -1184,7 +1178,7 @@ namespace OlimarTest
         }
 
         // Resolve bulk commands on the server, against current stock, not a client's snapshot.
-        // Call-outs work while hovering. Putting away lands first with the normal utility cost.
+        // All menu commands require standing in the landed beam, including remote requests.
         public bool ManageOnion(int captain, byte kind, uint count = 0)
         {
             int onion = OnionInReach(captain);
@@ -1195,19 +1189,7 @@ namespace OlimarTest
                 moverDriver.SendOnion(kind, 0, count);
                 return true;
             }
-            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant) return false;
-            // The newest shortcut replaces any transfer waiting for touchdown. In
-            // particular, an earlier return must never undo a later panic release.
-            flight.transferPending = false;
-            bool release = kind == OnionCommandPacket.CallOutAny || kind == OnionCommandPacket.ReleaseAll;
-            if (flight.airborne && !release)
-            {
-                if (!CommandOnion(captain, false)) return false;
-                flight.transferPending = true;
-                flight.transferKind = kind;
-                flight.transferCount = count;
-            }
-            else ApplyOnionTransfer(captain, onion, kind, count);
+            ApplyOnionTransfer(captain, onion, kind, count);
             return true;
         }
 

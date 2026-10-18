@@ -229,11 +229,8 @@ namespace OlimarTest
                 if (pad.topView) cam.ToggleTop();
             }
             pad.recentre = pad.zoom = pad.topView = false;
-            bool openingMenu = !MenuOpen && pad.onionMenu && Active && PikminWorld.Instance;
-            if (openingMenu) OpenOnionMenu(PikminWorld.Instance.OnionInReach(DataCaptain));
-            pad.onionMenu = false;
             OnionPrompt();
-            if (MenuOpen && !openingMenu && Time.frameCount > menuOpenedFrame) MenuInput();
+            if (MenuOpen && Time.frameCount > menuOpenedFrame) MenuInput();
             pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = false;
 
         }
@@ -406,8 +403,7 @@ namespace OlimarTest
             // RoR2 interactions have first claim on the button.
             bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Relocate : input.skill3.down;
             if (!dismiss) onionPressClaimed = false;
-            // Interact opens the single Onion page, airborne too. Relocation remains the
-            // utility action when no interact prompt claims it.
+            // Only the landed beam provides an Onion interact prompt. Elsewhere X relocates it.
             bool pikminX = Plugin.Scheme == ControlScheme.Pikmin;
             bool flying = PikminWorld.Instance.OnionFlying(DataCaptain);
             if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !realPrompt
