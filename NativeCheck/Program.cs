@@ -385,6 +385,21 @@ static class Program
         finally { Native.pik_sim_free(sim); }
     }
 
+    static void CheckIntroCache(string assets)
+    {
+        var message = new byte[2048];
+        Check(Native.pik_render_stings(Native.CString(assets), message, (uint)message.Length) != 0,
+            "intro rendered from extracted banks via P/Invoke: " + Native.Utf8(message));
+        string path = Path.Combine(assets, "ror2_audio", "spawn.wav");
+        if (!File.Exists(path)) { Check(false, "intro cache exists"); return; }
+        var wav = File.ReadAllBytes(path);
+        Check(wav.Length == 448044 && BitConverter.ToInt32(wav, 24) == 32000 && BitConverter.ToInt16(wav, 22) == 2,
+            "cached intro is 3.5 seconds of stereo PCM16 at 32 kHz");
+        DateTime before = File.GetLastWriteTimeUtc(path);
+        Check(Native.pik_render_stings(Native.CString(assets), message, (uint)message.Length) != 0
+            && File.GetLastWriteTimeUtc(path) == before, "later startups reuse completed intro cache");
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -393,7 +408,10 @@ static class Program
         if (err != null) return 1;
         Check(Native.pik_tick_hz() == 30, "30 Hz");
         if (args.Length > 1)
+        {
+            CheckIntroCache(args[1]);
             NumberAtlasCheck.Run(args[1], Check, args.Length > 3 ? args[2] : null, args.Length > 3 ? args[3] : null);
+        }
 
         var host = new Native.Host
         {

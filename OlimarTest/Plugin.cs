@@ -41,6 +41,7 @@ namespace OlimarTest
         internal static ManualLogSource Log;
         internal static string AssetsDir;
         static volatile bool assetsBusy;
+        bool musicInitialized;
 
         internal static ControlScheme Scheme;
         internal static ConfigEntry<CameraMode> Camera;
@@ -103,7 +104,6 @@ namespace OlimarTest
             OnionCard.Install(gameObject);
             OnionMenuEquipment.Install();
             string here = Path.GetDirectoryName(Info.Location);
-            SpawnMusic.Initialize(Config, here);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
             Camera = Config.Bind("Controls", "CameraMode", CameraMode.Orbit,
                 "Orbit: right stick pans, LB + right stick swarms, LT recentres, RT locks, RB cycles targets (or zoom when unlocked). Vanilla uses the fixed camera. Both use B to jump and LB + B to whistle.");
@@ -357,17 +357,21 @@ namespace OlimarTest
         // waits for it). Nothing from the disc ships with the plugin.
         static void PrepareAssets(string configuredDisc, string here)
         {
-            if (Native.pik_assets_complete(Native.CString(AssetsDir)) != 0)
-                return;
+            bool ready = Native.pik_assets_complete(Native.CString(AssetsDir)) != 0;
+            string audio = Path.Combine(AssetsDir, "ror2_audio");
+            bool needIntro = !File.Exists(Path.Combine(audio, "spawn.wav"))
+                || !File.Exists(Path.Combine(audio, "stings.version"))
+                || File.ReadAllText(Path.Combine(audio, "stings.version")).Trim() != "1";
+            if (ready && !needIntro) return;
             string disc = configuredDisc?.Trim();
-            if (string.IsNullOrEmpty(disc))
+            if (!ready && string.IsNullOrEmpty(disc))
             {
                 string parent = Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here;
                 var found = new byte[1024];
                 if (Native.pik_find_disc(Native.CString(here + ";" + parent), found, (uint)found.Length) != 0)
                     disc = Native.Utf8(found);
             }
-            if (string.IsNullOrEmpty(disc) || !File.Exists(disc))
+            if (!ready && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))
             {
                 Log.LogError($"No Pikmin assets at '{AssetsDir}' and no disc image to build them from. " +
                              $"Set Paths.Disc in BepInEx/config/{Guid}.cfg to your own Pikmin disc. " +
@@ -375,15 +379,25 @@ namespace OlimarTest
                 return;
             }
             assetsBusy = true;
-            Log.LogInfo($"Extracting Pikmin assets from {disc} into {AssetsDir}...");
+            Log.LogInfo(ready ? "Preparing Pikmin arrival music..." : $"Extracting Pikmin assets from {disc} into {AssetsDir}...");
             var worker = new Thread(() =>
             {
                 try
                 {
                     var msg = new byte[2048];
-                    byte ok = Native.pik_extract(Native.CString(disc), Native.CString(AssetsDir), msg, (uint)msg.Length);
-                    if (ok != 0) Log.LogInfo($"Extracted: {Native.Utf8(msg)}");
-                    else Log.LogError($"Extraction failed: {Native.Utf8(msg)}");
+                    if (!ready)
+                    {
+                        byte ok = Native.pik_extract(Native.CString(disc), Native.CString(AssetsDir), msg, (uint)msg.Length);
+                        ready = ok != 0 && Native.pik_assets_complete(Native.CString(AssetsDir)) != 0;
+                        if (ready) Log.LogInfo($"Extracted: {Native.Utf8(msg)}");
+                        else Log.LogError($"Extraction failed: {Native.Utf8(msg)}");
+                    }
+                    if (ready)
+                    {
+                        if (Native.pik_render_stings(Native.CString(AssetsDir), msg, (uint)msg.Length) != 0)
+                            Log.LogInfo($"Pikmin audio: {Native.Utf8(msg)}");
+                        else Log.LogWarning($"Pikmin arrival music unavailable: {Native.Utf8(msg)}");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -395,6 +409,14 @@ namespace OlimarTest
                 }
             }) { IsBackground = true, Name = "pikmin extract" };
             worker.Start();
+        }
+
+        void Update()
+        {
+            if (musicInitialized || !AssetsSettled) return;
+            musicInitialized = true;
+            // Like Mario, bind config and load the worker's completed cache on the Unity thread.
+            if (AssetsReady) SpawnMusic.Initialize(Config, Path.Combine(AssetsDir, "ror2_audio"));
         }
 
         static void AddTokens()
