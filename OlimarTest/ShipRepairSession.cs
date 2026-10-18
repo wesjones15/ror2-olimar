@@ -562,8 +562,10 @@ namespace OlimarTest
                 siteUntil = Time.unscaledTime + 5f;
             }
             if (Event.current.type == EventType.Repaint)
-                ShipRepairUi.Hud(Count, FormatTime(Seconds), ScoreRows(), Competitive,
-                    scene ? Language.GetString(scene.nameToken) : null, siteUntil);
+                ShipRepairUi.Hud(Count, ScoreRows(), Competitive,
+                    scene ? Language.GetString(scene.nameToken) : null,
+                    scene && !string.IsNullOrEmpty(scene.subtitleToken) ? Language.GetString(scene.subtitleToken) : null,
+                    siteUntil);
             if (Time.unscaledTime < toastUntil) GUI.Box(new Rect(Screen.width / 2f - 260, 75, 520, 45), toast);
             if (Winning)
             {

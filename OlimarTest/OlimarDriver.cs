@@ -264,6 +264,7 @@ namespace OlimarTest
             if (panelTex) Destroy(panelTex);
             if (stripeTex) Destroy(stripeTex);
             DisposeBottomHud();
+            DisposeMenuGlyphs();
         }
 
         void FindLocalUser()
@@ -793,8 +794,16 @@ namespace OlimarTest
         void OnGUI()
         {
             BottomHud();
-            if (!MenuOpen || localUser == null || !PikminWorld.Instance) return;
-            if (!PikminWorld.Instance.OnionTotals(menuOnion, DataCaptain, out var n)) return;
+            if (!MenuOpen || localUser == null || !PikminWorld.Instance)
+            {
+                HideMenuGlyphs();
+                return;
+            }
+            if (!PikminWorld.Instance.OnionTotals(menuOnion, DataCaptain, out var n))
+            {
+                HideMenuGlyphs();
+                return;
+            }
             MenuStyles();
             float k = Screen.height / 1080f;
             var saved = GUI.matrix;
@@ -829,14 +838,16 @@ namespace OlimarTest
             if (n.max_on_field < int.MaxValue) fieldLabel += $" / {n.max_on_field}";
             GUI.Label(new Rect(r.x, y, w, 28f), fieldLabel, noteStyle);
             y += 38f;
-            string hint = pad.usingPad
-                ? "LS up/down: choose count   A: confirm   B: close"
-                : "W/S or arrows: choose count   Click/Enter: confirm   Right-click: close";
-            GUI.Label(new Rect(r.x + 20f, y, w - 40f, 44f), hint, hintStyle);
+            if (pad.usingPad) ShowMenuGlyphs();
+            else
+            {
+                HideMenuGlyphs();
+                GUI.Label(new Rect(r.x + 20f, y, w - 40f, 44f),
+                    "W/S or arrows: choose count   Click/Enter: confirm   Right-click: close", hintStyle);
+            }
             y += 42f;
-            GUI.Label(new Rect(r.x + 20f, y, w - 40f, 100f), pad.usingPad
-                ? "X: release all but one stored Pikmin\nY: return the whole squad\nRB: heal from Onion stock (keep one)\nLeaf 5% / Bud 10% / Flower 20% health"
-                : "Utility: release all but one stored Pikmin\nEquipment: return the whole squad\nF: heal from Onion stock (keep one)\nLeaf 5% / Bud 10% / Flower 20% health", hintStyle);
+            if (!pad.usingPad) GUI.Label(new Rect(r.x + 20f, y, w - 40f, 100f),
+                "Utility: release all but one stored Pikmin\nEquipment: return the whole squad\nF: heal from Onion stock (keep one)\nLeaf 5% / Bud 10% / Flower 20% health", hintStyle);
             GUI.matrix = saved;
         }
 
