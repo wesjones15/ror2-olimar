@@ -141,6 +141,12 @@ static class Program
         Check(status == PikminEnvelope.Status.Ok && epoch == 3 && infos.Count == 1 && infos[0].netId == 77
             && infos[0].IsArriving && !infos[0].IsTemporary && infos[0].beam == 0.5f && infos[0].onion == 3
             && infos[0].OnionFollowing && !infos[0].OnionAirborne && snapshot.Length == (int)n, "envelope round trip");
+        sent[0] = new CaptainInfo { id = 0, netId = 77, flags = CaptainInfo.Healing, beam = 0.25f, healingCount = 7, onion = 3 };
+        infos.Clear();
+        var healingEnvelope = PikminEnvelope.Write(3, sent, buffer, (int)n);
+        Check(PikminEnvelope.Read(new ByteReader(healingEnvelope), out _, infos, out _, out _) == PikminEnvelope.Status.Ok
+            && infos[0].IsHealing && !infos[0].IsArriving && infos[0].healingCount == 7 && infos[0].beam == 0.25f,
+            "healing progress and exact ghost count replicate independently of arrival");
         var cut = new byte[20];
         Array.Copy(envelope, cut, 20);
         Check(PikminEnvelope.Read(new ByteReader(cut), out _, new List<CaptainInfo>(), out _, out _) == PikminEnvelope.Status.Corrupt, "a cut envelope is corrupt");
@@ -159,6 +165,14 @@ static class Program
         Check(OnionCommandPacket.Read(new ByteReader(command), out var cmd) && cmd.netId == 9 && cmd.kind == 2 && cmd.colour == 2 && cmd.count == 5, "Onion command round trip");
         command[5] = 77;
         Check(!OnionCommandPacket.Read(new ByteReader(command), out _), "an unknown Onion command is refused");
+        foreach (byte kind in new[] { OnionCommandPacket.CallOutAny, OnionCommandPacket.PutAwayAny,
+            OnionCommandPacket.ReleaseAll, OnionCommandPacket.ReturnAll, OnionCommandPacket.Heal })
+        {
+            var bulk = OnionCommandPacket.Write(new OnionCommandPacket { netId = 9, kind = kind, count = 0 });
+            Check(OnionCommandPacket.Read(new ByteReader(bulk), out var decoded) && decoded.kind == kind,
+                "mixed-colour Onion command round trip: " + kind);
+            Check(!OnionCommandPacket.Read(new ByteReader(bulk, 0, bulk.Length - 1), out _), "short bulk command refused");
+        }
 
         IntPtr replica = Native.pik_replica_new(null);
         Check(replica != IntPtr.Zero, "replica starts");
@@ -208,6 +222,184 @@ static class Program
         Native.pik_sim_free(sim);
     }
 
+    static void CheckShipRepair(string assets, ref Native.Host host)
+    {
+        IntPtr sim = Native.pik_sim_new(Native.CString(assets), 43);
+        Check(sim != IntPtr.Zero, "ship repair sim created");
+        if (sim == IntPtr.Zero) return;
+        try
+        {
+            for (uint part = 0; part < 30; part++)
+            {
+                uint weight = Native.pik_sim_ship_part_weight(sim, part);
+                Check(weight > 0 && weight <= 100, $"ship part {part} disc weight {weight}");
+            }
+            var name = new byte[128];
+            Check(Native.pik_sim_ship_part_name(sim, 4, name, 128) > 0, "part name crosses UTF-8 ABI");
+            var origin = new Native.Vec3(0, 0, 0);
+            var goal = new Native.Vec3(-300, 0, 0);
+            int captain = Native.pik_sim_add_captain(sim, ref origin);
+            int onion = Native.pik_sim_add_onion(sim, ref origin, 7);
+            int ship = Native.pik_sim_add_ship(sim, ref goal, 0);
+            Check(Native.pik_sim_onion_goal(sim, (uint)ship, out var shipGoal) == 1 && shipGoal.z != goal.z &&
+                Native.pik_sim_onion_goal(sim, uint.MaxValue, out _) == 0, "Dolphin carry goal and invalid receiver cross ABI");
+            Native.pik_sim_set_ship_part_host_delivery(sim, 1);
+            Native.pik_sim_set_auto_carry(sim, 1000f);
+            int pellet = Native.pik_sim_spawn_ship_part(sim, 4, ref origin, 0);
+            Check(pellet >= 0 && Native.pik_sim_spawn_ship_part(sim, 30, ref origin, 0) == -1, "disc part spawn and ID validation");
+            var pickups = new Native.Pellet[4];
+            Native.pik_sim_pellets(sim, pickups, (uint)pickups.Length);
+            var partFrame = Array.Find(pickups, p => p.id == pellet);
+            Check(partFrame.has_ship_part == 1, "native ship-part classification crosses the ABI");
+            for (byte state = 0; state <= 3; state++)
+                foreach (int receiver in new[] { -1, onion, ship })
+                {
+                    partFrame.state = state; partFrame.onion = receiver;
+                    Check(!OnionPickupPolicy.CanTrack(partFrame, onion), $"Onion tracking rejects ship part in state {state}, receiver {receiver}");
+                }
+            var regular = new Native.Pellet { state = 0, onion = -1 };
+            Check(OnionPickupPolicy.CanTrack(regular, onion), "ordinary loose pellet pickup stays available");
+            regular.state = 1; regular.onion = ship;
+            Check(!OnionPickupPolicy.CanTrack(regular, onion), "ordinary hauls to another receiver are not intercepted");
+            uint weightNeeded = Native.pik_sim_ship_part_weight(sim, 4);
+            for (int i = 0; i < weightNeeded + 5; i++)
+            {
+                var at = new Native.Vec3(-25 + i, 0, -25);
+                Native.pik_sim_spawn_piki(sim, Native.Red, ref at, captain);
+            }
+            var events = new Native.Event[256];
+            int receipts = 0;
+            for (int tick = 0; tick < 1800; tick++)
+            {
+                Native.pik_sim_advance(sim, ref host, 1f / 30f);
+                uint count;
+                do
+                {
+                    count = Native.pik_sim_events(sim, events, (uint)events.Length);
+                    for (int i = 0; i < count; i++) if (events[i].kind == Native.EventKind.ShipPartCollected)
+                    {
+                        receipts++;
+                        Check(events[i].a == pellet && events[i].b == ship && events[i].c == 4 && events[i].value == 0,
+                            "host receives part identity and Dolphin at completed suction");
+                    }
+                } while (count == events.Length);
+            }
+            Check(receipts == 1 && Native.pik_sim_poisoned(sim) == 0, "P/Invoke haul completes exactly once without poisoning");
+            Native.pik_sim_give_ship_part(sim, (uint)ship, 4);
+            Native.pik_sim_set_ship_part_competitive_delivery(sim, 1);
+            Native.pik_sim_set_ship_part_owner(sim, (uint)ship, (uint)captain);
+            Native.pik_sim_set_ship_part_owner(sim, (uint)onion, (uint)captain);
+            int duplicate = Native.pik_sim_spawn_ship_part(sim, 4, ref origin, 0);
+            int salvage = 0;
+            for (int tick = 0; tick < 1800; tick++)
+            {
+                Native.pik_sim_advance(sim, ref host, 1f / 30f);
+                uint count;
+                do
+                {
+                    count = Native.pik_sim_events(sim, events, (uint)events.Length);
+                    for (int i = 0; i < count; i++) if (events[i].kind == Native.EventKind.ShipPartCollected && events[i].a == duplicate)
+                    {
+                        salvage++;
+                        Check(events[i].b == onion && events[i].c == 4 && events[i].value == 0, "competitive duplicate travels to its owner's Onion through P/Invoke");
+                        Native.pik_sim_give_onion_seeds(sim, (uint)onion, Native.Red, weightNeeded * 2);
+                    }
+                } while (count == events.Length);
+            }
+            Check(salvage == 1 && Native.pik_sim_poisoned(sim) == 0, "duplicate salvage intake completes exactly once without poisoning");
+            uint samples = Native.pik_victory_pcm(Native.CString(assets), null, 0, out uint rate);
+            Check(samples > rate * 2 && rate == 44100, "complete-ending PCM crosses ABI");
+            IntPtr music = Native.pik_music_new(Native.CString(assets));
+            Check(music != IntPtr.Zero, "independent stage-music stream opens from the disc cache");
+            if (music != IntPtr.Zero)
+            {
+                try
+                {
+                    foreach (uint song in new uint[] { 4, 5, 10, 9, 17 })
+                        Check(Native.pik_music_update(music, song, 1, 0f, 1) == 1, "stage song, enemy layers and pause cross music ABI: " + song);
+                    Check(Native.pik_music_update(music, 99, 0, 0f, 0) == 0 && Native.pik_music_update(music, 4, 0, 0f, 0) == 1,
+                        "invalid stage song is rejected without poisoning the music stream");
+                    Check(Native.pik_music_update(music, 0, 0, 0f, 0) == 1, "stage music stops for vanilla bosses/results");
+                }
+                finally { Native.pik_music_free(music); }
+            }
+        }
+        finally { Native.pik_sim_free(sim); }
+    }
+
+    static void CheckUnifiedOnionMenu(ref Native.Host host)
+    {
+        IntPtr sim = Native.pik_sim_new(null, 19);
+        try
+        {
+            var origin = new Native.Vec3(0, 0, 0);
+            int captain = Native.pik_sim_add_captain(sim, ref origin);
+            int onion = Native.pik_sim_add_onion(sim, ref origin, 7);
+            var stock = new uint[] { 2, 3, 5 };
+            for (uint colour = 0; colour < 3; colour++)
+                Native.pik_sim_store_in_onion(sim, (uint)onion, colour, 0, stock[colour]);
+            var plan = OnionMenuPolicy.Distribute(OnionMenuPolicy.ReleaseCount(10, 100), 2, 3, 5);
+            for (uint colour = 0; colour < 3; colour++)
+                Check(Native.pik_sim_onion_call_out(sim, (uint)captain, (uint)onion, colour, plan[colour]) == plan[colour],
+                    "mixed release reserves native exits: " + colour);
+            uint inside = 0;
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out var counts);
+                inside += counts.in_onion;
+            }
+            Check(inside == 1 && OnionMenuPolicy.ReleaseCount(inside, 100) == 0,
+                "pending native exits are excluded; a repeated dump keeps the single reserve");
+            for (int tick = 0; tick < 180; tick++) Native.pik_sim_advance(sim, ref host, 1f / 30f);
+            uint squad = 0;
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out var counts);
+                squad += counts.in_squad;
+                Check(Native.pik_sim_onion_put_away(sim, (uint)captain, (uint)onion, colour, counts.in_squad) == counts.in_squad,
+                    "whole-squad return accepts colour " + colour);
+            }
+            Check(squad == 9, "all nine released Pikmin joined the squad");
+            for (int tick = 0; tick < 900; tick++) Native.pik_sim_advance(sim, ref host, 1f / 30f);
+            inside = 0;
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out var counts);
+                inside += counts.in_onion;
+            }
+            Check(inside == 10 && Native.pik_sim_poisoned(sim) == 0, "return stores every colour without losing Pikmin");
+            float healed = Native.pik_sim_sacrifice_onion(sim, (uint)onion, 0.11f, out uint sacrificed);
+            Check(sacrificed == 3 && Math.Abs(healed - 0.11f) < 0.0001f, "Onion-only sacrifice count and health fraction cross ABI");
+            Native.pik_sim_set_captain_jump_height(sim, (uint)captain, 150f);
+            var jump = new Native.Input { jump = 1 };
+            Native.pik_sim_set_input(sim, (uint)captain, ref jump);
+            float peak = 0f;
+            for (int tick = 0; tick < 120; tick++)
+            {
+                Native.pik_sim_advance(sim, ref host, 1f / 30f);
+                Native.pik_sim_captain(sim, (uint)captain, out var state);
+                peak = Math.Max(peak, state.pos.y);
+            }
+            Check(peak >= 150f, "host-sized jump reaches its requested apex through ABI");
+        }
+        finally { Native.pik_sim_free(sim); }
+    }
+
+    static void CheckIntroCache(string assets)
+    {
+        var message = new byte[2048];
+        Check(Native.pik_render_stings(Native.CString(assets), message, (uint)message.Length) != 0,
+            "intro rendered from extracted banks via P/Invoke: " + Native.Utf8(message));
+        string path = Path.Combine(assets, "ror2_audio", "spawn.wav");
+        if (!File.Exists(path)) { Check(false, "intro cache exists"); return; }
+        var wav = File.ReadAllBytes(path);
+        Check(wav.Length == 448044 && BitConverter.ToInt32(wav, 24) == 32000 && BitConverter.ToInt16(wav, 22) == 2,
+            "cached intro is 3.5 seconds of stereo PCM16 at 32 kHz");
+        DateTime before = File.GetLastWriteTimeUtc(path);
+        Check(Native.pik_render_stings(Native.CString(assets), message, (uint)message.Length) != 0
+            && File.GetLastWriteTimeUtc(path) == before, "later startups reuse completed intro cache");
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -216,7 +408,10 @@ static class Program
         if (err != null) return 1;
         Check(Native.pik_tick_hz() == 30, "30 Hz");
         if (args.Length > 1)
+        {
+            CheckIntroCache(args[1]);
             NumberAtlasCheck.Run(args[1], Check, args.Length > 3 ? args[2] : null, args.Length > 3 ? args[3] : null);
+        }
 
         var host = new Native.Host
         {
@@ -224,7 +419,9 @@ static class Program
             walls = Marshal.GetFunctionPointerForDelegate(wallsFn),
             damage = Marshal.GetFunctionPointerForDelegate(damageFn),
         };
+        if (args.Length > 1) CheckShipRepair(args[1], ref host);
         CheckOnionRevival(ref host);
+        CheckUnifiedOnionMenu(ref host);
         // An assets folder as the second argument checks the disc tuning loads too.
         IntPtr sim = Native.pik_sim_new(args.Length > 1 ? Native.CString(args[1]) : null, 7);
         if (args.Length > 1) Check(Native.pik_assets_complete(Native.CString(args[1])) == 1, "assets complete");
@@ -239,7 +436,7 @@ static class Program
         Native.pik_sim_set_onion_color(arrivalSim, (uint)arrivalOnion, Native.Yellow);
         Native.pik_sim_store_in_onion(arrivalSim, (uint)arrivalOnion, Native.Blue, 0, 4);
         Native.pik_sim_set_onion_pose(arrivalSim, (uint)arrivalOnion, ref air, 1);
-        Check(Native.pik_sim_onion_call_out(arrivalSim, (uint)arrivalCaptain, (uint)arrivalOnion, Native.Blue, 1) == 0, "flying Onion blocks transfers");
+        Check(Native.pik_sim_onion_call_out(arrivalSim, (uint)arrivalCaptain, (uint)arrivalOnion, Native.Blue, 1) == 1, "flying Onion queues leg exits");
         Native.pik_sim_set_onion_flight_motion(arrivalSim, (uint)arrivalOnion, 1, 0.5f);
         int ship = Native.pik_sim_add_ship(arrivalSim, ref air, 0f);
         Native.pik_sim_set_onion_pose(arrivalSim, (uint)ship, ref air, 1);
@@ -251,7 +448,7 @@ static class Program
         Native.pik_sim_set_onion_pose(arrivalSim, (uint)arrivalOnion, ref origin, 0);
         Native.pik_sim_set_onion_pose(arrivalSim, (uint)ship, ref origin, 0);
         Check(Native.pik_sim_onion_counts(arrivalSim, (uint)arrivalOnion, (uint)arrivalCaptain, Native.Blue, out var stock) != 0
-            && stock.in_onion == 4, "cosmetic colour and landing preserve blue storage");
+            && stock.in_onion == 3, "cosmetic colour and landing preserve blue storage minus queued exit");
         Native.pik_sim_free(arrivalSim);
         CheckReplica(ref host);
         IntPtr jumpSim = Native.pik_sim_new(null, 31);

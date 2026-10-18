@@ -13,6 +13,7 @@ namespace OlimarTest
     internal sealed class PikminModels : IDisposable
     {
         IntPtr view;
+        static bool victoryLoaded;
         readonly Particles particles;
 
         /// The meshes (ror2-common), for hosts that place the draws themselves.
@@ -23,6 +24,12 @@ namespace OlimarTest
         /// This frame's instances (after Update).
         public int DrawCount => Models.DrawCount;
         public ViewDraw DrawAt(int i) => Models.DrawAt(i);
+        public void Celebrate(bool enabled)
+        {
+            Native.pik_view_set_ship_repair_mode(view, ShipRepairMode.Active ? (byte)1 : (byte)0);
+            Native.pik_view_set_celebrating(view, enabled ? (byte)1 : (byte)0);
+        }
+        public uint RepairsPending => Native.pik_view_repairs_pending(view);
 
         PikminModels(IntPtr view, ModelView models, Transform parent)
         {
@@ -61,6 +68,19 @@ namespace OlimarTest
                 Native.pik_view_free(v);
                 return null;
             }
+            if (!victoryLoaded)
+            {
+                uint n = Native.pik_victory_pcm(Native.CString(assetsDir), null, 0, out uint rate);
+                if (n > 0)
+                {
+                    var pcm = new float[n];
+                    if (Native.pik_victory_pcm(Native.CString(assetsDir), pcm, n, out rate) == n)
+                    {
+                        SpawnMusic.SetVictoryPcm(pcm, (int)rate);
+                        victoryLoaded = true;
+                    }
+                }
+            }
             return new PikminModels(v, models, parent);
         }
 
@@ -69,6 +89,21 @@ namespace OlimarTest
         public void Materialize(uint captain, float progress)
         {
             if (view != IntPtr.Zero) Native.pik_view_set_materialize(view, captain, progress);
+        }
+
+        public void Heal(uint captain, float progress, uint ghosts)
+        {
+            if (view != IntPtr.Zero) Native.pik_view_set_healing(view, captain, progress, ghosts);
+        }
+
+        public void SetOnionGround(uint onion, float height)
+        {
+            if (view != IntPtr.Zero) Native.pik_view_set_onion_ground(view, onion, height);
+        }
+
+        public void PlaySound(byte sound, Native.Vec3 at)
+        {
+            if (view != IntPtr.Zero) Native.pik_view_play_sound(view, sound, at);
         }
 
         public void ShowCursors(bool show)

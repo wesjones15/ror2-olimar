@@ -7,7 +7,7 @@ using UnityEngine;
 namespace OlimarTest
 {
     // Keep RoR2's damage particle system, shader, colours, crit styling and motion. Only the
-    // ten digit cells change; the suffixes and exclamation mark come from its original atlas.
+    // digit and suffix cells change to the player's extracted Pikmin bitmap art.
     sealed class PikminDamageNumbers : MonoBehaviour
     {
         ConfigEntry<bool> enabledSetting;
@@ -24,7 +24,7 @@ namespace OlimarTest
             component.enabledSetting = config.Bind("Look", "PikminDamageNumbers", true,
                 "Use your disc's Pikmin HUD digits for the floating damage numbers while you play Olimar (every number you " +
                 "see then, whoever dealt it; other survivors keep RoR2's font). " +
-                "Keeps RoR2's damage colours, crit effects and K/M/B suffixes. False restores the original font; can change during play.");
+                "Keeps RoR2's damage colours and crit effects. False restores the original font; can change during play.");
         }
 
         void Update()
@@ -55,7 +55,7 @@ namespace OlimarTest
                 if (!source || source.width != 512 || source.height != 512)
                     throw new InvalidOperationException("Expected RoR2's 512x512 number atlas");
                 var dir = Native.CString(Plugin.AssetsDir);
-                var digits = new byte[10][];
+                var digits = new byte[16][];
                 for (uint digit = 0; digit < 10; digit++)
                 {
                     if (Native.pik_number_texture(dir, digit, 0, out var info, null, 0) == 0 || info.width != 64 || info.height != 64)
@@ -63,6 +63,14 @@ namespace OlimarTest
                     digits[digit] = new byte[64 * 64 * 4];
                     if (Native.pik_number_texture(dir, digit, 0, out info, digits[digit], (uint)digits[digit].Length) == 0)
                         throw new InvalidOperationException($"Could not decode Pikmin HUD digit {digit}");
+                }
+                for (uint glyph = 0; glyph < 4; glyph++)
+                {
+                    if (Native.pik_damage_suffix_texture(dir, glyph, out var info, null, 0) == 0 || info.width != 64 || info.height != 64)
+                        throw new InvalidOperationException($"Pikmin damage suffix {glyph} missing or invalid");
+                    digits[glyph + 12] = new byte[64 * 64 * 4];
+                    if (Native.pik_damage_suffix_texture(dir, glyph, out info, digits[glyph + 12], (uint)digits[glyph + 12].Length) == 0)
+                        throw new InvalidOperationException($"Could not decode Pikmin damage suffix {glyph}");
                 }
                 // The bundled texture isn't CPU-readable. Copy it before replacing digit cells.
                 atlas = new Texture2D(512, 512, TextureFormat.RGBA32, false)
@@ -87,7 +95,7 @@ namespace OlimarTest
                     rgba[i * 4] = colors[i].r; rgba[i * 4 + 1] = colors[i].g;
                     rgba[i * 4 + 2] = colors[i].b; rgba[i * 4 + 3] = colors[i].a;
                 }
-                DamageNumberAtlas.ReplaceDigits(rgba, 512, 512, digits, 64, 64);
+                DamageNumberAtlas.ReplaceGlyphs(rgba, 512, 512, digits, 64, 64);
                 atlas.LoadRawTextureData(rgba);
                 atlas.Apply(false, true);
                 replacement = new Material(original) { name = "Pikmin damage numbers" };
@@ -96,7 +104,7 @@ namespace OlimarTest
                 if (!loggedApplied)
                 {
                     loggedApplied = true;
-                    Plugin.Log.LogInfo("Pikmin HUD digits applied to damage numbers (Look.PikminDamageNumbers)");
+                    Plugin.Log.LogInfo("Pikmin HUD digits and bitmap suffixes applied to damage numbers (Look.PikminDamageNumbers)");
                 }
             }
             catch (Exception e)

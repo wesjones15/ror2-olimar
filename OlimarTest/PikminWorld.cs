@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using MonoMod.RuntimeDetour;
 using RoR2;
@@ -52,6 +53,8 @@ namespace OlimarTest
         readonly List<CaptainInfo> sendInfos = new List<CaptainInfo>();
         // What the server said about each captain (client): whose body, arriving, beam-in.
         readonly Dictionary<int, CaptainInfo> remoteInfo = new Dictionary<int, CaptainInfo>();
+        readonly Dictionary<int, (float at, byte count)> healing = new Dictionary<int, (float, byte)>();
+        const float HealingSeconds = 2f;
         static bool warnedAssets, warnedSize;
         // Network ticks per second, and bytes sent in the last report period (Debug.LogNet).
         long bytesSent;
@@ -62,7 +65,6 @@ namespace OlimarTest
         readonly Dictionary<int, OlimarDriver> driverOf = new Dictionary<int, OlimarDriver>();
         readonly List<int> onionIds = new List<int>();
         // Each Onion's RoR2 interactable (the Onion menu's prompt).
-        readonly Dictionary<int, InteractTarget> onionTargets = new Dictionary<int, InteractTarget>();
         // Each Onion's RoR2 body, as its Olimar's minion: his items, its own position.
         readonly Dictionary<int, Minion> onionMinions = new Dictionary<int, Minion>();
         readonly Dictionary<CharacterBody, int> onionBodyIds = new Dictionary<CharacterBody, int>();
@@ -94,6 +96,7 @@ namespace OlimarTest
             public Vector3 position, landing, transitionStart;
             public float transitionElapsed, transitionDuration;
             public bool following = true, airborne = true;
+            public bool releaseWhenReady;
             public bool dormant;
             /// Seconds dormant, and seconds into the revival (the sim's two phases), for its gauge.
             public float dormantAge, reviveAge;
@@ -108,6 +111,10 @@ namespace OlimarTest
             public Vector3 start, landing;
             public float elapsed;
             public bool complete, bringSquad;
+            public Vector3? dock;
+            public Vector3 relocationStart;
+            public float relocationAge;
+            public bool relocating;
             // The Onion releases the squad; the Dolphin beams Olimar down separately.
             public bool onionDown, squadOut;
             /// Seconds the Onion has stood landed; Olimar's beam-in progress 0..1 (-1 not started).
@@ -135,6 +142,8 @@ namespace OlimarTest
         readonly Native.Event[] events = new Native.Event[64];
 
         PikminView view;
+        internal uint RepairsPending => view ? view.RepairsPending : 0;
+        internal void PlaySound(byte sound, Vector3 at) { if (view) view.PlaySound(sound, at); }
 
         // RoR2 events raised while the sim is stepping (a Pikmin hit kills an enemy, whose
         // death would spawn a pellet) wait here: calling back into the sim mid-step isn't
@@ -237,17 +246,86 @@ namespace OlimarTest
                 case OnionCommandPacket.PutAway:
                 {
                     int onion = OnionInReach(captain);
-                    if (onion < 0 || p.colour > 2 || p.count > 100) return;
+                    if (onion < 0 || p.colour > 2) return;
                     if (p.kind == OnionCommandPacket.CallOut) CallOut(captain, onion, p.colour, p.count);
                     else PutAway(captain, onion, p.colour, p.count);
                     break;
                 }
+                case OnionCommandPacket.CallOutAny:
+                case OnionCommandPacket.PutAwayAny:
+                case OnionCommandPacket.ReleaseAll:
+                case OnionCommandPacket.ReturnAll:
+                    ManageOnion(captain, p.kind, p.count);
+                    break;
+                case OnionCommandPacket.Heal:
+                    HealFromOnion(captain);
+                    break;
+                case OnionCommandPacket.ReleaseFlyingAll:
+                    ReleaseFlyingOnion(captain);
+                    break;
+                case OnionCommandPacket.TriggerPlucker:
+                    TriggerOnionPlucker(captain);
+                    break;
+                case OnionCommandPacket.RecallStuck:
+                    RecallStuckCarriers(captain);
+                    break;
             }
         }
 
         /// The sim that takes this machine's Olimar's controls: the real one on the server, the small one that
         /// moves him on a client (his own captain there is its only one).
         internal IntPtr SimHandle => ClientMode ? moverSim : sim;
+
+        internal uint UserForCaptain(int captain)
+        {
+            if (!driverOf.TryGetValue(captain, out var driver) || !driver || !driver.Body || !driver.Body.master) return 0;
+            var controller = driver.Body.master.GetComponent<PlayerCharacterMasterController>();
+            return controller && controller.networkUser ? controller.networkUser.netId.Value : 0;
+        }
+
+        internal uint UserForShip(uint ship)
+        {
+            foreach (var dolphin in dolphins.Values) if (dolphin.id == ship) return UserForCaptain(dolphin.captain);
+            foreach (var onion in onionOf.Values) if (onion.id == ship) return UserForCaptain(onion.captain);
+            return 0;
+        }
+
+        // The final Ship Repair score counts only Pikmin with the captain or in
+        // their Onion. Free, planted, carrying and attacking Pikmin are excluded.
+        internal int ScorePikmin(uint user)
+        {
+            if (sim == IntPtr.Zero || ClientMode) return 0;
+            long count = 0;
+            foreach (var flight in onionOf.Values)
+            {
+                var controller = flight.owner ? flight.owner.GetComponent<PlayerCharacterMasterController>() : null;
+                if (!controller || !controller.networkUser ||
+                    (user != 0 && controller.networkUser.netId.Value != user)) continue;
+                if (OnionTotals(flight.id, flight.captain, out var pikmin))
+                    count += (long)pikmin.in_onion + pikmin.in_squad;
+            }
+            return (int)Math.Min(int.MaxValue, count);
+        }
+
+        internal void FitShipPart(uint part, uint user = 0)
+        {
+            if (sim == IntPtr.Zero || ClientMode) return;
+            foreach (var dolphin in dolphins.Values)
+                if (user == 0 || UserForCaptain(dolphin.captain) == user) Native.pik_sim_give_ship_part(sim, (uint)dolphin.id, part);
+        }
+
+        internal void ShipTakeoff(float progress)
+        {
+            if (sim == IntPtr.Zero || ClientMode) return;
+            foreach (var dolphin in dolphins.Values)
+            {
+                if (ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive &&
+                    UserForCaptain(dolphin.captain) != ShipRepairSession.Instance.Completer) continue;
+                var pos = UnityHost.ToSim(dolphin.landing + Vector3.up * (progress * progress * 40f));
+                Native.pik_sim_set_onion_pose(sim, (uint)dolphin.id, ref pos, 1);
+                Native.pik_sim_set_onion_flight_motion(sim, (uint)dolphin.id, 0, progress);
+            }
+        }
 
         /// The sim to read the world from and draw: the real one, or on a client the replica of it.
         internal IntPtr DataHandle => sim;
@@ -260,6 +338,8 @@ namespace OlimarTest
 
         /// Running and not stopped by a bug in the sim.
         public bool Healthy => sim != IntPtr.Zero && !reportedPoison;
+        internal bool StageReady => Healthy && !ClientMode && simStage == Stage.instance;
+        internal bool RepairDolphinsReady => dolphins.Values.Where(d => UserForCaptain(d.captain) != 0).All(d => d.complete);
 
         /// How far the clock is between the last tick and the next, for drawing.
         public float RenderAlpha => ClientMode ? 1f :
@@ -339,10 +419,8 @@ namespace OlimarTest
             driverOf.Clear();
             onionIds.Clear();
             onionOf.Clear();
+            healing.Clear();
             dolphins.Clear();
-            foreach (var t in onionTargets.Values)
-                if (t) Destroy(t.gameObject);
-            onionTargets.Clear();
             foreach (var m in onionMinions.Values) m.Release();
             onionMinions.Clear();
             onionBodyIds.Clear();
@@ -378,6 +456,7 @@ namespace OlimarTest
             if (sim != IntPtr.Zero && master && captainOf.TryGetValue(master, out int known))
             {
                 driverOf[known] = d;
+                if (ShipRepairMode.Active) d.Arriving = false;
                 // Back from the dead (a respawn, Dio's, a Larva): on his feet again.
                 Native.pik_sim_down_captain(sim, (uint)known, 0);
                 SpawnDolphin(known, d, false);
@@ -504,7 +583,10 @@ namespace OlimarTest
                 Plugin.Log.LogError("libpikmin's sim didn't start");
                 return false;
             }
+            Native.pik_sim_set_field_limit(sim, int.MaxValue);
             simStage = Stage.instance;
+            Native.pik_sim_set_ship_part_host_delivery(sim, ShipRepairMode.Active ? (byte)1 : (byte)0);
+            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive) Native.pik_sim_set_ship_part_competitive_delivery(sim, 1);
             reportedPoison = false;
             epoch++;
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
@@ -527,6 +609,7 @@ namespace OlimarTest
         // starts the new stage's sim.
         void NewStage()
         {
+            ShipRepairSession.Instance?.CloseStage();
             foreach (var pair in captainOf)
             {
                 if (!cargo.TryGetValue(pair.Key, out var saved)) continue;
@@ -561,6 +644,8 @@ namespace OlimarTest
             var flight = new OnionFlight { id = id, captain = captain, owner = owner,
                 position = d.Body.footPosition + Vector3.up * 5f };
             onionOf[captain] = flight;
+            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive && UserForCaptain(captain) != 0)
+                Native.pik_sim_set_ship_part_owner(sim, (uint)id, (uint)captain);
             WriteFlight(flight);
         }
 
@@ -571,6 +656,8 @@ namespace OlimarTest
 
         void SpawnDolphin(int captain, OlimarDriver driver, bool bringSquad = true)
         {
+            // Same-stage respawns retain the existing dock/flight and fitted ship.
+            if (ShipRepairMode.Active && dolphins.ContainsKey(captain)) return;
             var body = driver.Body;
             var back = -Vector3.ProjectOnPlane(body.transform.forward, Vector3.up).normalized;
             if (back.sqrMagnitude < 0.5f) back = Vector3.back;
@@ -586,10 +673,19 @@ namespace OlimarTest
             int id = dolphins.TryGetValue(captain, out var old) ? old.id
                 : Native.pik_sim_add_ship(sim, ref pos, UnityHost.Yaw(body.transform.forward));
             if (id < 0) { driver.Arriving = false; if (bringSquad) BringPikmin(captain, driver); return; }
-            // Without the ship-parts mode (not built yet) the Dolphin is the repaired one.
-            if (!dolphins.ContainsKey(captain) && !Plugin.ShipParts.Value)
-                for (uint part = 0; part < 30; part++) Native.pik_sim_give_ship_part(sim, (uint)id, part);
+            // Ship Repair restores the shared ledger; other modes use a repaired Dolphin.
+            if (!dolphins.ContainsKey(captain))
+            {
+                if (ShipRepairMode.Active)
+                {
+                    if (ShipRepairSession.Instance)
+                        foreach (int part in ShipRepairSession.Instance.PartsFor(UserForCaptain(captain))) Native.pik_sim_give_ship_part(sim, (uint)id, (uint)part);
+                }
+                else for (uint part = 0; part < 30; part++) Native.pik_sim_give_ship_part(sim, (uint)id, part);
+            }
             dolphins[captain] = new DolphinFlight { id = id, captain = captain, start = start, landing = landing, bringSquad = bringSquad };
+            if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive && UserForCaptain(captain) != 0)
+                Native.pik_sim_set_ship_part_owner(sim, (uint)id, (uint)captain);
             if (driver.Arriving)
             {
                 Native.pik_sim_set_onion_pose(sim, (uint)id, ref pos, 1);
@@ -615,8 +711,23 @@ namespace OlimarTest
         {
             foreach (var ship in dolphins.Values)
             {
-                if (!driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
                 if (ship.complete) continue;
+                if (ship.relocating)
+                {
+                    ship.relocationAge += Time.fixedDeltaTime;
+                    float age = ship.relocationAge;
+                    Vector3 destination = ship.dock.Value;
+                    Vector3 atDock;
+                    if (age < 2f) atDock = ship.relocationStart + Vector3.up * (Mathf.SmoothStep(0f, 1f, age / 2f) * 20f);
+                    else if (age < 5f) atDock = Vector3.Lerp(ship.relocationStart, destination, Mathf.SmoothStep(0f, 1f, (age - 2f) / 3f)) + Vector3.up * 20f;
+                    else atDock = destination + Vector3.up * ((1f - Mathf.SmoothStep(0f, 1f, (age - 5f) / 3f)) * 20f);
+                    var dockPose = UnityHost.ToSim(atDock);
+                    Native.pik_sim_set_onion_pose(sim, (uint)ship.id, ref dockPose, age < 8f ? (byte)1 : (byte)0);
+                    if (age < 8f) Native.pik_sim_set_onion_flight_motion(sim, (uint)ship.id, age >= 5f ? (byte)1 : (byte)0, age >= 5f ? (age - 5f) / 3f : Mathf.Clamp01(age / 2f));
+                    else { ship.landing = destination; ship.relocating = false; ship.complete = true; Plugin.Log.LogInfo($"Dolphin {ship.id} docked near the teleporter."); }
+                    continue;
+                }
+                if (!driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
                 ship.elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(ship.elapsed / DescentSeconds);
                 // Decelerate into a short landing. The Onion releases Pikmin beside the
@@ -684,7 +795,7 @@ namespace OlimarTest
         /// Olimar's beam-in progress, 0..1 while it lasts, else -1 (the presenter draws him as a column of
         /// light settling into himself).
         public float BeamProgress(uint captain) => ClientMode
-            ? remoteInfo.TryGetValue((int)captain, out var info) && info.beam >= 0f ? Mathf.Clamp01(info.beam) : -1f
+            ? remoteInfo.TryGetValue((int)captain, out var info) && info.IsArriving && info.beam >= 0f ? Mathf.Clamp01(info.beam) : -1f
             : dolphins.TryGetValue((int)captain, out var s) && !s.complete && s.beam >= 0f ? Mathf.Clamp01(s.beam) : -1f;
 
         void FinishArrival(DolphinFlight ship, OlimarDriver driver)
@@ -694,10 +805,41 @@ namespace OlimarTest
             ship.complete = true;
             ship.beam = -1f;
             driver.Arriving = false;
+            if (ShipRepairMode.Active && driver.Body && driver.Body.isPlayerControlled && TryRepairDock(ship, driver, out var dock))
+            {
+                ship.dock = dock; ship.relocationStart = ship.landing;
+                ship.relocating = true; ship.relocationAge = 0f; ship.complete = false;
+            }
             // Arriving by the Onion, the squad is already out of it; otherwise (a respawn, an aborted
             // arrival) they appear around Olimar.
             if (ship.bringSquad && !ship.squadOut) BringPikmin(ship.captain, driver);
             Plugin.Log.LogInfo($"Dolphin landed for captain {ship.captain}; " + (ship.onionDown ? "squad out of the Onion, which stays planted." : "Onion following."));
+        }
+
+        bool TryRepairDock(DolphinFlight ship, OlimarDriver driver, out Vector3 point)
+        {
+            point = default;
+            var teleporter = TeleporterInteraction.instance;
+            if (!teleporter) return false;
+            var route = new List<Vector3>();
+            // Grounded spawn-style checks: clear hull volume, gentle floor and a
+            // no-jump route. Reserve separated docks so later arrivals cannot stack.
+            for (int attempt = 0; attempt < 48; attempt++)
+            {
+                float angle = (ship.captain * 137.5f + attempt * 22.5f) * Mathf.Deg2Rad;
+                float radius = 16f + (attempt / 16) * 8f;
+                var candidate = teleporter.transform.position + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * radius;
+                if (!Physics.Raycast(candidate + Vector3.up * 12f, Vector3.down, out var hit, 24f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.7f) continue;
+                candidate = hit.point;
+                if (Physics.CheckCapsule(candidate + Vector3.up * 3.2f, candidate + Vector3.up * 8f, 3f, UnityHost.Mask, QueryTriggerInteraction.Ignore)) continue;
+                if (dolphins.Values.Any(other => other != ship && other.dock.HasValue && Vector3.ProjectOnPlane(candidate - other.dock.Value, Vector3.up).sqrMagnitude < 14f * 14f)) continue;
+                if (Native.pik_sim_onion_goal(sim, (uint)ship.id, out var currentGoal) == 0) continue;
+                var intake = candidate + UnityHost.ToUnity(currentGoal) - ship.landing;
+                if (!ShipPartNavigation.TryPath(driver.Body.footPosition, intake, route)) continue;
+                point = candidate; return true;
+            }
+            Plugin.Log.LogWarning("Ship Repair: no clear, reachable teleporter dock; Dolphin remains at its safe arrival site.");
+            return false;
         }
 
         /// Arriving and not yet beamed in: Olimar isn't drawn.
@@ -715,12 +857,6 @@ namespace OlimarTest
             if (flight.airborne && flight.transitionDuration > 0f)
                 Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, flight.following ? (byte)0 : (byte)1,
                     Mathf.Clamp01(flight.transitionElapsed / flight.transitionDuration));
-            if (onionTargets.TryGetValue(flight.id, out var target) && target)
-            {
-                target.context = flight.following ? "Land Onion Here" : flight.airborne ? "Onion landing" : "Open the Onion";
-                target.transform.position = flight.airborne && driverOf.TryGetValue(flight.captain, out var d) && d
-                    ? d.Body.footPosition : flight.position;
-            }
             if (onionMinions.TryGetValue(flight.id, out var minion))
                 // goal.mod's live pod centre is about 110 sim units (4.4 m) high;
                 // Commando's hidden body has its hurtbox about a metre above its feet.
@@ -789,6 +925,18 @@ namespace OlimarTest
                         AddOnionMinion(flight.id, flight.position + Vector3.up * 3.5f, owner.Body);
                     Plugin.Log.LogInfo($"Onion {flight.id} revived; its stored Pikmin are available again.");
                 }
+                if (flight.releaseWhenReady)
+                {
+                    // A newly raised Onion may still be in TakeOff. Wait for Hover so the
+                    // native exit queue can dispense the Pikmin down its legs.
+                    for (int oi = 0; oi < OnionCount; oi++)
+                        if (Onions[oi].id == flight.id && (Onions[oi].anim == 6 || !flight.airborne))
+                        {
+                            flight.releaseWhenReady = false;
+                            ApplyOnionTransfer(flight.captain, flight.id, OnionCommandPacket.ReleaseAll, 0);
+                            break;
+                        }
+                }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
                 if (flight.following && UpdateOnionPickup(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && driverOf.TryGetValue(flight.captain, out var d) && d && d.Body)
@@ -839,8 +987,7 @@ namespace OlimarTest
             for (int i = 0; i < PelletCount; i++)
             {
                 var p = Pellets[i];
-                if (p.state == 3) continue;
-                if (p.state > 0 && p.onion != flight.id) continue;
+                if (!OnionPickupPolicy.CanTrack(p, flight.id)) continue;
                 if (flight.pickup == (int)p.id) { pi = i; break; }
                 if (flight.pickup >= 0 || p.state > 1) continue;
                 var at = UnityHost.ToUnity(p.pos);
@@ -947,25 +1094,26 @@ namespace OlimarTest
             return true;
         }
 
+        public bool ReleaseFlyingOnion(int captain)
+        {
+            if (ClientMode)
+            {
+                if (!moverDriver || !OnionFlying(captain)) return false;
+                moverDriver.SendOnion(OnionCommandPacket.ReleaseFlyingAll, 0, 0);
+                return true;
+            }
+            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant || !flight.airborne)
+                return false;
+            flight.releaseWhenReady = true;
+            return true;
+        }
+
         void AddOnion(Vector3 at, uint colours, CharacterBody owner)
         {
             var p = UnityHost.ToSim(UnityHost.Snap(at));
             int id = Native.pik_sim_add_onion(sim, ref p, colours);
             if (id < 0) return;
             onionIds.Add(id);
-            // Standing under it shows RoR2's prompt; the button opens the Onion menu
-            // (NaviContainerState, naviState.cpp: the action button within reach of the
-            // Onion's 'cont' sphere). Opening it isn't a chest: no on-interact items.
-            onionTargets[id] = InteractTarget.Make($"Onion {id} (interact)", transform, UnityHost.ToUnity(p),
-                "Open the Onion",
-                who => Driver(who) is OlimarDriver d && d.CanOpenOnion(id),
-                who => {
-                    if (Driver(who) is OlimarDriver d)
-                    {
-                        if (OnionFlying(d.Captain)) CommandOnion(d.Captain, false);
-                        else d.OpenOnionMenu(id);
-                    }
-                });
             AddOnionMinion(id, UnityHost.ToUnity(p) + Vector3.up * 3.5f, owner);
         }
 
@@ -980,12 +1128,6 @@ namespace OlimarTest
             }
             else Plugin.Log.LogWarning($"Onion {id}'s minion body didn't spawn; it won't get items");
         }
-
-        static OlimarDriver Driver(Interactor who) => who ? who.GetComponent<OlimarDriver>() : null;
-
-        /// Onion `onion`'s interactable, for the interact prompt; null if there's none.
-        public InteractTarget OnionTarget(int onion) =>
-            onionTargets.TryGetValue(onion, out var t) && t ? t : null;
 
         // The squad and Onion stock from the last stage, or the configured start of a run.
         /// The squad he starts a stage with: what he carried out of the last, or the starting counts
@@ -1092,25 +1234,147 @@ namespace OlimarTest
                 // The server's word on his Onion, and where it stands.
                 if (sim == IntPtr.Zero || !moverDriver || !moverDriver.Body || !remoteInfo.TryGetValue(captain, out var info) || info.onion < 0)
                     return -1;
-                if (OnionDisabled(info.onion)) return -1;
-                if (info.OnionFollowing) return info.onion;
                 for (int i = 0; i < OnionCount; i++)
                     if (Onions[i].id == info.onion)
-                        return Vector3.Distance(moverDriver.Body.footPosition, UnityHost.ToUnity(Onions[i].pos)) < 70f * UnityHost.Scale
-                            ? info.onion : -1;
+                        return InOnionBeam(moverDriver, moverSim, 0, UnityHost.ToUnity(Onions[i].pos),
+                            info.OnionAirborne, info.OnionFollowing, OnionDisabled(info.onion)) ? info.onion : -1;
                 return -1;
             }
             if (sim == IntPtr.Zero || !onionOf.TryGetValue(captain, out var f)
                 || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body) return -1;
-            if (f.dormant) return -1;
-            return f.following || Vector3.Distance(d.Body.footPosition, f.airborne ? f.landing : f.position)
-                < 70f * UnityHost.Scale ? f.id : -1;
+            return InOnionBeam(d, sim, captain, f.position, f.airborne, f.following, f.dormant) ? f.id : -1;
+        }
+
+        static bool InOnionBeam(OlimarDriver driver, IntPtr captainSim, int captain, Vector3 position,
+            bool airborne, bool following, bool dormant)
+        {
+            if (!driver.Active || captainSim == IntPtr.Zero
+                || Native.pik_sim_captain(captainSim, (uint)captain, out var state) == 0) return false;
+            var offset = (driver.Body.footPosition - position) / UnityHost.Scale;
+            return OnionMenuPolicy.InBeam(airborne, following, dormant, state.on_ground != 0,
+                offset.x, offset.y, offset.z);
         }
 
         public bool OnionCounts(int onion, int captain, uint colour, out Native.OnionCounts counts)
         {
             counts = default;
             return sim != IntPtr.Zero && Native.pik_sim_onion_counts(sim, (uint)onion, (uint)captain, colour, out counts) != 0;
+        }
+
+        public bool OnionTotals(int onion, int captain, out Native.OnionCounts total)
+        {
+            total = default;
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                if (!OnionCounts(onion, captain, colour, out var n)) return false;
+                total.in_onion += n.in_onion;
+                total.in_squad += n.in_squad;
+                total.on_field = n.on_field;
+                total.max_on_field = n.max_on_field;
+            }
+            return true;
+        }
+
+        public float HealingProgress(uint captain)
+        {
+            if (ClientMode) return remoteInfo.TryGetValue((int)captain, out var info) && info.IsHealing ? info.beam : -1f;
+            if (!healing.TryGetValue((int)captain, out var h)) return -1f;
+            float progress = (Time.time - h.at) / HealingSeconds;
+            return progress < 1f ? Mathf.Clamp01(progress) : -1f;
+        }
+
+        public byte HealingCount(uint captain) => ClientMode
+            ? remoteInfo.TryGetValue((int)captain, out var info) && info.IsHealing ? info.healingCount : (byte)0
+            : healing.TryGetValue((int)captain, out var h) ? h.count : (byte)0;
+
+        public bool HealFromOnion(int captain)
+        {
+            int onion = OnionInReach(captain);
+            if (onion < 0) return false;
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(OnionCommandPacket.Heal, 0, 0);
+                return true;
+            }
+            if (!driverOf.TryGetValue(captain, out var driver) || !driver || !driver.Active || !driver.Body) return false;
+            var hp = driver.Body.healthComponent;
+            if (!hp || !hp.alive || hp.fullHealth <= 0f) return false;
+            float deficit = Mathf.Clamp01((hp.fullHealth - hp.health) / hp.fullHealth);
+            float fraction = Native.pik_sim_sacrifice_onion(sim, (uint)onion, deficit, out uint count);
+            if (count == 0) return false;
+            hp.Heal(fraction * hp.fullHealth, default, true);
+            healing[captain] = (Time.time, (byte)Math.Min(count, 255u));
+            return true;
+        }
+
+        public bool TriggerOnionPlucker(int captain)
+        {
+            int onion = OnionInReach(captain);
+            if (onion < 0) return false;
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(OnionCommandPacket.TriggerPlucker, 0, 0);
+                return true;
+            }
+            return sim != IntPtr.Zero && Native.pik_sim_trigger_plucker(sim, (uint)onion) != 0;
+        }
+
+        public bool RecallStuckCarriers(int captain)
+        {
+            if (OnionInReach(captain) < 0) return false;
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(OnionCommandPacket.RecallStuck, 0, 0);
+                PlaySound(6, moverDriver.Body.footPosition);
+                return true;
+            }
+            if (sim == IntPtr.Zero) return false;
+            uint recalled = Native.pik_sim_recall_stuck_carriers(sim, (uint)captain);
+            if (driverOf.TryGetValue(captain, out var driver) && driver && driver.Body)
+                PlaySound(6, driver.Body.footPosition);
+            return recalled != 0;
+        }
+
+        // Resolve bulk commands on the server, against current stock, not a client's snapshot.
+        // All menu commands require standing in the landed beam, including remote requests.
+        public bool ManageOnion(int captain, byte kind, uint count = 0)
+        {
+            int onion = OnionInReach(captain);
+            if (onion < 0 || kind < OnionCommandPacket.CallOutAny || kind > OnionCommandPacket.ReturnAll) return false;
+            if (ClientMode)
+            {
+                if (!moverDriver) return false;
+                moverDriver.SendOnion(kind, 0, count);
+                return true;
+            }
+            ApplyOnionTransfer(captain, onion, kind, count);
+            return true;
+        }
+
+        void ApplyOnionTransfer(int captain, int onion, byte kind, uint count)
+        {
+            if (!OnionTotals(onion, captain, out var total)) return;
+            bool release = kind == OnionCommandPacket.CallOutAny || kind == OnionCommandPacket.ReleaseAll;
+            uint room = total.max_on_field > total.on_field ? total.max_on_field - total.on_field : 0;
+            uint amount = kind == OnionCommandPacket.ReleaseAll ? OnionMenuPolicy.ReleaseCount(total.in_onion, room)
+                : kind == OnionCommandPacket.ReturnAll ? total.in_squad
+                : Math.Min(count, release ? Math.Min(total.in_onion, room) : total.in_squad);
+            var available = new uint[3];
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                OnionCounts(onion, captain, colour, out var n);
+                available[colour] = release ? n.in_onion : n.in_squad;
+            }
+            var plan = OnionMenuPolicy.Distribute(amount, available[0], available[1], available[2]);
+            for (uint colour = 0; colour < 3; colour++)
+            {
+                if (plan[colour] == 0) continue;
+                if (release) CallOut(captain, onion, colour, plan[colour]);
+                else PutAway(captain, onion, colour, plan[colour]);
+            }
         }
 
         public uint CallOut(int captain, int onion, uint colour, uint n)
@@ -1151,6 +1415,13 @@ namespace OlimarTest
                 return;
             }
             if (sim == IntPtr.Zero) return;
+            if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal)
+            {
+                ReadBack();
+                view.Snapshot();
+                SendSnapshot(1);
+                return;
+            }
             if (Stage.instance != simStage)
             {
                 // The stage is gone; wait for an Olimar to register in the next one.
@@ -1243,6 +1514,11 @@ namespace OlimarTest
             ticksSinceSend = 0;
             if (snapshotBuffer == null) snapshotBuffer = new byte[128 * 1024];
             uint n = Native.pik_sim_snapshot(sim, snapshotBuffer, (uint)snapshotBuffer.Length);
+            while (n == 0 && snapshotBuffer.Length < 16 * 1024 * 1024)
+            {
+                Array.Resize(ref snapshotBuffer, snapshotBuffer.Length * 2);
+                n = Native.pik_sim_snapshot(sim, snapshotBuffer, (uint)snapshotBuffer.Length);
+            }
             if (n == 0)
             {
                 if (!warnedSize)
@@ -1265,9 +1541,19 @@ namespace OlimarTest
                     if (flight.following) flags |= CaptainInfo.Following;
                     if (flight.airborne) flags |= CaptainInfo.Airborne;
                 }
-                sendInfos.Add(new CaptainInfo { id = (byte)kv.Key, netId = d.Body.netId.Value, flags = flags, beam = BeamProgress((uint)kv.Key), onion = onion });
+                float heal = HealingProgress((uint)kv.Key);
+                if (heal >= 0f) flags |= CaptainInfo.Healing;
+                sendInfos.Add(new CaptainInfo { id = (byte)kv.Key, netId = d.Body.netId.Value, flags = flags,
+                    beam = heal >= 0f ? heal : BeamProgress((uint)kv.Key),
+                    healingCount = heal >= 0f ? HealingCount((uint)kv.Key) : (byte)0, onion = onion });
             }
             var payload = PikminEnvelope.Write(epoch, sendInfos, snapshotBuffer, (int)n);
+            if (payload.Length > Fragments.MaxPayload)
+            {
+                if (!warnedSize) Plugin.Log.LogWarning("Pikmin snapshot exceeds multiplayer transport capacity; remote players may not see this swarm.");
+                warnedSize = true;
+                return;
+            }
             Mp.SendToAll(PikminNet.SnapshotMsg, payload, Plugin.ReliableSnapshots.Value);
             if (Plugin.LogNet.Value)
             {
@@ -1608,6 +1894,7 @@ namespace OlimarTest
                 for (int i = 0; i < n; i++)
                 {
                     var e = events[i];
+                    if (e.kind == Native.EventKind.ShipPartCollected) ShipRepairSession.Instance?.Receipt(this, e);
                     if (e.kind == Native.EventKind.PelletDelivered && onionMinions.TryGetValue(e.b, out var onion)
                         && onion.Alive && !OnionDisabled(e.b))
                     {
@@ -1834,6 +2121,7 @@ namespace OlimarTest
         // An enemy's hit on anything also hurts the Pikmin around where it landed.
         void OnDamageDealt(DamageReport r)
         {
+            if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal) return;
             if (sim == IntPtr.Zero || !NetworkServer.active || r?.damageInfo == null) return;
             if (stepping)
             {
@@ -1860,6 +2148,7 @@ namespace OlimarTest
         // proc coefficient.
         void Freeze(Vector3 at, float radiusMetres, float procCoefficient)
         {
+            if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal) return;
             if (sim == IntPtr.Zero || !NetworkServer.active) return;
             if (stepping)
             {
@@ -1976,6 +2265,7 @@ namespace OlimarTest
                 return;
             }
             if (!v || r.victimTeamIndex == TeamIndex.Player) return;
+            if (ShipRepairMode.Active && ShipRepairSession.Instance) ShipRepairSession.Instance.EnemyDefeated(this, r);
             if (v.isElite) affixes.EliteDied(v, r.attackerBody, Pikis, PikiCount, Id(v));
             // The Pikmin that fought it earn the kill (growth), whoever struck the last blow.
             Native.pik_sim_credit_kill(sim, Id(v));

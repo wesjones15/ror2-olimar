@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.2.2.1")]
+    [BepInPlugin(Guid, "Olimar", "0.3.5")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -41,6 +41,7 @@ namespace OlimarTest
         internal static ManualLogSource Log;
         internal static string AssetsDir;
         static volatile bool assetsBusy;
+        bool musicInitialized;
 
         internal static ControlScheme Scheme;
         internal static ConfigEntry<CameraMode> Camera;
@@ -65,7 +66,10 @@ namespace OlimarTest
         internal static ConfigEntry<float> SecondsPerStage, FlowerSeconds;
         // The dismiss strike and Pikmin pace (see PikminWorld.StartSim).
         internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
-        internal static ConfigEntry<bool> CursorHoming, PikminJump, ShipParts;
+        internal static ConfigEntry<bool> CursorHoming, PikminJump, ShipParts, CompetitiveMode;
+        internal static ConfigEntry<float> EnemyPartIntervalSeconds;
+        internal static ConfigEntry<bool> StageMusic, AdaptiveStageMusic;
+        internal static ConfigEntry<float> StageMusicVolume;
         internal static ConfigEntry<float> PunchDamage, StrikeChargeSeconds;
         internal static ConfigEntry<bool> StrikeStun, StrikeKillReset;
         internal static ConfigEntry<int> KillsPerStage;
@@ -98,8 +102,8 @@ namespace OlimarTest
             Log = Logger;
             CommonLog.Log = Logger;
             OnionCard.Install(gameObject);
+            OnionMenuEquipment.Install();
             string here = Path.GetDirectoryName(Info.Location);
-            SpawnMusic.Initialize(Config, here);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
             Camera = Config.Bind("Controls", "CameraMode", CameraMode.Orbit,
                 "Orbit: right stick pans, LB + right stick swarms, LT recentres, RT locks, RB cycles targets (or zoom when unlocked). Vanilla uses the fixed camera. Both use B to jump and LB + B to whistle.");
@@ -163,8 +167,15 @@ namespace OlimarTest
                 "How far from an enemy's edge the strike reaches, all around Olimar.");
             StrikeCooldown = Config.Bind("Combat", "StrikeCooldown", 4f, "Seconds between strikes.");
             ShipParts = Config.Bind("Dolphin", "ShipPartsMode", false,
-                "Not built yet: the ship-repair mode, where the Dolphin is wrecked and its parts are scattered over the stages. " +
-                "Off (the only mode for now): the Dolphin is the repaired ship, with all 30 parts and its lights and effects.");
+                "Retired setting, ignored. Select Ship Repair in the game-mode menu instead.");
+            if (ShipParts.Value) Log.LogInfo("Dolphin.ShipPartsMode is retired. Select Ship Repair from the mode menu.");
+            CompetitiveMode = Config.Bind("ShipRepair", "CompetitiveMode", true,
+                "Host rule, locked at run start. True: each player repairs their own Dolphin; first to 30 unique parts wins. False: shared cooperative repair.");
+            EnemyPartIntervalSeconds = Config.Bind("ShipRepair", "EnemyPartIntervalSeconds", 30f,
+                "Host rule, locked at run start. Minimum seconds between each player's successful ordinary enemy part drops. Independent per player; stage-boss reward bypasses this gate. Range 0-600.");
+            StageMusic = Config.Bind("ShipRepair", "StageMusic", true, "Local audio: Pikmin jungle music in the lobby, Impact Site on stage one, seeded Pikmin music on later stages, and space-themed world-map music on results. Retains RoR2 boss music.");
+            AdaptiveStageMusic = Config.Bind("ShipRepair", "AdaptiveStageMusic", true, "Local audio: nearby RoR2 enemies activate the original Pikmin enemy-proximity musical layers.");
+            StageMusicVolume = Config.Bind("ShipRepair", "StageMusicVolume", 1f, "Local Pikmin stage music gain, multiplied by RoR2 music/master volume (0-2).");
             PikminJump = Config.Bind("Pikmin", "OlimarUsesPikminJump", true,
                 "Olimar jumps with the Pikmin's own jump animation (they share the game's motion table). Off: his geyser-ride pose, tipped upright.");
             CursorHoming = Config.Bind("Combat", "CursorHoming", true,
@@ -318,10 +329,11 @@ namespace OlimarTest
                 [SkillSlot.Special] = new[] { PadButton.RB },
             });
 
-            ContentProvider.Register(Guid, Content.Fill);
+            ContentProvider.Register(Guid, pack => { Content.Fill(pack); ShipRepairMode.Fill(pack); });
             Language.onCurrentLanguageChanged += AddTokens;
             PikminWorld.Hook();
             PikminNet.Register();
+            ShipRepairMode.Install(gameObject);
         }
 
         static bool InVr()
@@ -345,17 +357,21 @@ namespace OlimarTest
         // waits for it). Nothing from the disc ships with the plugin.
         static void PrepareAssets(string configuredDisc, string here)
         {
-            if (Native.pik_assets_complete(Native.CString(AssetsDir)) != 0)
-                return;
+            bool ready = Native.pik_assets_complete(Native.CString(AssetsDir)) != 0;
+            string audio = Path.Combine(AssetsDir, "ror2_audio");
+            bool needIntro = !File.Exists(Path.Combine(audio, "spawn.wav"))
+                || !File.Exists(Path.Combine(audio, "stings.version"))
+                || File.ReadAllText(Path.Combine(audio, "stings.version")).Trim() != "1";
+            if (ready && !needIntro) return;
             string disc = configuredDisc?.Trim();
-            if (string.IsNullOrEmpty(disc))
+            if (!ready && string.IsNullOrEmpty(disc))
             {
                 string parent = Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here;
                 var found = new byte[1024];
                 if (Native.pik_find_disc(Native.CString(here + ";" + parent), found, (uint)found.Length) != 0)
                     disc = Native.Utf8(found);
             }
-            if (string.IsNullOrEmpty(disc) || !File.Exists(disc))
+            if (!ready && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))
             {
                 Log.LogError($"No Pikmin assets at '{AssetsDir}' and no disc image to build them from. " +
                              $"Set Paths.Disc in BepInEx/config/{Guid}.cfg to your own Pikmin disc. " +
@@ -363,15 +379,25 @@ namespace OlimarTest
                 return;
             }
             assetsBusy = true;
-            Log.LogInfo($"Extracting Pikmin assets from {disc} into {AssetsDir}...");
+            Log.LogInfo(ready ? "Preparing Pikmin arrival music..." : $"Extracting Pikmin assets from {disc} into {AssetsDir}...");
             var worker = new Thread(() =>
             {
                 try
                 {
                     var msg = new byte[2048];
-                    byte ok = Native.pik_extract(Native.CString(disc), Native.CString(AssetsDir), msg, (uint)msg.Length);
-                    if (ok != 0) Log.LogInfo($"Extracted: {Native.Utf8(msg)}");
-                    else Log.LogError($"Extraction failed: {Native.Utf8(msg)}");
+                    if (!ready)
+                    {
+                        byte ok = Native.pik_extract(Native.CString(disc), Native.CString(AssetsDir), msg, (uint)msg.Length);
+                        ready = ok != 0 && Native.pik_assets_complete(Native.CString(AssetsDir)) != 0;
+                        if (ready) Log.LogInfo($"Extracted: {Native.Utf8(msg)}");
+                        else Log.LogError($"Extraction failed: {Native.Utf8(msg)}");
+                    }
+                    if (ready)
+                    {
+                        if (Native.pik_render_stings(Native.CString(AssetsDir), msg, (uint)msg.Length) != 0)
+                            Log.LogInfo($"Pikmin audio: {Native.Utf8(msg)}");
+                        else Log.LogWarning($"Pikmin arrival music unavailable: {Native.Utf8(msg)}");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -383,6 +409,14 @@ namespace OlimarTest
                 }
             }) { IsBackground = true, Name = "pikmin extract" };
             worker.Start();
+        }
+
+        void Update()
+        {
+            if (musicInitialized || !AssetsSettled) return;
+            musicInitialized = true;
+            // Like Mario, bind config and load the worker's completed cache on the Unity thread.
+            if (AssetsReady) SpawnMusic.Initialize(Config, Path.Combine(AssetsDir, "ror2_audio"));
         }
 
         static void AddTokens()

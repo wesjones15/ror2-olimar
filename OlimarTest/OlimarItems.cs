@@ -92,6 +92,9 @@ namespace OlimarTest
             Native.pik_sim_set_squad_speed(sim, captain, Mathf.Max(0.1f, move));
             // Jump power and acceleration items (Faraday Spur, Hex of Leaping, Hex of Acceleration).
             Native.pik_sim_set_captain_motion(sim, captain, NativeBody.JumpScale(body), NativeBody.AccelerationScale(body));
+            float baselineJump = body.baseJumpPower + body.levelJumpPower * Mathf.Max(0f, body.level - 1f);
+            Native.pik_sim_set_captain_jump_height(sim, captain,
+                OlimarJump.Height(body.jumpPower, baselineJump, Physics.gravity.y, UnityHost.Scale));
             Native.pik_sim_set_captain_jumps(sim, captain, (uint)Mathf.Max(0, body.maxJumpCount - 1),
                 (byte)(ByName.Count(body, "FallBoots") > 0 ? 1 : 0));
             CooldownBoost = SkillCooldown.Boost(Slot(SkillSlot.Primary), Plugin.CooldownExponent.Value, ref cooldownHeld);
@@ -517,18 +520,21 @@ namespace OlimarTest
                 $"<style=cIsDamage>{10f * Plugin.DamageCoefficient.Value * 100f:0}%</style> from a Blue or Yellow. " +
                 "<style=cIsUtility>Hold RT</style> to lock onto an enemy up to " +
                 $"{Plugin.LockRange.Value:0} m away: thrown Pikmin home in on it (<style=cIsUtility>RB</style> cycles targets). " +
+                "Locked on, Pikmin reach his hand in one frame for rapid throws. " +
                 "<style=cIsUtility>D-pad left and right</style> pick Red, Yellow, Blue or Any (the nearest). With no Pikmin to throw, " +
                 "Olimar punches. Attack speed speeds up Pikmin attacks.");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_NAME", "Whistle");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
                 "<style=cIsUtility>Hold LB and press B</style>. A circle at the cursor grows to about " +
                 "<style=cIsUtility>3.6 m</style> and calls every Pikmin inside back to the squad, even off an enemy or a corpse. " +
+                "Jumps at least as high as Commando, with the Pikmin matching his height. " +
                 "No cooldown. Olimar can't jump while LB is held.");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Raise / Lower Onion");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
                 "<style=cIsUtility>Press X</style> with no interact prompt up to lower the Onion where Olimar stands, or to raise it " +
                 $"so it follows him. Each takes a charge, and one returns every <style=cIsUtility>{Plugin.RelocationRecharge.Value:0.#} seconds</style>. " +
-                "Standing under the Onion, X (or D-pad up) opens its menu.");
+                "Under the Onion, X opens its menu; X again releases all but one stored Pikmin. " +
+                "In the menu, Y returns the whole squad. D-pad up also opens it.");
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
                 $"<style=cIsUtility>Press RB</style> to strike every enemy within <style=cIsUtility>{Plugin.StrikeReachMetres.Value:0.#} m</style> for " +

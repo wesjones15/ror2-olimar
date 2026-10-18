@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../OlimarTest/ShipRepairProgress.cs" Link="ShipRepairProgress.cs" />
+    <Compile Include="../../OlimarTest/ShipRepairRace.cs" Link="ShipRepairRace.cs" />
+    <Compile Include="../../OlimarTest/ShipRepairDropPacing.cs" Link="ShipRepairDropPacing.cs" />
+    <Compile Include="../../OlimarTest/ShipRepairMusicPolicy.cs" Link="ShipRepairMusicPolicy.cs" />
+    <Compile Include="../../OlimarTest/ShipRepairPacket.cs" Link="ShipRepairPacket.cs" />
+    <Compile Include="../../../ror2-common/src/ByteIO.cs" Link="ByteIO.cs" />
+  </ItemGroup>
+</Project>

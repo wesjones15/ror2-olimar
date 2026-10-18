@@ -1,6 +1,15 @@
-> modern/1.5.0 branch: targets RiskOfRain2_DLC4 (Unity 2021.3.45f2). Build/API validation only; in-game validation is pending. Legacy instructions below describe the previous release.
+> feature/ship-part-mode: Olimar 0.3.4 preview for RiskOfRain2_DLC4 (Unity 2021.3.45f2), native ABI 33 / repair protocol 3. Ship Repair shows only Olimar in the survivor picker and selects him when entering the mode; changing modes restores the normal roster. It defaults to competitive Dolphin races; `[ShipRepair] CompetitiveMode = false` enables shared repair. Two map parts, one stage-boss part, seven other enemy drops per player and a 20% bonus-drop chance after the quota. Ordinary enemy drops have independent 30-second player cooldowns (`EnemyPartIntervalSeconds`) and 25-metre clear-site spacing. Duplicate parts feed the owner's Onion for seeds and return for rivals. Dolphins leave after drop-off and dock near the teleporter, with separated multiplayer landing sites. Impact Site plays on stage one, seeded Pikmin stage music later, original enemy-proximity layers respond to RoR2 enemies, and teleporter fights retain RoR2 boss music. Build/API validation passes; in-game validation is pending. Legacy instructions below describe the previous release.
 
 # ror2-olimar
+
+Modern 0.2.4: native-control fall recovery now uses common Unstuck.FellEarly at
+Mario's TOO BAD onset: more than 20m below last safe ground with no floor within
+2000m, or a valid stage return zone. Lower platforms remain valid landing targets.
+Olimar and his squad return together; his Dolphin/Onion arrival stays unchanged.
+Build/API and common detector validation pass; in-game validation is pending.
+All future deploys stage under ../target/BepInEx/plugins/OlimarTest/; the user
+copies files to their game installation. Older direct-install examples below
+are historical.
 
 Risk of Rain 2 host for [libpikmin](../libpikmin): Olimar and his Pikmin in RoR2.
 Targets the 2023 build (1.2.4.4, Unity 2019.4.37, BepInEx 5). Compiles against the reference
@@ -84,9 +93,21 @@ What works:
   It arrives airborne alongside the Dolphin, lands to release the squad, and stays planted until raised. With the Pikmin controls X lowers a
   flying Onion where he stands and raises a landed one to follow him (each takes a relocation
   charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
-  its menu, and at a chest it opens the chest. D-pad up / Tab opens the menu, including during
-  flight. The Aim scheme uses interact to land it and open the menu. Left/right selects Red, Yellow, Blue, **Follow Olimar**, or **Land Here**;
-  up/down adjusts transfers and A/left click confirms. Transfers wait until landed; a hovering Onion
+  its menu, and at a chest it opens the chest. The menu only opens while Olimar stands in the
+  central beam of his landed Onion, and closes if he leaves it or the Onion takes off.
+  The menu is a single page for all colours: up/down chooses an exact number to call out
+  or put away, A/left click confirms, and B/right click closes. Counts stop at their limits without wrapping.
+  **X** in the menu releases all stored Pikmin except one (subject to the field cap); press X twice
+  under the Onion to open and release. **Y** in the menu returns the whole squad and consumes that
+  equipment-button press. On keyboard these shortcuts use Utility and Equipment.
+  **RB** (keyboard F) heals Olimar using only Pikmin stored in the Onion, preferring leaves (5% max
+  health), then buds (10%), then flowers (20%). It consumes enough to fill his health or leave one
+  unreserved stored Pikmin, leaves the squad and queued exits untouched, and closes the menu.
+  Dolphin recovery effects play at Olimar for two seconds with one Pikmin ghost per sacrifice;
+  the effect and ghost count are replicated to other players.
+  Raise/lower commands stay on the utility button outside interact prompts, with no movement pages in the menu.
+  Flying, taking-off and landing Onions never show a menu or accept menu commands.
+  Native flying call-outs still slide halfway down a leg, then let go and fall. A hovering Onion
   descends towards nearby pellets before collecting them, and the Pikmin they make stay inside it as leaves instead of being planted. Loose ground pellets are eligible even with no Pikmin alive. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
   moving, so Bustling Fungus only activates after the Onion has landed and stood still for
@@ -103,8 +124,14 @@ What works:
 - **Size**: Olimar is two thirds of Commando's height (`Scale.OlimarHeight`; try 0.75), and
   the Pikmin, Onion and pellets scale with him. His body's collision capsule and hurtboxes
   shrink to match.
-- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`). D-pad left
-  or right (or the mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
+  His jump reaches at least Commando's unmodified world-space jump height, with a small clearance
+  margin, regardless of this model scale. Jump-power increases raise it further. Pikmin use the
+  same jump height, including when following him and jumping over obstacles.
+- **Throwing**: throws reach twice as far as in Pikmin (`Controls.ThrowReach`).
+  During an enemy lock, Pikmin reach his hand in one simulation tick for rapid
+  repeated throws, like feeding the hand with C-stick up; A still presses to grab and releases
+  to throw, and projectile flight time stays the same.
+  D-pad left or right (or the mouse wheel) picks the next colour to throw, Red, Yellow then Blue, skipping colours not
   in the squad, as in Pikmin 2. The chips above the skill bar show the squad by colour, the
   picked one outlined; until you pick, he throws the nearest Pikmin, as in Pikmin 1.
 - **Rejoining**: Pikmin that get separated (done carrying or fighting, thrown with nothing
@@ -143,7 +170,6 @@ position, so your RoR2 binds don't change it:
 | RoR2 sprint bind | sprint              | sprint until movement stops  |
 | RT (fixed camera only) |               | top view                     |
 | X under an Onion | interact            | open the Onion window        |
-| d-pad up         | Tab                 | Onion menu (including in flight) |
 
 The camera is a stand-in for Pikmin's: it looks down from behind and only turns when told
 to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
@@ -310,7 +336,12 @@ particles, and rocket sound start/stop. In-game visual acceptance is still manua
 
 ## Arrival music
 
-Phase 6: the first 3.5 seconds of Impact Site (tutorial.jam) play once per local body when DolphinArrival ends. Stage arrivals and respawns can play it again. SpawnMusic.Enabled and SpawnMusic.Volume control it; master and music volume also apply. The build synthesizes spawn.wav from your extracted disc audio into the ignored dist folder. Rebuild after extracting assets if the clip is missing. No music data is committed.
+The first 3.5 seconds of Impact Site (tutorial.jam) play once per run when Olimar first
+emerges on the first stage. SpawnMusic.Enabled and SpawnMusic.Volume control it; master
+and music volume also apply. Like Mario, the first-run asset worker renders the intro
+from your extracted disc banks into `AssetsDir/ror2_audio/spawn.wav`, with a versioned
+cache. Later starts reuse it without a disc or rebuild, and missing or outdated clips
+are regenerated. Only DLLs and the assets pointer are deployed; no music ships with them.
 
 Olimar's death plays the full vanilla sundown bell. ABI 28 renders it from your disc into
 memory when the sound view loads, then plays it through the death-sting player so game-over
