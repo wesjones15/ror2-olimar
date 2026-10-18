@@ -53,6 +53,19 @@ namespace OlimarTest
         Action pendingFailure;
         static string lastResult;
         internal static string ResultSummary => lastResult;
+        internal sealed class ResultLine
+        {
+            internal string Name;
+            internal int Score;
+            internal bool Winner;
+        }
+        static ResultLine[] resultLines = Array.Empty<ResultLine>();
+        internal static IEnumerable<ResultLine> ResultLines => resultLines;
+        internal static string ResultDetails { get; private set; }
+        internal static bool ResultWon { get; private set; }
+        SceneDef shownScene;
+        Stage shownStage;
+        float siteUntil;
         static string lastResultRun;
         static byte[] pendingPacket;
 
@@ -61,6 +74,11 @@ namespace OlimarTest
         int Count => Competitive ? race.Players.TryGetValue(LocalUserId, out var player) ? player.Order.Count : 0
             : NetworkServer.active ? Progress.Count : CountBits(remoteMask);
         string Standings => string.Join("\n", race.Players.Values.OrderByDescending(p => p.Order.Count).ThenBy(p => p.User).Select(p => p.Name + " — " + p.Order.Count + "/30 · " + p.Salvaged + " salvaged"));
+        ResultLine[] ScoreRows() => Competitive
+            ? race.Players.Values.OrderByDescending(p => p.Order.Count).ThenBy(p => p.User)
+                .Select(p => new ResultLine { Name = p.Name, Score = p.Order.Count, Winner = p.User == Winner }).ToArray()
+            : NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating)
+                .Select(u => new ResultLine { Name = u.userName, Score = Count, Winner = ResultWon }).ToArray();
         string WinText => Competitive ? (race.Players.TryGetValue(Winner, out var winner) ? winner.Name : "A player") + " repaired their Dolphin!" : "The Dolphin is repaired!";
         double Seconds => NetworkServer.active ? Progress.Seconds : remoteSeconds;
         internal bool Terminal => NetworkServer.active ? Progress.State >= ShipRepairProgress.Phase.Winning : remotePhase >= ShipRepairProgress.Phase.Winning;
@@ -77,7 +95,8 @@ namespace OlimarTest
             enemyPartInterval = float.IsNaN(Plugin.EnemyPartIntervalSeconds.Value) || float.IsInfinity(Plugin.EnemyPartIntervalSeconds.Value)
                 ? 30f : Mathf.Clamp(Plugin.EnemyPartIntervalSeconds.Value, 0f, 600f);
             if (NetworkServer.active) EnrollPlayers();
-            lastResult = lastResultRun = null;
+            lastResult = lastResultRun = ResultDetails = null;
+            resultLines = Array.Empty<ResultLine>(); ResultWon = false;
             if (pendingPacket != null) { var packet = pendingPacket; pendingPacket = null; Receive(new ByteReader(packet)); }
         }
         void EnrollPlayers()
@@ -463,6 +482,9 @@ namespace OlimarTest
         }
         void SaveSummary(bool won)
         {
+            ResultWon = won;
+            ResultDetails = FormatTime(Seconds) + "  |  " + Progress.Stages + " DAYS  |  SEED " + run.seed;
+            resultLines = ScoreRows();
             lastResultRun = runId;
             lastResult = $"Ship Repair — {(won ? WinText : "Run ended")}\n{FormatTime(Seconds)} · {Progress.Stages} stages · Seed {run.seed} · {run.selectedDifficulty}\n" +
                 (Competitive ? Standings : Count + "/30 parts");
@@ -514,8 +536,11 @@ namespace OlimarTest
             remoteEpoch = packet.Epoch; remoteMask = packet.Mask; remotePhase = packet.State; remoteSeconds = packet.Seconds; remoteStages = packet.Stages;
             remoteOrder = packet.Order; receivedCount = packet.Order.Length; hydrated = true;
             if (Winning && !playedVictory) { playedVictory = true; SpawnMusic.PlayVictory(); }
-            if (packet.State >= ShipRepairProgress.Phase.Winning)
+            if (packet.State == ShipRepairProgress.Phase.Failed || packet.State >= ShipRepairProgress.Phase.Winning)
             {
+                ResultWon = packet.State != ShipRepairProgress.Phase.Failed;
+                ResultDetails = FormatTime(Seconds) + "  |  " + remoteStages + " DAYS  |  SEED " + run.seed;
+                resultLines = ScoreRows();
                 lastResultRun = runId;
                 lastResult = $"Ship Repair — {(remoteMask == ShipRepairProgress.AllParts ? WinText : "Run ended")}\n{FormatTime(Seconds)} · {remoteStages} stages · Seed {run.seed} · {run.selectedDifficulty}\n" +
                     (Competitive ? Standings : Count + "/30 parts");
@@ -529,8 +554,16 @@ namespace OlimarTest
             {
                 return;
             }
-            GUI.Box(new Rect(20, 100, 340, 70), $"S.S. Dolphin — {Count}/30 parts\nRepair time {FormatTime(Seconds)}\n{parts.Count(p => !p.delivered)} remaining · {parts.Count(p => !p.spawned)} held by powerful enemies");
-            if (Competitive) GUI.Box(new Rect(Screen.width - 310, 100, 290, 40 + race.Players.Count * 22), "Dolphin race\n" + Standings);
+            var scene = SceneCatalog.GetSceneDefForCurrentScene();
+            if (Stage.instance && scene && ShipRepairMode.Eligible(scene) &&
+                (scene != shownScene || Stage.instance != shownStage))
+            {
+                shownScene = scene; shownStage = Stage.instance;
+                siteUntil = Time.unscaledTime + 5f;
+            }
+            if (Event.current.type == EventType.Repaint)
+                ShipRepairUi.Hud(Count, FormatTime(Seconds), ScoreRows(), Competitive,
+                    scene ? Language.GetString(scene.nameToken) : null, siteUntil);
             if (Time.unscaledTime < toastUntil) GUI.Box(new Rect(Screen.width / 2f - 260, 75, 520, 45), toast);
             if (Winning)
             {

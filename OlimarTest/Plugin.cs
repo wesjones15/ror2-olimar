@@ -173,7 +173,7 @@ namespace OlimarTest
                 "Host rule, locked at run start. True: each player repairs their own Dolphin; first to 30 unique parts wins. False: shared cooperative repair.");
             EnemyPartIntervalSeconds = Config.Bind("ShipRepair", "EnemyPartIntervalSeconds", 30f,
                 "Host rule, locked at run start. Minimum seconds between each player's successful ordinary enemy part drops. Independent per player; stage-boss reward bypasses this gate. Range 0-600.");
-            StageMusic = Config.Bind("ShipRepair", "StageMusic", true, "Local audio: replace exploration music with Impact Site on stage one and a seeded random Pikmin stage song later. Retains RoR2 boss music.");
+            StageMusic = Config.Bind("ShipRepair", "StageMusic", true, "Local audio: Pikmin jungle music in the lobby, Impact Site on stage one, seeded Pikmin music on later stages, and space-themed world-map music on results. Retains RoR2 boss music.");
             AdaptiveStageMusic = Config.Bind("ShipRepair", "AdaptiveStageMusic", true, "Local audio: nearby RoR2 enemies activate the original Pikmin enemy-proximity musical layers.");
             StageMusicVolume = Config.Bind("ShipRepair", "StageMusicVolume", 1f, "Local Pikmin stage music gain, multiplied by RoR2 music/master volume (0-2).");
             PikminJump = Config.Bind("Pikmin", "OlimarUsesPikminJump", true,

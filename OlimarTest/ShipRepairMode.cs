@@ -74,7 +74,7 @@ namespace OlimarTest
             plugin.AddComponent<ShipRepairHint>();
             plugin.AddComponent<ShipRepairMusic>();
             NetworkModCompatibilityHelper.networkModList = NetworkModCompatibilityHelper.networkModList
-                .Concat(new[] { Plugin.Guid + ";ship-repair-abi35-v4-music1-pick1" });
+                .Concat(new[] { Plugin.Guid + ";ship-repair-abi35-v5-presentation" });
             hooks.Add(new Hook(typeof(Run).GetProperty("spawnWithPod").GetMethod,
                 (Func<Func<Run, bool>, Run, bool>)((orig, run) => IsRepair(run) || orig(run))));
             hooks.Add(new Hook(typeof(PreGameController).GetMethod("StartLaunch", flags),
@@ -264,10 +264,11 @@ namespace OlimarTest
         void OnGUI()
         {
             if (ShipRepairMode.LobbyActive)
-                GUI.Box(new Rect(20, 100, 430, 80), "Ship Repair — recover 30 unique parts\n" +
-                    (ShipRepairMode.LobbyError() ?? "All players: Olimar. Artifacts: off.\n" + ShipRepairMode.LobbyRule));
+                ShipRepairUi.Lobby("OLIMAR ONLY  |  NO ARTIFACTS  |  " + ShipRepairMode.LobbyRule.ToUpperInvariant(),
+                    ShipRepairMode.LobbyError());
             else if (RunAudio.Ended && ShipRepairSession.ResultSummary != null && FindObjectOfType<GameOverController>())
-                GUI.Box(new Rect(20, 100, 430, 100), ShipRepairSession.ResultSummary);
+                ShipRepairUi.Results(ShipRepairSession.ResultDetails,
+                    ShipRepairSession.ResultLines, ShipRepairSession.ResultWon);
         }
     }
 }

@@ -15,12 +15,14 @@ namespace OlimarTest
         int stage = -1;
         uint song;
         bool failed, ownsTrack;
+        uint lastMenuSong;
         float enemyUntil, scanAt;
         void Awake() => MusicController.pickTrackHook += PickTrack;
         void OnDestroy() { MusicController.pickTrackHook -= PickTrack; Stop(); }
         void Stop()
         {
             ownsTrack = false;
+            lastMenuSong = 0;
             if (music != IntPtr.Zero) { Native.pik_music_free(music); music = IntPtr.Zero; }
         }
         void PickTrack(MusicController controller, ref MusicTrackDef track)
@@ -31,6 +33,30 @@ namespace OlimarTest
         {
             var current = Run.instance;
             if (run != current) { Stop(); run = current; stage = -1; song = 0; failed = false; }
+            bool menu = ShipRepairMode.LobbyActive;
+            bool results = RunAudio.Ended && ShipRepairSession.ResultSummary != null && FindObjectOfType<GameOverController>();
+            if ((menu || results) && Plugin.StageMusic.Value && Plugin.AssetsReady)
+            {
+                if (failed) return;
+                if (music == IntPtr.Zero)
+                {
+                    music = Native.pik_music_new(Native.CString(Plugin.AssetsDir));
+                    if (music == IntPtr.Zero) { failed = true; Plugin.Log.LogWarning("Pikmin menu music could not start; retaining RoR2 music."); return; }
+                }
+                // piki_scene.c maps the title to BGM_Jungle and the space-themed
+                // world map to BGM_Map. The same independent stream serves gameplay.
+                uint menuSong = menu ? 7u : 12u;
+                float gain = GameSettings.MusicVolume() * Mathf.Clamp(Plugin.StageMusicVolume.Value, 0f, 2f);
+                ownsTrack = Native.pik_music_update(music, menuSong, 0, gain, 0) != 0;
+                if (ownsTrack && lastMenuSong != menuSong)
+                {
+                    Native.pik_music_menu_sound(music, menu ? 0u : 2u);
+                    lastMenuSong = menuSong;
+                }
+                if (!ownsTrack) { Stop(); failed = true; Plugin.Log.LogWarning("Pikmin menu music failed; restoring RoR2 music."); }
+                return;
+            }
+            lastMenuSong = 0;
             bool local = LocalUserManager.readOnlyLocalUsersList.Any(u => u.currentNetworkUser && u.currentNetworkUser.isParticipating);
             bool eligible = ShipRepairMode.Eligible(SceneCatalog.GetSceneDefForCurrentScene());
             bool terminal = ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal;
