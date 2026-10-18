@@ -10,6 +10,8 @@ namespace OlimarTest
         public string Name;
         public uint Mask;
         public int Salvaged;
+        public int Pikmin;
+        public int Score => Order.Count + Pikmin / 50;
         public readonly List<int> Order = new List<int>();
         public bool Receive(int part)
         {
@@ -22,6 +24,7 @@ namespace OlimarTest
     {
         public readonly Dictionary<uint, ShipRepairRacer> Players = new Dictionary<uint, ShipRepairRacer>();
         public uint Winner { get; private set; }
+        public uint Completer { get; private set; }
         public ShipRepairRacer Enroll(uint user, string name)
         {
             if (user == 0) throw new ArgumentOutOfRangeException(nameof(user));
@@ -30,18 +33,36 @@ namespace OlimarTest
         }
         public bool Receive(uint user, int part)
         {
-            if (Winner != 0 || !Players.TryGetValue(user, out var player) || !player.Receive(part)) return false;
-            if (player.Mask == ShipRepairProgress.AllParts) Winner = user;
+            if (Completer != 0 || !Players.TryGetValue(user, out var player) || !player.Receive(part)) return false;
+            if (player.Mask == ShipRepairProgress.AllParts) Completer = user;
             return true;
         }
         public bool Salvage(uint user, int part)
         {
-            if (Winner != 0 || part < 0 || part >= 30 || !Players.TryGetValue(user, out var player) || (player.Mask & (1u << part)) == 0) return false;
+            if (Completer != 0 || part < 0 || part >= 30 || !Players.TryGetValue(user, out var player) || (player.Mask & (1u << part)) == 0) return false;
             player.Salvaged++; return true;
         }
+        public void FinalizeScores(Func<uint, int> pikminCount)
+        {
+            if (Completer == 0 || Winner != 0) return;
+            CapturePikmin(pikminCount);
+            Winner = Best(Players.Values, Completer);
+        }
+        public void CapturePikmin(Func<uint, int> pikminCount)
+        {
+            foreach (var player in Players.Values) player.Pikmin = Math.Max(0, pikminCount(player.User));
+        }
+        public static uint Best(IEnumerable<ShipRepairRacer> players, uint completer) => players
+            .OrderByDescending(player => player.Score)
+            .ThenByDescending(player => player.Order.Count)
+            .ThenBy(player => player.User == completer ? 0 : 1)
+            .ThenBy(player => player.User)
+            .Select(player => player.User).FirstOrDefault();
         public void Hydrate(IEnumerable<ShipRepairRacer> players, uint winner)
         {
-            Players.Clear(); foreach (var player in players) Players.Add(player.User, player); Winner = winner;
+            Players.Clear(); foreach (var player in players) Players.Add(player.User, player);
+            Completer = Players.Values.FirstOrDefault(player => player.Mask == ShipRepairProgress.AllParts)?.User ?? 0;
+            Winner = winner;
         }
         public static int EnemyBudget(int players, bool competitive) => 7 * (competitive ? Math.Max(1, players) : 1);
         public static int[] StageIds(ulong seed, uint epoch, int count, IEnumerable<uint> missingMasks)

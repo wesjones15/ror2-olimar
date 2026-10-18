@@ -9,9 +9,10 @@ namespace OlimarTest
     // makes malformed/truncated messages testable without loading Unity or the game.
     internal sealed class ShipRepairPacket
     {
-        public const byte Protocol = 3, Abi = 35;
+        public const byte Protocol = 4, Abi = 35;
         public bool Competitive;
         public uint Winner;
+        public int TeamPikmin;
         public ShipRepairRacer[] Racers = Array.Empty<ShipRepairRacer>();
         public string RunId;
         public uint Epoch, Mask;
@@ -34,10 +35,11 @@ namespace OlimarTest
             w.U8(Protocol); w.U8(Abi); w.Str(RunId); w.U32(Epoch); w.U32(Mask); w.U8((byte)State);
             w.F32(Seconds); w.I32(Stages); w.U8((byte)Order.Length);
             foreach (int id in Order) w.U8((byte)id);
-            w.Bool(Competitive); w.U32(Winner); w.U8((byte)Racers.Length);
+            w.Bool(Competitive); w.U32(Winner); w.I32(TeamPikmin); w.U8((byte)Racers.Length);
             foreach (var racer in Racers)
             {
-                w.U32(racer.User); w.Str(racer.Name); w.U32(racer.Mask); w.I32(racer.Salvaged); w.U8((byte)racer.Order.Count);
+                w.U32(racer.User); w.Str(racer.Name); w.U32(racer.Mask); w.I32(racer.Salvaged);
+                w.I32(racer.Pikmin); w.U8((byte)racer.Order.Count);
                 foreach (int id in racer.Order) w.U8((byte)id);
             }
             w.U16((ushort)Parts.Length);
@@ -66,23 +68,28 @@ namespace OlimarTest
                 mask |= 1u << id; p.Order[i] = id;
             }
             if (mask != p.Mask || ((p.State == ShipRepairProgress.Phase.Winning || p.State == ShipRepairProgress.Phase.Results) && mask != ShipRepairProgress.AllParts)) return false;
-            p.Competitive = r.Bool(); p.Winner = r.U32(); count = r.U8();
-            if (count > 64 || (!p.Competitive && (count != 0 || p.Winner != 0))) return false;
+            p.Competitive = r.Bool(); p.Winner = r.U32(); p.TeamPikmin = r.I32(); count = r.U8();
+            if (count > 64 || p.TeamPikmin < 0 || (!p.Competitive && (count != 0 || p.Winner != 0)) ||
+                (p.Competitive && p.TeamPikmin != 0)) return false;
             var racers = new List<ShipRepairRacer>();
             for (int i = 0; i < count; i++)
             {
                 var racer = new ShipRepairRacer { User = r.U32(), Name = r.Str() };
-                uint expected = r.U32(); racer.Salvaged = r.I32(); int deliveries = r.U8();
-                if (racer.User == 0 || racer.Salvaged < 0 || racers.Any(other => other.User == racer.User) || deliveries > 30) return false;
+                uint expected = r.U32(); racer.Salvaged = r.I32(); racer.Pikmin = r.I32(); int deliveries = r.U8();
+                if (racer.User == 0 || racer.Salvaged < 0 || racer.Pikmin < 0 ||
+                    racers.Any(other => other.User == racer.User) || deliveries > 30) return false;
                 for (int j = 0; j < deliveries; j++) if (!racer.Receive(r.U8())) return false;
                 if (racer.Mask != expected) return false;
                 racers.Add(racer);
             }
+            bool victory = p.State == ShipRepairProgress.Phase.Winning || p.State == ShipRepairProgress.Phase.Results;
+            var completers = racers.Where(player => player.Mask == ShipRepairProgress.AllParts).ToArray();
             if (p.Competitive && (racers.Count == 0 ||
-                (p.Winner == 0 && racers.Any(player => player.Mask == ShipRepairProgress.AllParts)) ||
-                (p.Winner != 0 && !racers.Any(player => player.User == p.Winner && player.Mask == ShipRepairProgress.AllParts)) ||
-                (p.Winner != 0 && !p.Order.SequenceEqual(racers.First(player => player.User == p.Winner).Order)) ||
-                ((p.State == ShipRepairProgress.Phase.Winning || p.State == ShipRepairProgress.Phase.Results) != (p.Winner != 0)))) return false;
+                (victory != (completers.Length == 1 && p.Winner != 0)) ||
+                (!victory && (completers.Length != 0 || p.Winner != 0 ||
+                    (p.State != ShipRepairProgress.Phase.Failed && racers.Any(player => player.Pikmin != 0)))) ||
+                (victory && (!p.Order.SequenceEqual(completers[0].Order) ||
+                    ShipRepairRace.Best(racers, completers[0].User) != p.Winner)))) return false;
             p.Racers = racers.ToArray();
             count = r.U16(); if (count > 451) return false;
             var parts = new List<Part>();

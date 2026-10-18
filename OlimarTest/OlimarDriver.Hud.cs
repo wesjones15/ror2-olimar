@@ -9,7 +9,7 @@ namespace OlimarTest
         // drawGameInfo.cpp's lower play10.blo uses NaviTexCallBack, LifeIconCallBack,
         // PikiIconCallBack and the formation/map/total number callbacks. These are
         // decoded from the player's extracted screen/eng_tex files, never bundled.
-        readonly Texture2D[] bottomIcons = new Texture2D[21];
+        readonly Texture2D[] bottomIcons = new Texture2D[22];
         readonly Texture2D[] bottomDigits = new Texture2D[10];
         Texture2D lifeCircle;
         int lifeCircleStep = -1;
@@ -189,7 +189,7 @@ namespace OlimarTest
         void BottomCount(float x, float y, string label, int count, int minimumDigits)
         {
             GUI.Label(new Rect(x, y + 5f, 165f, 26f), label, bottomLabel);
-            PikminUiSkin.Bubble(bottomIcons[11], new Rect(x, y + 33f, 165f, 89f));
+            PikminUiSkin.Bubble(bottomIcons[21], new Rect(x, y + 33f, 165f, 89f));
             PikminUiSkin.Digits(bottomDigits, count, new Rect(x + 7f, y + 45f, 151f, 61f), minimumDigits);
         }
     }

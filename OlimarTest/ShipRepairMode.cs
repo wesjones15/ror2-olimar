@@ -74,7 +74,7 @@ namespace OlimarTest
             plugin.AddComponent<ShipRepairHint>();
             plugin.AddComponent<ShipRepairMusic>();
             NetworkModCompatibilityHelper.networkModList = NetworkModCompatibilityHelper.networkModList
-                .Concat(new[] { Plugin.Guid + ";ship-repair-abi35-v5-presentation" });
+                .Concat(new[] { Plugin.Guid + ";ship-repair-abi35-v6-scoring" });
             hooks.Add(new Hook(typeof(Run).GetProperty("spawnWithPod").GetMethod,
                 (Func<Func<Run, bool>, Run, bool>)((orig, run) => IsRepair(run) || orig(run))));
             hooks.Add(new Hook(typeof(PreGameController).GetMethod("StartLaunch", flags),
@@ -245,7 +245,7 @@ namespace OlimarTest
             var language = Language.currentLanguage;
             if (language == null) return;
             language.SetStringByToken(NameToken, "Ship Repair");
-            language.SetStringByToken("OLIMAR_SHIP_REPAIR_DESCRIPTION", "The Dolphin is wrecked. Recover 30 unique ship parts with your Pikmin to escape. Parts left behind can appear on later stages.");
+            language.SetStringByToken("OLIMAR_SHIP_REPAIR_DESCRIPTION", "Compete with your friends to repair your Dolphin first! Build your pikmin army! you get bonus points at the end for your pikmin squad size.");
             language.SetStringByToken("OLIMAR_SHIP_REPAIR_WIN", "The Dolphin is whole again. Home is finally within reach.");
         }
     }
@@ -264,8 +264,7 @@ namespace OlimarTest
         void OnGUI()
         {
             if (ShipRepairMode.LobbyActive)
-                ShipRepairUi.Lobby("OLIMAR ONLY  |  NO ARTIFACTS  |  " + ShipRepairMode.LobbyRule.ToUpperInvariant(),
-                    ShipRepairMode.LobbyError());
+                ShipRepairUi.Lobby(ShipRepairMode.LobbyError());
             else if (RunAudio.Ended && ShipRepairSession.ResultSummary != null && FindObjectOfType<GameOverController>())
                 ShipRepairUi.Results(ShipRepairSession.ResultDetails,
                     ShipRepairSession.ResultLines, ShipRepairSession.ResultWon);

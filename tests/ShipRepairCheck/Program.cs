@@ -80,7 +80,18 @@ static class Program
         Check(soloIds.Length == 10 && soloIds.Distinct().Count() == 10 && groupIds.Length == 31, "solo and four-player supply");
         Check(ShipRepairRace.StageIds(5, 3, 31, new[] { ShipRepairProgress.AllParts ^ 1u, ShipRepairProgress.AllParts ^ 2u }).OrderBy(p => p).SequenceEqual(new[] { 0, 1 }), "near-complete races only offer needed copies");
         foreach (int id in Enumerable.Range(0, 30).Where(p => p != 4)) Check(race.Receive(22, id), "rival recovery");
-        Check(race.Winner == 22 && !race.Receive(11, 5) && !race.Salvage(11, 4), "first completed Dolphin secures race");
+        Check(race.Completer == 22 && race.Winner == 0 && !race.Receive(11, 5) && !race.Salvage(11, 4),
+            "first completed Dolphin closes part delivery without choosing the score winner");
+        race.FinalizeScores(user => user == 11 ? 1500 : 49);
+        Check(race.Winner == 11 && race.Players[11].Score == 31 && race.Players[22].Score == 30,
+            "Pikmin bonus can beat the first player with thirty parts");
+        var tied = new ShipRepairRace(); tied.Enroll(33, "C"); tied.Enroll(44, "D");
+        foreach (int id in Enumerable.Range(0, 29)) Check(tied.Receive(44, id), "tie rival parts");
+        foreach (int id in Enumerable.Range(0, 30)) Check(tied.Receive(33, id), "tie completer parts");
+        tied.FinalizeScores(user => user == 44 ? 50 : 0);
+        Check(tied.Winner == 33, "equal score favors more repaired parts");
+        Check(tied.Players[44].Score == 30 && race.Players[22].Score == 30,
+            "bonus starts at fifty Pikmin, not forty-nine");
         Check(race.Enroll(11, "A renamed").Order.Count == 1, "stage enrollment retains progress");
         var packet = new ShipRepairPacket { RunId = Guid.NewGuid().ToString(), Epoch = 2, Mask = 1u << 4,
             State = ShipRepairProgress.Phase.Playing, Seconds = 124.5f, Stages = 2, Order = new[] { 4 },
@@ -111,12 +122,28 @@ static class Program
         packet.Parts[1].Id = 5;
         packet.Competitive = true; packet.Racers = race.Players.Values.ToArray();
         Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "complete racer requires authoritative winner");
-        packet.Winner = 22; packet.State = ShipRepairProgress.Phase.Winning;
+        packet.Winner = 11; packet.State = ShipRepairProgress.Phase.Winning;
         packet.Mask = ShipRepairProgress.AllParts; packet.Order = race.Players[22].Order.ToArray();
-        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Winner == 22 && decoded.Racers.First(p => p.User == 11).Salvaged == 1, "race winner and salvage packet round trip");
+        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Winner == 11 &&
+            decoded.Racers.First(p => p.User == 11).Pikmin == 1500 && decoded.Racers.First(p => p.User == 11).Salvaged == 1,
+            "score winner differs from completer and Pikmin counts survive packet round trip");
+        packet.Winner = 22;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "packet rejects a parts completer who lost on score");
+        packet.Winner = 11;
+        race.Players[11].Pikmin = -1;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "negative Pikmin score rejected");
+        race.Players[11].Pikmin = 1500;
         packet.State = ShipRepairProgress.Phase.Playing; packet.Winner = 0;
         packet.Racers = new[] { new ShipRepairRacer { User = 11, Name = "A" }, new ShipRepairRacer { User = 22, Name = "B" } };
         packet.Mask = 0; packet.Order = Array.Empty<int>();
+        packet.State = ShipRepairProgress.Phase.Failed;
+        packet.Racers[0].Pikmin = 50;
+        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Racers[0].Score == 1,
+            "failed run preserves final Pikmin bonus without declaring a winner");
+        packet.State = ShipRepairProgress.Phase.Playing;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _),
+            "active race cannot claim final Pikmin before the end");
+        packet.Racers[0].Pikmin = 0;
         packet.Parts[1].EnemyDrop = false; packet.Parts[1].Recycling = true;
         Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Parts[1].Recycling, "map part recycling round trip");
         packet.Parts[1].Recycling = false;

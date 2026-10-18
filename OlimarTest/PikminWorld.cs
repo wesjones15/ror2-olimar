@@ -285,6 +285,23 @@ namespace OlimarTest
             return 0;
         }
 
+        // The final Ship Repair score counts only Pikmin with the captain or in
+        // their Onion. Free, planted, carrying and attacking Pikmin are excluded.
+        internal int ScorePikmin(uint user)
+        {
+            if (sim == IntPtr.Zero || ClientMode) return 0;
+            long count = 0;
+            foreach (var flight in onionOf.Values)
+            {
+                var controller = flight.owner ? flight.owner.GetComponent<PlayerCharacterMasterController>() : null;
+                if (!controller || !controller.networkUser ||
+                    (user != 0 && controller.networkUser.netId.Value != user)) continue;
+                if (OnionTotals(flight.id, flight.captain, out var pikmin))
+                    count += (long)pikmin.in_onion + pikmin.in_squad;
+            }
+            return (int)Math.Min(int.MaxValue, count);
+        }
+
         internal void FitShipPart(uint part, uint user = 0)
         {
             if (sim == IntPtr.Zero || ClientMode) return;
@@ -297,7 +314,8 @@ namespace OlimarTest
             if (sim == IntPtr.Zero || ClientMode) return;
             foreach (var dolphin in dolphins.Values)
             {
-                if (ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive && UserForCaptain(dolphin.captain) != ShipRepairSession.Instance.Winner) continue;
+                if (ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive &&
+                    UserForCaptain(dolphin.captain) != ShipRepairSession.Instance.Completer) continue;
                 var pos = UnityHost.ToSim(dolphin.landing + Vector3.up * (progress * progress * 40f));
                 Native.pik_sim_set_onion_pose(sim, (uint)dolphin.id, ref pos, 1);
                 Native.pik_sim_set_onion_flight_motion(sim, (uint)dolphin.id, 0, progress);

@@ -19,6 +19,7 @@ namespace OlimarTest
         readonly ShipRepairRace race = new ShipRepairRace();
         internal bool Competitive { get; private set; }
         internal uint Winner => race.Winner;
+        internal uint Completer => race.Completer;
         public IEnumerable<int> PartsFor(uint user) => Competitive
             ? race.Players.TryGetValue(user, out var player) ? player.Order : Enumerable.Empty<int>() : Progress.Order;
         sealed class Part
@@ -56,7 +57,7 @@ namespace OlimarTest
         internal sealed class ResultLine
         {
             internal string Name;
-            internal int Score;
+            internal int Parts, Pikmin, Score;
             internal bool Winner;
         }
         static ResultLine[] resultLines = Array.Empty<ResultLine>();
@@ -68,18 +69,22 @@ namespace OlimarTest
         float siteUntil;
         static string lastResultRun;
         static byte[] pendingPacket;
+        int teamPikmin;
 
         internal bool Winning => NetworkServer.active ? Progress.State == ShipRepairProgress.Phase.Winning : remotePhase == ShipRepairProgress.Phase.Winning;
         uint LocalUserId => LocalUserManager.GetFirstLocalUser()?.currentNetworkUser ? LocalUserManager.GetFirstLocalUser().currentNetworkUser.netId.Value : 0;
         int Count => Competitive ? race.Players.TryGetValue(LocalUserId, out var player) ? player.Order.Count : 0
             : NetworkServer.active ? Progress.Count : CountBits(remoteMask);
-        string Standings => string.Join("\n", race.Players.Values.OrderByDescending(p => p.Order.Count).ThenBy(p => p.User).Select(p => p.Name + " — " + p.Order.Count + "/30 · " + p.Salvaged + " salvaged"));
+        string Standings => string.Join("\n", race.Players.Values.OrderByDescending(p => p.Score).ThenByDescending(p => p.Order.Count).ThenBy(p => p.User)
+            .Select(p => p.Name + " — " + p.Order.Count + " parts · " + p.Pikmin + " Pikmin · " + p.Score + " score"));
         ResultLine[] ScoreRows() => Competitive
-            ? race.Players.Values.OrderByDescending(p => p.Order.Count).ThenBy(p => p.User)
-                .Select(p => new ResultLine { Name = p.Name, Score = p.Order.Count, Winner = p.User == Winner }).ToArray()
-            : NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating)
-                .Select(u => new ResultLine { Name = u.userName, Score = Count, Winner = ResultWon }).ToArray();
-        string WinText => Competitive ? (race.Players.TryGetValue(Winner, out var winner) ? winner.Name : "A player") + " repaired their Dolphin!" : "The Dolphin is repaired!";
+            ? race.Players.Values.OrderByDescending(p => Winner == 0 ? p.Order.Count : p.Score)
+                .ThenByDescending(p => p.Order.Count).ThenBy(p => p.User)
+                .Select(p => new ResultLine { Name = p.Name, Parts = p.Order.Count, Pikmin = p.Pikmin,
+                    Score = p.Score, Winner = p.User == Winner }).ToArray()
+            : new[] { new ResultLine { Name = "CREW", Parts = Count, Pikmin = teamPikmin,
+                Score = Count + teamPikmin / 50, Winner = ResultWon } };
+        string WinText => Competitive ? (race.Players.TryGetValue(Winner, out var winner) ? winner.Name : "A player") + " won Ship Repair!" : "The Dolphin is repaired!";
         double Seconds => NetworkServer.active ? Progress.Seconds : remoteSeconds;
         internal bool Terminal => NetworkServer.active ? Progress.State >= ShipRepairProgress.Phase.Winning : remotePhase >= ShipRepairProgress.Phase.Winning;
         internal bool HoldingFirstArrival => NetworkServer.active
@@ -409,8 +414,11 @@ namespace OlimarTest
                 // rejected physical copy back; another racer may still need it.
                 part.spawned = false; SpawnPart(world, part, part.safe); Broadcast(); return;
             }
-            if (Competitive && Winner != 0)
-                foreach (int id in race.Players[Winner].Order) Progress.Receive(Progress.Epoch, id);
+            if (Competitive && race.Completer != 0)
+            {
+                race.FinalizeScores(world.ScorePikmin);
+                foreach (int id in race.Players[race.Completer].Order) Progress.Receive(Progress.Epoch, id);
+            }
             part.delivered = true;
             world.FitShipPart((uint)part.id, user);
             ShowToast(Competitive ? race.Players[user].Name + " recovered " + part.name + " — " + race.Players[user].Order.Count + "/30" : $"{part.name} recovered — {Progress.Count}/30");
@@ -477,17 +485,22 @@ namespace OlimarTest
         internal void Failed()
         {
             Progress.Fail();
+            if (Competitive && NetworkServer.active && PikminWorld.Instance)
+                race.CapturePikmin(PikminWorld.Instance.ScorePikmin);
             SaveSummary(false);
             Broadcast();
         }
         void SaveSummary(bool won)
         {
             ResultWon = won;
+            if (!Competitive && NetworkServer.active && PikminWorld.Instance)
+                teamPikmin = PikminWorld.Instance.ScorePikmin(0);
             ResultDetails = FormatTime(Seconds) + "  |  " + Progress.Stages + " DAYS  |  SEED " + run.seed;
             resultLines = ScoreRows();
             lastResultRun = runId;
             lastResult = $"Ship Repair — {(won ? WinText : "Run ended")}\n{FormatTime(Seconds)} · {Progress.Stages} stages · Seed {run.seed} · {run.selectedDifficulty}\n" +
-                (Competitive ? Standings : Count + "/30 parts");
+                (Competitive ? Standings : Count + " parts · " + teamPikmin + " Pikmin · " +
+                    (Count + teamPikmin / 50) + " score");
             try
             {
                 string directory = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "OlimarShipRepairReports");
@@ -508,7 +521,8 @@ namespace OlimarTest
             var packet = new ShipRepairPacket {
                 RunId = runId, Epoch = Progress.Epoch, Mask = Progress.Mask, State = Progress.State,
                 Seconds = (float)Progress.Seconds, Stages = Progress.Stages, Order = Progress.Order.ToArray(),
-                Competitive = Competitive, Winner = Winner, Racers = Competitive ? race.Players.Values.ToArray() : Array.Empty<ShipRepairRacer>(),
+                Competitive = Competitive, Winner = Winner, TeamPikmin = teamPikmin,
+                Racers = Competitive ? race.Players.Values.ToArray() : Array.Empty<ShipRepairRacer>(),
                 Parts = parts.Select(p => new ShipRepairPacket.Part { Id = p.id, Slot = p.slot, Pellet = p.pellet, Name = p.name, Weight = p.weight,
                     X = p.pos.x, Y = p.pos.y, Z = p.pos.z, Discovered = p.discovered, Delivered = p.delivered, Stalled = p.stalled >= 30f,
                     EnemyDrop = p.enemyDrop, Spawned = p.spawned, StageBoss = p.stageBoss, Recycling = p.recycleAt > 0f }).ToArray(),
@@ -522,10 +536,12 @@ namespace OlimarTest
                 !remoteOrder.SequenceEqual(packet.Order.Take(remoteOrder.Length))) return;
             if (hydrated && packet.Competitive != Competitive) return;
             if (packet.Competitive && race.Players.Values.Any(previous => !packet.Racers.Any(next => next.User == previous.User &&
-                (next.Mask & previous.Mask) == previous.Mask && next.Salvaged >= previous.Salvaged && previous.Order.SequenceEqual(next.Order.Take(previous.Order.Count))))) return;
+                (next.Mask & previous.Mask) == previous.Mask && next.Salvaged >= previous.Salvaged &&
+                next.Pikmin >= previous.Pikmin && previous.Order.SequenceEqual(next.Order.Take(previous.Order.Count))))) return;
             int before = Count;
             Competitive = packet.Competitive;
             race.Hydrate(packet.Racers, packet.Winner);
+            teamPikmin = packet.TeamPikmin;
             if (hydrated && Competitive && Count > before) ShowToast("Your Dolphin — " + Count + "/30");
             if (hydrated && packet.Order.Length > receivedCount)
                 ShowToast($"Ship part recovered — {packet.Order.Length}/30");
@@ -543,7 +559,8 @@ namespace OlimarTest
                 resultLines = ScoreRows();
                 lastResultRun = runId;
                 lastResult = $"Ship Repair — {(remoteMask == ShipRepairProgress.AllParts ? WinText : "Run ended")}\n{FormatTime(Seconds)} · {remoteStages} stages · Seed {run.seed} · {run.selectedDifficulty}\n" +
-                    (Competitive ? Standings : Count + "/30 parts");
+                    (Competitive ? Standings : Count + " parts · " + teamPikmin + " Pikmin · " +
+                        (Count + teamPikmin / 50) + " score");
             }
         }
 
