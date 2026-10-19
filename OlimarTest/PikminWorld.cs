@@ -345,10 +345,20 @@ namespace OlimarTest
         /// The sim time of the tick his body was last set to.
         internal double BodyTickTime => ClientMode ? moverTicks : serverTicks;
 
-        /// The sim time his body is drawn at this frame: one tick behind the sim, as the blend always was.
-        internal double BodyShownTime =>
-            (ClientMode ? moverTicks + moverAlpha : serverTicks + alphaAtFixed)
-            + Mathf.Max(0f, Time.time - Time.fixedTime) * tickHz - 1.0;
+        /// The sim time his body is drawn at this frame, a tick behind the newest state so there is always a
+        /// later step to glide toward. The sim ran its step to the END of the fixed step (`fixedTime` plus
+        /// `fixedDeltaTime`), and a drawn frame is somewhere inside that step, so the clock is the sim's time
+        /// at the end of the step minus what is left of it. (0.3.8 left that remainder out, which put the
+        /// frames past the newest step for part of every tick: the body froze there and then jumped, a
+        /// stutter step at the sim's 30 Hz.)
+        internal double BodyShownTime
+        {
+            get
+            {
+                float left = Time.fixedDeltaTime - Mathf.Clamp(Time.time - Time.fixedTime, 0f, Time.fixedDeltaTime);
+                return (ClientMode ? moverTicks + moverAlpha : serverTicks + alphaAtFixed) - left * tickHz - 1.0;
+            }
+        }
 
         /// Running and not stopped by a bug in the sim.
         public bool Healthy => sim != IntPtr.Zero && !reportedPoison;
