@@ -39,6 +39,7 @@ namespace OlimarTest
             // The swarm grows over a run: on a machine that can't keep up, far or off-screen Pikmin are
             // re-posed less often. A machine that keeps up is untouched.
             models.AdaptiveCulling = true;
+            models.NativePoseBudget = true;
             Status = Native.Utf8(Native.pik_view_status(view));
             particles = new Particles(view, parent);
         }
@@ -131,6 +132,7 @@ namespace OlimarTest
         public void Update(IntPtr sim, ref Native.ViewFrame frame, float scale, Func<ViewDraw, bool> hide = null)
         {
             if (view == IntPtr.Zero) return;
+            Native.pik_view_set_pose_budget(view, ref frame.eye, scale > 0f ? Models.PoseBudgetDistance / scale : 0f);
             Pose(sim, ref frame);
             Models.Update(scale, null, hide);
             particles.Draw(scale);

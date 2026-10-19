@@ -223,6 +223,7 @@ namespace OlimarTest
             Native.pik_sim_set_captain_speed(moverSim, 0, speed);
             Native.pik_sim_set_captain_reach(moverSim, 0, Plugin.ThrowReach.Value);
             if (d.Active) d.Items.BeforeStep(moverSim, 0);
+            Native.pik_sim_set_networked(moverSim, 0);
             uint ticks = Native.pik_sim_advance(moverSim, ref host, Time.fixedDeltaTime);
             moverAlpha = Native.pik_sim_alpha(moverSim);
             moverTicks += ticks;
@@ -1505,6 +1506,7 @@ namespace OlimarTest
             uint ticks;
             try
             {
+                Native.pik_sim_set_networked(sim, (byte)(Mp.Networked ? 1 : 0));
                 ticks = Native.pik_sim_advance(sim, ref host, Time.fixedDeltaTime);
             }
             finally
@@ -1879,15 +1881,31 @@ namespace OlimarTest
 
         static ulong Id(CharacterBody b) => unchecked((ulong)(uint)b.GetInstanceID());
 
+        uint[] pikiGenerations = Array.Empty<uint>();
+        Func<Native.Piki[], uint, uint> readPikis;
+        Func<Native.Pellet[], uint, uint> readPellets;
+        Func<Native.Sprout[], uint, uint> readSprouts;
+        Func<Native.Onion[], uint, uint> readOnions;
+
         void ReadBack()
         {
-            PikiCount = Read(ref Pikis, (a, n) => Native.pik_sim_pikis(sim, a, n));
-            PelletCount = Read(ref Pellets, (a, n) => Native.pik_sim_pellets(sim, a, n));
+            PikiCount = Read(ref Pikis, readPikis ??= (a, n) => Native.pik_sim_pikis(sim, a, n));
+            if (pikiGenerations.Length < Pikis.Length) Array.Resize(ref pikiGenerations, Pikis.Length);
+            for (int i = 0; i < PikiCount; i++)
+            {
+                var p = Pikis[i];
+                if (pikiGenerations[i] == p.generation) continue;
+                pikiGenerations[i] = p.generation;
+                affixes.Forget(p.id);
+                thrownAt.Remove(p.id);
+                if (p.id < procReadyAt.Length) procReadyAt[p.id] = 0f;
+            }
+            PelletCount = Read(ref Pellets, readPellets ??= (a, n) => Native.pik_sim_pellets(sim, a, n));
             ReadOnions();
-            SproutCount = Read(ref Sprouts, (a, n) => Native.pik_sim_sprouts(sim, a, n));
+            SproutCount = Read(ref Sprouts, readSprouts ??= (a, n) => Native.pik_sim_sprouts(sim, a, n));
         }
 
-        void ReadOnions() => OnionCount = Read(ref Onions, (a, n) => Native.pik_sim_onions(sim, a, n));
+        void ReadOnions() => OnionCount = Read(ref Onions, readOnions ??= (a, n) => Native.pik_sim_onions(sim, a, n));
 
         /// Fills `buf` (growing it to fit) and returns the count.
         static int Read<T>(ref T[] buf, Func<T[], uint, uint> fetch)

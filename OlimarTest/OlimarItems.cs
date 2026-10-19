@@ -398,6 +398,7 @@ namespace OlimarTest
         readonly Dictionary<uint, Held> held = new Dictionary<uint, Held>();
 
         public void Clear() => held.Clear();
+        public void Forget(uint id) => held.Remove(id);
 
         /// `victim` (an elite) died to `killer`: its fighters among `pikis` take its affixes.
         public void EliteDied(CharacterBody victim, CharacterBody killer, Native.Piki[] pikis, int count, ulong victimId)
