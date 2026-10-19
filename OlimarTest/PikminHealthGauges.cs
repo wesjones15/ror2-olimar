@@ -84,6 +84,10 @@ namespace OlimarTest
                 {
                     var group = HideBar(hud.healthBar.gameObject);
                     barsToShow.Remove(group);
+                    // The level text and experience bar share that corner of RoR2's HUD and show through
+                    // the Pikmin row's tint if left.
+                    if (hud.expBar) barsToShow.Remove(HideBar(hud.expBar.gameObject));
+                    if (hud.levelText) barsToShow.Remove(HideBar(hud.levelText.gameObject));
                 }
                 if (olimar && shown == null) shown = hud;
             }

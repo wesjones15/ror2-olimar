@@ -537,7 +537,7 @@ namespace OlimarTest
                 string directory = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "OlimarShipRepairReports");
                 Directory.CreateDirectory(directory);
                 File.WriteAllText(System.IO.Path.Combine(directory, runId + ".txt"), lastResult +
-                    $"\nRules: competitive={Competitive}; 30 unique parts; {MapParts} map + 1 stage boss + 7 other enemy parts per {(Competitive ? "player" : "team")}; per-player enemy interval={enemyPartInterval}s; spacing=25m; Dolphin delivery; all Olimar; no artifacts; ABI {Native.AbiVersion}/protocol {ShipRepairPacket.Protocol}" +
+                    $"\nRules: competitive={Competitive}; 30 unique parts; {MapParts} map + 1 stage boss + 7 other enemy parts per {(Competitive ? "player" : "team")}; per-player enemy interval={enemyPartInterval}s; spacing=25m; Dolphin delivery; all Olimar; artifacts allowed; ABI {Native.AbiVersion}/protocol {ShipRepairPacket.Protocol}" +
                     $"\nPlayers: {run.participatingPlayerCount}; starting squad R/Y/B: {Plugin.StartRed.Value}/{Plugin.StartYellow.Value}/{Plugin.StartBlue.Value}" +
                     "\nParts: " + (Competitive ? string.Join("\n", race.Players.Values.Select(p => p.User + " " + p.Name + ": " + string.Join(",", p.Order))) : string.Join(",", Progress.Order)));
             }

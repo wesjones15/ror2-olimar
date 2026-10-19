@@ -226,9 +226,6 @@ namespace OlimarTest
             else if (NetworkUser.readOnlyInstancesList.Any(u => u.isParticipating &&
                 BodyCatalog.GetBodyPrefab(u.bodyIndexPreference)?.GetComponent<OlimarDriver>() == null))
                 error = "Ship Repair requires every player to choose Olimar.";
-            else if (Enumerable.Range(0, ArtifactCatalog.artifactCount).Any(i =>
-                PreGameController.instance.readOnlyRuleBook.GenerateArtifactMask().HasArtifact((ArtifactIndex)i)))
-                error = "Ship Repair's first version requires artifacts to be disabled.";
             return error;
         }
 
