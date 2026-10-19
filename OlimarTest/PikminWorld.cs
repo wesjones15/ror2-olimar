@@ -975,8 +975,10 @@ namespace OlimarTest
             }
         }
 
-        // How far above the ground a flying Onion stops to suck up a loose pellet (it was 1.5).
-        const float PickupHeight = 0.75f;
+        // How far above the ground a flying Onion stops to suck up a loose pellet (it was 1.5,
+        // then 0.75). Zero is where a landed Onion stands (`landing = hit.point`), so the bottom
+        // of its beam touches the ground.
+        const float PickupHeight = 0f;
 
         // Flying Onions must descend and dwell before sucking up a loose pellet.
         // Carry teams can still hand theirs off normally once the Onion is low enough.

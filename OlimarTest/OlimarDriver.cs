@@ -743,7 +743,6 @@ namespace OlimarTest
             return t;
         }
 
-        // The menu window, laid out for 1080 lines and scaled to screen height.
         void OnGUI()
         {
             BottomHud();
@@ -752,22 +751,8 @@ namespace OlimarTest
                 HideMenuGlyphs();
                 return;
             }
-            MenuStyles();
-            float k = Screen.height / 1080f;
-            var saved = GUI.matrix;
-            GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
-            float sw = Screen.width / k;
-            const float w = 560f, h = 410f;
-            var r = new Rect((sw - w) / 2f, 1080f * 0.5f - h / 2f, w, h);
-            var colour = new Color(0.8f, 0.95f, 0.65f);
-            var savedColour = GUI.color;
-            GUI.DrawTexture(r, panelTex);
-            GUI.color = colour;
-            GUI.DrawTexture(new Rect(r.x, r.y, w, 6f), stripeTex);
-            GUI.color = savedColour;
-
+            // Panel and text are one uGUI canvas (MenuGlyphs), so the text sits over its panel.
             ShowMenuGlyphs(menuNote);
-            GUI.matrix = saved;
         }
     }
 }

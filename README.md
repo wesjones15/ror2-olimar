@@ -73,6 +73,13 @@ What works:
   Olimar (every number you see then, whoever dealt it); other survivors keep RoR2's font. Missing
   digits fall back to the original font.
   Requires the matching ABI 27 DLLs; no font textures ship with the plugin or go into git.
+- **RoR2 health bar** (`Look.HideRoR2HealthBar`, on): hidden while you play Olimar, since the Pikmin HUD row
+  covers where it sits and shows his life as the circle. Other survivors keep it; can change during play.
+- **Onion shortcut popup**: one uGUI panel (background, then text, so the glyphs aren't dimmed), small and on the
+  right of the screen so Olimar stays in view.
+- **Jump pads**: each Pikmin that takes off with Olimar cries `SE_PIKI_FLY`, as when thrown; the squad repeats the
+  pad's throw once, however many ticks the pad reports it, and follows him after landing.
+- **Pellet pickup**: a flying Onion descends to the ground (its beam's bottom touches it) before sucking up a pellet.
 - **Looks and sounds**: Olimar, the Pikmin (with leaf, bud or flower), the Onion, pellets,
   sprouts and the cursor are the game's models, posed by its animations and lit by RoR2
   (`HGStandard`), in place of Commando's model, with the whistle's sparkles and the ghosts of

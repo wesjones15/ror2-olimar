@@ -41,7 +41,11 @@ namespace OlimarTest
             public bool seen;
         }
 
-        ConfigEntry<bool> enabledSetting;
+        ConfigEntry<bool> enabledSetting, hideBarSetting;
+        // RoR2's own health bars under the Pikmin row, hidden by a CanvasGroup; `made` when
+        // this added the group (and so removes it again).
+        readonly Dictionary<CanvasGroup, bool> hiddenBars = new Dictionary<CanvasGroup, bool>();
+        readonly List<CanvasGroup> barsToShow = new List<CanvasGroup>();
         Canvas canvas;
         Sprite disc;
         readonly Dictionary<object, Gauge> gauges = new Dictionary<object, Gauge>();
@@ -55,27 +59,64 @@ namespace OlimarTest
             component.enabledSetting = config.Bind("Look", "PikminHealthGauges", true,
                 "Olimar's enemy health bars are Pikmin 1's life gauge, a coloured wheel that appears once an enemy is hurt, " +
                 "instead of RoR2's bars. Other characters keep RoR2's bars. Can change during play.");
+            component.hideBarSetting = config.Bind("Look", "HideRoR2HealthBar", true,
+                "Hide RoR2's own health bar under the Pikmin HUD row while you play Olimar (his life is the circle in " +
+                "that row). Other characters keep it. Can change during play.");
         }
 
         void Update()
         {
             bool on = enabledSetting != null && enabledSetting.Value;
+            bool hideBar = hideBarSetting != null && hideBarSetting.Value;
             HUD shown = null;
             var list = HUD.readOnlyInstanceList;
+            barsToShow.Clear();
+            foreach (var bar in hiddenBars.Keys) barsToShow.Add(bar);
             for (int i = 0; i < list.Count; i++)
             {
                 var hud = list[i];
                 if (!hud) continue;
-                bool olimar = on && hud.targetBodyObject && hud.targetBodyObject.GetComponent<OlimarDriver>();
+                var driver = hud.targetBodyObject ? hud.targetBodyObject.GetComponent<OlimarDriver>() : null;
+                bool olimar = on && driver;
                 SetRoR2Bars(hud.combatHealthBarViewer, !olimar);
+                // The Pikmin row (OlimarDriver.BottomHud) covers where RoR2's bar sits.
+                if (hideBar && driver && driver.Active && hud.healthBar)
+                {
+                    var group = HideBar(hud.healthBar.gameObject);
+                    barsToShow.Remove(group);
+                }
                 if (olimar && shown == null) shown = hud;
             }
+            foreach (var group in barsToShow) ShowBar(group);
             if (shown == null)
             {
                 Clear();
                 return;
             }
             Draw(shown);
+        }
+
+        CanvasGroup HideBar(GameObject go)
+        {
+            var group = go.GetComponent<CanvasGroup>();
+            if (!group)
+            {
+                group = go.AddComponent<CanvasGroup>();
+                hiddenBars[group] = true;
+            }
+            else if (!hiddenBars.ContainsKey(group)) hiddenBars[group] = false;
+            group.alpha = 0f;
+            return group;
+        }
+
+        void ShowBar(CanvasGroup group)
+        {
+            if (hiddenBars.TryGetValue(group, out bool made) && group)
+            {
+                if (made) Destroy(group);
+                else group.alpha = 1f;
+            }
+            hiddenBars.Remove(group);
         }
 
         // RoR2's world bars on or off for one HUD.
@@ -308,6 +349,9 @@ namespace OlimarTest
                     viewer.enabled = true;
                     if (viewer.container) viewer.container.gameObject.SetActive(true);
                 }
+            barsToShow.Clear();
+            foreach (var bar in hiddenBars.Keys) barsToShow.Add(bar);
+            foreach (var group in barsToShow) ShowBar(group);
             Clear();
         }
     }
