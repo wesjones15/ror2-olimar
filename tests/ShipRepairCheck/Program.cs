@@ -98,13 +98,22 @@ static class Program
             Parts = new[] { new ShipRepairPacket.Part { Id = 4, Slot = 4, Pellet = 22, Name = "Main Engine", Weight = 20, Delivered = true, Spawned = true },
                 new ShipRepairPacket.Part { Id = 5, Slot = 5, Pellet = uint.MaxValue - 5, Name = "Radar", Weight = 10, X = 15.5f, EnemyDrop = true } } };
         var bytes = packet.Write();
-        Check(ShipRepairPacket.Read(new ByteReader(bytes), out var decoded) && decoded.RunId == packet.RunId && decoded.Parts[1].X == 15.5f, "objective packet round trip");
-        Check(decoded.Parts[1].EnemyDrop && !decoded.Parts[1].Spawned, "pending enemy objective round trip");
-        packet.Parts[1].Delivered = true;
-        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "unspawned enemy objective cannot be delivered");
-        packet.Parts[1].Delivered = false; packet.Parts[1].Spawned = true; packet.Parts[1].Pellet = 23;
-        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Parts[1].Spawned, "physical enemy drop round trip");
+        Check(ShipRepairPacket.Read(new ByteReader(bytes), out var decoded) && decoded.RunId == packet.RunId && decoded.Parts.Length == 1 && decoded.Parts[0].Id == 5, "objective packet round trip (delivered parts are left out)");
+        Check(decoded.Parts[0].EnemyDrop && !decoded.Parts[0].Spawned && decoded.Parts[0].Pellet == uint.MaxValue - 5, "pending enemy objective round trip");
+        packet.Parts[1].Id = 4;
+        Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "a part already recovered cannot lie on the map");
+        packet.Parts[1].Id = 5; packet.Parts[1].Spawned = true; packet.Parts[1].Pellet = 23;
+        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Parts[0].Spawned && decoded.Parts[0].Pellet == 23, "physical enemy drop round trip");
         packet.Parts[1].Spawned = false; packet.Parts[1].Pellet = uint.MaxValue - 5;
+        var crowded = new ShipRepairPacket { RunId = Guid.NewGuid().ToString(), Epoch = 2, Mask = 0, State = ShipRepairProgress.Phase.Playing,
+            Seconds = 5f, Stages = 1, Order = new int[0], Parts = Enumerable.Range(0, 17).Select(i => new ShipRepairPacket.Part {
+                Id = i, Slot = i, Pellet = (uint)(100 + i), Name = "Long Part Name " + i, Weight = 20, X = i, Y = 2, Z = 3, Spawned = true, EnemyDrop = i == 0, StageBoss = i == 0 }).ToArray() };
+        Check(crowded.Write().Length < 700, "seventeen parts fit a reliable message with room to spare (0.3.8 was 1103 bytes)");
+        crowded.Parts = Enumerable.Range(0, 400).Select(i => new ShipRepairPacket.Part { Id = i % 30, Slot = i, Pellet = (uint)(100 + i), Weight = 20, Spawned = true }).ToArray();
+        Check(crowded.WriteFitting().Length <= ShipRepairPacket.MaxBytes, "oversized part lists are trimmed to the message limit");
+        crowded.Parts = Enumerable.Range(0, 30).Select(i => new ShipRepairPacket.Part { Id = i, Slot = i, Pellet = (uint)(100 + i), Weight = 20, X = i, Spawned = true }).ToArray();
+        Check(crowded.Write().Length <= ShipRepairPacket.MaxBytes && ShipRepairPacket.Read(new ByteReader(crowded.Write()), out var thirty) && thirty.Parts.Length == 30,
+            "all thirty spawned parts fit and decode");
         for (int length = 0; length < bytes.Length; length++)
             Check(!ShipRepairPacket.Read(new ByteReader(bytes.Take(length).ToArray()), out _), "truncated packet accepted");
         var corrupt = (byte[])bytes.Clone(); corrupt[0] = 99;
@@ -145,7 +154,7 @@ static class Program
             "active race cannot claim final Pikmin before the end");
         packet.Racers[0].Pikmin = 0;
         packet.Parts[1].EnemyDrop = false; packet.Parts[1].Recycling = true;
-        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Parts[1].Recycling, "map part recycling round trip");
+        Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Parts[0].Recycling, "map part recycling round trip");
         packet.Parts[1].Recycling = false;
         Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "unspawned map part needs recycle state");
         Console.WriteLine("PASS: sampling, receipts, epoch boundaries, clocks, failure, victory, restart, and objective packet validation.");

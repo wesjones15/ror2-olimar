@@ -36,6 +36,9 @@ namespace OlimarTest
         {
             this.view = view;
             Models = models;
+            // The swarm grows over a run: on a machine that can't keep up, far or off-screen Pikmin are
+            // re-posed less often. A machine that keeps up is untouched.
+            models.AdaptiveCulling = true;
             Status = Native.Utf8(Native.pik_view_status(view));
             particles = new Particles(view, parent);
         }

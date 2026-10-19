@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.3.8")]
+    [BepInPlugin(Guid, "Olimar", "0.3.9")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -49,7 +49,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> OnionHealth, OnionReviveSeconds, OnionPelletHeal;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
-        internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel;
+        internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel, StickDeadzone;
         internal static ConfigEntry<float> LookUpDegrees;
         internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach, ShakeProtection, LockRange;
         internal static ConfigEntry<int> MaxPellets;
@@ -292,6 +292,11 @@ namespace OlimarTest
             ReliableSnapshots = Config.Bind("Net", "ReliableSnapshots", false,
                 "Send the host's snapshots reliably. Off: a lost one is skipped (its sounds and effects too); on: " +
                 "none are lost but a bad connection backs up.");
+            StickDeadzone = Config.Bind("Input", "StickDeadzone", 0f,
+                new ConfigDescription("Gamepad sticks read below this (of full deflection) count as centred, and the rest is " +
+                    "rescaled. 0 (default) leaves the game's own reading alone. Raise it (0.2-0.3) if a worn or badly centred stick drifts Olimar or his aim; a controller that is " +
+                    "reconnected is recalibrated by the game, which is why it can fix drift.",
+                    new AcceptableValueRange<float>(0f, 0.6f)));
             PerformanceLog = Config.Bind("Debug", "PerformanceLog", false,
                 "Every ten seconds during a run, log frame times and Olimar's CPU timings (the sim's step, " +
                 "gathering enemies, drawing) and how many sim ticks land in one physics step. For finding " +

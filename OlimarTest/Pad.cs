@@ -56,8 +56,8 @@ namespace OlimarTest
             usingPad = gp != null;
             if (gp != null)
             {
-                move = gp.leftStick.value;
-                swarm = gp.rightStick.value;
+                move = Dead(gp.leftStick.value);
+                swarm = Dead(gp.rightStick.value);
                 swarmToCursor = false;
                 throwNow = gp.a.value;
                 jumpButton.Read(gp.b.value, gp.leftBumper.value);
@@ -77,12 +77,12 @@ namespace OlimarTest
                 recallStuck |= gp.leftBumper.justPressed;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
-                    look = gp.leftBumper.value ? Vector2.zero : gp.rightStick.value;
-                    swarm = gp.leftBumper.value ? gp.rightStick.value : Vector2.zero;
+                    look = gp.leftBumper.value ? Vector2.zero : Dead(gp.rightStick.value);
+                    swarm = gp.leftBumper.value ? Dead(gp.rightStick.value) : Vector2.zero;
                     recentre = Pressed(gp.leftTrigger);
                     lockHeld = gp.rightTrigger.value > 0.6f;
                     cycleTarget |= lockHeld && gp.rightBumper.justPressed;
-                    targetDirection = gp.rightStick.value;
+                    targetDirection = Dead(gp.rightStick.value);
                     zoom = gp.rightStick.press.justPressed;
                     topView = false;
                     // RB cycles targets while RT holds a lock; otherwise it strikes.
@@ -168,6 +168,16 @@ namespace OlimarTest
         {
             throwTap = whistleTap = relocateTap = strikeTap = cycleTap = false;
             jumpButton.Ticked();
+        }
+
+        // Radial deadzone with the live range rescaled, so a drifting stick reads exactly zero at rest.
+        static Vector2 Dead(Vector2 stick)
+        {
+            float zone = Plugin.StickDeadzone != null ? Plugin.StickDeadzone.Value : 0f;
+            if (zone <= 0f) return stick;
+            float length = stick.magnitude;
+            if (length <= zone) return Vector2.zero;
+            return stick * (Mathf.Min(1f, (length - zone) / (1f - zone)) / length);
         }
 
         static bool Pressed(IControllerTemplateAxis axis) => axis.value > 0.6f && axis.valuePrev <= 0.6f;

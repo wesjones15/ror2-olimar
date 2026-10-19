@@ -74,7 +74,7 @@ namespace OlimarTest
             plugin.AddComponent<ShipRepairHint>();
             plugin.AddComponent<ShipRepairMusic>();
             NetworkModCompatibilityHelper.networkModList = NetworkModCompatibilityHelper.networkModList
-                .Concat(new[] { Plugin.Guid + ";ship-repair-abi35-v7-onion" });
+                .Concat(new[] { Plugin.Guid + ";ship-repair-abi37-v8-compact" });
             hooks.Add(new Hook(typeof(Run).GetProperty("spawnWithPod").GetMethod,
                 (Func<Func<Run, bool>, Run, bool>)((orig, run) => IsRepair(run) || orig(run))));
             hooks.Add(new Hook(typeof(PreGameController).GetMethod("StartLaunch", flags),

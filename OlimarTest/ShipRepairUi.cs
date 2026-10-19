@@ -123,6 +123,36 @@ namespace OlimarTest
             GUI.color = old;
         }
 
+        // RoR2's own objective list sits under the stage timer on the right. IMGUI always draws over
+        // uGUI, so the leaderboard starts below whatever that panel is showing.
+        static float objectivesBottom, nextObjectivesScan;
+        static RoR2.UI.ObjectivePanelController objectivePanel;
+        static readonly Vector3[] corners = new Vector3[4];
+        static float ObjectivesBottom(float scale)
+        {
+            if (Time.unscaledTime >= nextObjectivesScan)
+            {
+                nextObjectivesScan = Time.unscaledTime + .5f;
+                if (!objectivePanel) objectivePanel = UnityEngine.Object.FindObjectOfType<RoR2.UI.ObjectivePanelController>();
+                objectivesBottom = 0f;
+                if (objectivePanel)
+                {
+                    float lowest = float.PositiveInfinity;
+                    foreach (var graphic in objectivePanel.GetComponentsInChildren<UnityEngine.UI.Graphic>(false))
+                    {
+                        if (graphic.color.a < .05f) continue;
+                        graphic.rectTransform.GetWorldCorners(corners);
+                        var canvas = graphic.canvas ? graphic.canvas.rootCanvas : null;
+                        var camera = canvas && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+                        for (int i = 0; i < 4; i++)
+                            lowest = Mathf.Min(lowest, RectTransformUtility.WorldToScreenPoint(camera, corners[i]).y);
+                    }
+                    if (!float.IsInfinity(lowest)) objectivesBottom = Mathf.Clamp((Screen.height - lowest) / scale + 8f, 0f, 430f);
+                }
+            }
+            return objectivesBottom;
+        }
+
         static float Begin()
         {
             Load();
@@ -161,7 +191,7 @@ namespace OlimarTest
             Icon(19, new Rect(center - 159f, 26f, 73f, 73f));
             Icon(7, new Rect(center - 145f, 31f, 47f, 61f));
             BubbleFraction(score, 30, new Rect(center - 83f, 30f, 245f, 65f));
-            Leaderboard(players, width - 328f, 138f, 305f, 34f, competitive);
+            Leaderboard(players, width - 328f, Mathf.Max(138f, ObjectivesBottom(Screen.height / 1080f)), 305f, 34f, competitive);
             if (!string.IsNullOrEmpty(site) && Time.unscaledTime < siteUntil)
             {
                 float alpha = Mathf.Clamp01(siteUntil - Time.unscaledTime);

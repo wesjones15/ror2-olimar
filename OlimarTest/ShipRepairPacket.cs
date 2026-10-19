@@ -9,7 +9,11 @@ namespace OlimarTest
     // makes malformed/truncated messages testable without loading Unity or the game.
     internal sealed class ShipRepairPacket
     {
-        public const byte Protocol = 4, Abi = 37;
+        public const byte Protocol = 5, Abi = 37;
+        // A reliable UNET message may carry at most 1100 bytes; the 0.3.8 packet with 17 named parts was 1103
+        // and never reached the clients. Names are looked up from the disc on the receiver and delivered
+        // parts are left out, so a state message stays far under that.
+        public const int MaxBytes = 1000;
         public bool Competitive;
         public uint Winner;
         public int TeamPikmin;
@@ -29,6 +33,21 @@ namespace OlimarTest
             public float X, Y, Z;
             public bool Discovered, Delivered, Stalled, EnemyDrop, Spawned, StageBoss, Recycling;
         }
+        /// The packet as bytes, without the parts that do not fit under `MaxBytes` (reserved enemy
+        /// drops go first, then the furthest-down list entries).
+        public byte[] WriteFitting()
+        {
+            var all = Parts;
+            Parts = all.Where(p => !p.Delivered).OrderByDescending(p => p.Spawned).ToArray();
+            var bytes = Write();
+            while (bytes.Length > MaxBytes && Parts.Length > 0)
+            {
+                Parts = Parts.Take(Parts.Length - 1).ToArray();
+                bytes = Write();
+            }
+            Parts = all;
+            return bytes;
+        }
         public byte[] Write()
         {
             var w = new ByteWriter();
@@ -42,14 +61,15 @@ namespace OlimarTest
                 w.I32(racer.Pikmin); w.U8((byte)racer.Order.Count);
                 foreach (int id in racer.Order) w.U8((byte)id);
             }
-            w.U16((ushort)Parts.Length);
-            foreach (var p in Parts)
+            var sent = Parts.Where(p => !p.Delivered).ToArray();
+            w.U16((ushort)sent.Length);
+            foreach (var p in sent)
             {
-                w.U8((byte)p.Id); w.I32(p.Slot); w.U32(p.Pellet); w.Str(p.Name); w.U32(p.Weight);
-                w.F32(p.X); w.F32(p.Y); w.F32(p.Z); w.Bool(p.Discovered); w.Bool(p.Delivered); w.Bool(p.Stalled);
-                w.Bool(p.EnemyDrop); w.Bool(p.Spawned);
-                w.Bool(p.StageBoss);
-                w.Bool(p.Recycling);
+                w.U8((byte)p.Id); w.U16((ushort)p.Slot); w.U8((byte)p.Weight);
+                w.U8((byte)((p.Discovered ? 1 : 0) | (p.Stalled ? 2 : 0) | (p.EnemyDrop ? 4 : 0) |
+                    (p.Spawned ? 8 : 0) | (p.StageBoss ? 16 : 0) | (p.Recycling ? 32 : 0)));
+                if (!p.Spawned) continue;
+                w.U32(p.Pellet); w.F32(p.X); w.F32(p.Y); w.F32(p.Z);
             }
             return w.ToArray();
         }
@@ -95,13 +115,18 @@ namespace OlimarTest
             var parts = new List<Part>();
             for (int i = 0; i < count; i++)
             {
-                var part = new Part { Id = r.U8(), Slot = r.I32(), Pellet = r.U32(), Name = r.Str(), Weight = r.U32(), X = r.F32(), Y = r.F32(), Z = r.F32(),
-                    Discovered = r.Bool(), Delivered = r.Bool(), Stalled = r.Bool(), EnemyDrop = r.Bool(), Spawned = r.Bool(), StageBoss = r.Bool(), Recycling = r.Bool() };
+                var part = new Part { Id = r.U8(), Slot = r.U16(), Weight = r.U8() };
+                int flags = r.U8();
+                part.Discovered = (flags & 1) != 0; part.Stalled = (flags & 2) != 0; part.EnemyDrop = (flags & 4) != 0;
+                part.Spawned = (flags & 8) != 0; part.StageBoss = (flags & 16) != 0; part.Recycling = (flags & 32) != 0;
+                if ((flags & ~63) != 0) return false;
+                if (part.Spawned) { part.Pellet = r.U32(); part.X = r.F32(); part.Y = r.F32(); part.Z = r.F32(); }
+                else part.Pellet = uint.MaxValue - (uint)part.Slot;
                 if (part.Id >= 30 || !Finite(part.X) || !Finite(part.Y) || !Finite(part.Z) || part.Weight == 0 || part.Weight > 100 ||
                     part.Slot < 0 || part.Slot >= 451 || (part.StageBoss && !part.EnemyDrop) ||
                     (part.Recycling && (!p.Competitive || part.Spawned || part.Delivered)) ||
                     (!part.Spawned && ((!part.EnemyDrop && !part.Recycling) || part.Discovered || part.Delivered || part.Stalled || part.Pellet != uint.MaxValue - part.Slot)) ||
-                    (!p.Competitive && part.Delivered != ((mask & (1u << part.Id)) != 0)) ||
+                    (!p.Competitive && (mask & (1u << part.Id)) != 0) ||
                     parts.Any(other => other.Slot == part.Slot || (!p.Competitive && other.Id == part.Id) || other.Pellet == part.Pellet)) return false;
                 parts.Add(part);
             }

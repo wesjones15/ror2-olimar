@@ -589,7 +589,7 @@ namespace OlimarTest
             Unstuck.GroundProbe stand = (Vector3 s, float rise, float drop, out Vector3 f) =>
                 WorldProbe.StandingGround(s, rise, drop, height, radius, out f);
             fallGuard.Step(feet, false, c.on_ground != 0, false, Time.fixedDeltaTime, height, stand, out _);
-            if (fallGuard.FellEarly(feet, height, stand, out var back))
+            if (fallGuard.FellEarly(feet, height, stand, out var back) || fallGuard.FellTooLong(feet, height, stand, out back))
             {
                 var at = UnityHost.ToSim(back);
                 var world = PikminWorld.Instance;
