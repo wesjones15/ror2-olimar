@@ -137,7 +137,7 @@ namespace OlimarTest
             HookPicker<LocalMultiplayerMenuController>();
             HookPicker<MultiplayerMenuController>();
             MainMenuController.OnMainMenuInitialised += AddSoloButton;
-            Run.onRunStartGlobal += run => { if (IsRepair(run)) run.gameObject.AddComponent<ShipRepairSession>(); };
+            Run.onRunStartGlobal += run => { if (IsRepair(run)) run.gameObject.AddComponent<ShipRepairSession>(); else ShipRepairSession.ClearResults(); };
             Language.onCurrentLanguageChanged += Tokens;
             Tokens();
             ShipRepairSession.RegisterMessages();

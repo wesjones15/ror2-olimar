@@ -71,6 +71,12 @@ namespace OlimarTest
         Action pendingFailure;
         static string lastResult;
         internal static string ResultSummary => lastResult;
+        /// A run of another mode starts: the last Ship Repair run's results are not its game-over screen.
+        internal static void ClearResults()
+        {
+            lastResult = lastResultRun = ResultDetails = null;
+            resultLines = Array.Empty<ShipRepairSession.ResultLine>(); ResultWon = false;
+        }
         internal sealed class ResultLine
         {
             internal string Name;
