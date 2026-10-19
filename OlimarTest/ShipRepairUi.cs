@@ -63,12 +63,8 @@ namespace OlimarTest
             return texture;
         }
 
-        static void Fill(Rect rect, Color color)
-        {
-            var before = GUI.color; GUI.color = color;
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-            GUI.color = before;
-        }
+        // Panels share the text's uGUI canvas, below the text they carry (see ShipRepairText.Fill).
+        static void Fill(Rect rect, Color color) => ShipRepairText.Fill(rect, color);
         static void Icon(uint id, Rect rect)
         {
             if (icons.TryGetValue(id, out var icon) && icon) GUI.DrawTexture(rect, icon, ScaleMode.ScaleToFit);
