@@ -1,4 +1,5 @@
 using System;
+using RoR2;
 using Ror2Common;
 using UnityEngine;
 
@@ -115,7 +116,10 @@ namespace OlimarTest
         /// camera and volume.
         public void Pose(IntPtr sim, ref Native.ViewFrame frame)
         {
-            if (view != IntPtr.Zero) Native.pik_view_update(view, sim, ref frame);
+            if (view == IntPtr.Zero) return;
+            // RoR2's pause menu stops the Pikmin's sounds where they are.
+            Native.pik_view_set_paused(view, (byte)(PauseManager.isPaused ? 1 : 0));
+            Native.pik_view_update(view, sim, ref frame);
         }
 
         /// Poses `sim` and moves the objects and particles. `scale` is metres per sim unit; draws

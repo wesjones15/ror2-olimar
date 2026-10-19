@@ -98,7 +98,7 @@ namespace OlimarTest
                 models.Dispose();
                 models = null;
             }
-            foreach (var d in FindObjectsOfType<OlimarDriver>()) d.HideBody(false);
+            foreach (var d in OlimarDriver.All) d.HideBody(false);
         }
 
         void OnDestroy()
@@ -139,6 +139,7 @@ namespace OlimarTest
         {
             if (Ror2Common.RunAudio.Ended) return;
             if (!world || !world.Running) return;
+            using var timing = OlimarPerformance.Measure(OlimarPerformance.Part.Draw);
             if (models != null && world.Healthy)
             {
                 DrawModels();
@@ -147,9 +148,9 @@ namespace OlimarTest
                 return;
             }
             if (models != null)
-                foreach (var d in FindObjectsOfType<OlimarDriver>()) d.HideBody(false);
+                foreach (var d in OlimarDriver.All) d.HideBody(false);
             else
-                foreach (var d in FindObjectsOfType<OlimarDriver>()) d.HideBody(d.Arriving);
+                foreach (var d in OlimarDriver.All) d.HideBody(d.Arriving);
             float a = world.RenderAlpha;
             DrawPikis(a);
             DrawPellets();
@@ -181,7 +182,7 @@ namespace OlimarTest
                 frame.forward = new Native.Vec3(cam.forward.x, cam.forward.y, cam.forward.z);
                 frame.up = new Native.Vec3(cam.up.x, cam.up.y, cam.up.z);
             }
-            var drivers = FindObjectsOfType<OlimarDriver>();
+            var drivers = OlimarDriver.All;
             // Olimar beams down from the Dolphin; only the Pikmin exit the Onion.
             foreach (var d in drivers)
                 if (d.ViewCaptain >= 0)
@@ -409,7 +410,7 @@ namespace OlimarTest
         void DrawCaptains(bool cursorRings)
         {
             var seen = new HashSet<int>();
-            foreach (var d in FindObjectsOfType<OlimarDriver>())
+            foreach (var d in OlimarDriver.All)
             {
                 if (!d.HasState || d.Captain < 0 || !d.Active) continue;
                 seen.Add(d.Captain);

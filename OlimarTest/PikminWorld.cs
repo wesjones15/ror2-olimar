@@ -225,6 +225,7 @@ namespace OlimarTest
             if (d.Active) d.Items.BeforeStep(moverSim, 0);
             uint ticks = Native.pik_sim_advance(moverSim, ref host, Time.fixedDeltaTime);
             moverAlpha = Native.pik_sim_alpha(moverSim);
+            moverTicks += ticks;
             if (ticks == 0) return;
             if (Native.pik_sim_captain(moverSim, 0, out var cap) != 0) d.Ticked(cap);
             if (d.Active) d.SendInput(input);
@@ -336,6 +337,18 @@ namespace OlimarTest
         /// How far between his sim's last tick and the next, for smoothing his body.
         public float BodyAlpha => ClientMode ? moverAlpha : RenderAlpha;
 
+        // Olimar's body is drawn by sim time (in ticks) so a slow machine, with several ticks between
+        // two drawn frames, still glides through each of them. A client's own moves with its local sim.
+        double serverTicks, moverTicks;
+
+        /// The sim time of the tick his body was last set to.
+        internal double BodyTickTime => ClientMode ? moverTicks : serverTicks;
+
+        /// The sim time his body is drawn at this frame: one tick behind the sim, as the blend always was.
+        internal double BodyShownTime =>
+            (ClientMode ? moverTicks + moverAlpha : serverTicks + alphaAtFixed)
+            + Mathf.Max(0f, Time.time - Time.fixedTime) * tickHz - 1.0;
+
         /// Running and not stopped by a bug in the sim.
         public bool Healthy => sim != IntPtr.Zero && !reportedPoison;
         internal bool StageReady => Healthy && !ClientMode && simStage == Stage.instance;
@@ -410,6 +423,7 @@ namespace OlimarTest
 
         void FreeSim()
         {
+            creaturesGathered = false;
             if (sim != IntPtr.Zero)
             {
                 Native.pik_sim_free(sim);
@@ -1411,6 +1425,7 @@ namespace OlimarTest
 
         void FixedUpdate()
         {
+            using var timing = OlimarPerformance.Measure(OlimarPerformance.Part.Fixed);
             if (ClientMode)
             {
                 ClientFixed();
@@ -1478,8 +1493,14 @@ namespace OlimarTest
 
             MoveDolphins();
             MoveOnions();
-            GatherCreatures();
-            Native.pik_sim_set_creatures(sim, creatures, (uint)creatureCount, parts, (uint)PartCount);
+            // The sim ticks at 30 Hz and RoR2 steps at 50: most steps carry no tick, and then the enemies
+            // the sim was given last step stand. Gathering them again would be the slow part of a weak machine.
+            if (alphaAtFixed + Time.fixedDeltaTime * tickHz >= 0.95f || !creaturesGathered)
+            {
+                GatherCreatures();
+                Native.pik_sim_set_creatures(sim, creatures, (uint)creatureCount, parts, (uint)PartCount);
+                creaturesGathered = true;
+            }
             stepping = true;
             uint ticks;
             try
@@ -1491,6 +1512,8 @@ namespace OlimarTest
                 stepping = false;
             }
             alphaAtFixed = Native.pik_sim_alpha(sim);
+            serverTicks += ticks;
+            OlimarPerformance.Ticks(ticks);
             RunDeferred();
             if (ticks == 0) return;
 
@@ -1639,6 +1662,7 @@ namespace OlimarTest
                 FreeSim();
                 return;
             }
+            using var timing = OlimarPerformance.Measure(OlimarPerformance.Part.Client);
             Native.pik_replica_update(sim, Time.deltaTime);
             // His own Olimar is drawn where his local sim and smoothed body have him, not where the server's
             // captain was a round trip ago.
@@ -1760,8 +1784,11 @@ namespace OlimarTest
 
         int PartCount;
 
+        bool creaturesGathered;
+
         void GatherCreatures()
         {
+            using var timing = OlimarPerformance.Measure(OlimarPerformance.Part.Gather);
             creatureCount = 0;
             PartCount = 0;
             bodies.Clear();

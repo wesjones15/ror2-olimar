@@ -219,7 +219,7 @@ namespace OlimarTest
             if (captain < 0) return;
 
             if (SimMoves && placed && Active)
-                smoother.Smooth(PikminWorld.Instance.BodyAlpha);
+                smoother.SmoothAt(PikminWorld.Instance.BodyShownTime);
 
             if (cam != null)
             {
@@ -603,7 +603,8 @@ namespace OlimarTest
             }
 
             // Leave the body at the start of the blend, never ahead of the drawn model.
-            smoother.Stepped(UnityHost.ToUnity(c.pos) + feetToOrigin);
+            smoother.Stepped(UnityHost.ToUnity(c.pos) + feetToOrigin,
+                PikminWorld.Instance ? PikminWorld.Instance.BodyTickTime : 0.0);
             placed = true;
 
             // Navi's velocity is per second. RoR2 reads these for animation, camera and AI.

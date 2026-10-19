@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.3.7")]
+    [BepInPlugin(Guid, "Olimar", "0.3.8")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -57,7 +57,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> CarryBodies;
         internal static ConfigEntry<bool> LogEvents, LogLatches;
         internal static ConfigEntry<float> SnapshotHz, LatchLead;
-        internal static ConfigEntry<bool> ReliableSnapshots, LogNet;
+        internal static ConfigEntry<bool> ReliableSnapshots, LogNet, PerformanceLog;
         // Items (OlimarItems): the shared minion scaling policy and the timers items shorten.
         internal static ConfigEntry<float> ProcInterval, MinionMoveScale, MinionHealScale, ItemEffectScale,
             CooldownExponent, RelocationRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
@@ -292,6 +292,10 @@ namespace OlimarTest
             ReliableSnapshots = Config.Bind("Net", "ReliableSnapshots", false,
                 "Send the host's snapshots reliably. Off: a lost one is skipped (its sounds and effects too); on: " +
                 "none are lost but a bad connection backs up.");
+            PerformanceLog = Config.Bind("Debug", "PerformanceLog", false,
+                "Every ten seconds during a run, log frame times and Olimar's CPU timings (the sim's step, " +
+                "gathering enemies, drawing) and how many sim ticks land in one physics step. For finding " +
+                "what is slow on a weak machine; does not measure GPU time.");
             LogNet = Config.Bind("Debug", "LogNet", false,
                 "Every ten seconds, log how much the host's snapshots send.");
             LogLatches = Config.Bind("Debug", "LogLatches", false,
@@ -413,6 +417,7 @@ namespace OlimarTest
 
         void Update()
         {
+            OlimarPerformance.Report();
             if (musicInitialized || !AssetsSettled) return;
             musicInitialized = true;
             // Like Mario, bind config and load the worker's completed cache on the Unity thread.
