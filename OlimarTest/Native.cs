@@ -300,6 +300,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_indices(IntPtr view, uint model, [Out] int[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_uvs(IntPtr view, uint model, [Out] float[] outPairs, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_texture(IntPtr view, uint id, out ViewTexture info, [Out] byte[] rgba, uint len);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_texture_version(IntPtr view, uint id);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_update(IntPtr view, IntPtr sim, ref ViewFrame frame);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_show_cursors(IntPtr view, byte show);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_play_sound(IntPtr view, byte sound, Vec3 pos);
@@ -451,7 +452,7 @@ namespace OlimarTest
     }
 
     // pik_view_* as ror2-common's IViewSource.
-    internal sealed class PikViewSource : IViewSource
+    internal sealed class PikViewSource : IViewSource, IAnimatedTextureSource
     {
         public readonly IntPtr Handle;
 
@@ -469,5 +470,6 @@ namespace OlimarTest
         public IntPtr Colors(out uint count) => Native.pik_view_colors(Handle, out count);
         public IntPtr TextureIds(out uint count) => Native.pik_view_texture_ids(Handle, out count);
         public IntPtr FrameUvs(out uint count) => Native.pik_view_frame_uvs(Handle, out count);
+        public uint TextureVersion(uint id) => Native.pik_view_texture_version(Handle, id);
     }
 }
