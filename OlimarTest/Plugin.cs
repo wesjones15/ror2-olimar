@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.3.12")]
+    [BepInPlugin(Guid, "Olimar", "0.3.13")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -101,7 +101,6 @@ namespace OlimarTest
         {
             Log = Logger;
             CommonLog.Log = Logger;
-            OnionCard.Install(gameObject);
             OnionMenuEquipment.Install();
             string here = Path.GetDirectoryName(Info.Location);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
@@ -502,6 +501,29 @@ namespace OlimarTest
 
         internal static Minions.Kind OnionMinion;
 
+        // A round onion-coloured portrait for the ally card: a shaded sphere with a highlight and a dark rim.
+        static Texture2D OnionPortrait()
+        {
+            const int size = 64;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "Onion portrait", wrapMode = TextureWrapMode.Clamp };
+            var pixels = new Color[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - 31.5f) / 30f, dy = (y - 31.5f) / 30f, r = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (r > 1f) { pixels[y * size + x] = Color.clear; continue; }
+                    float light = Mathf.Clamp01(0.55f + 0.45f * (-dx * 0.5f + dy * 0.7f + 0.3f));
+                    var body = Color.Lerp(new Color(0.42f, 0.13f, 0.05f), new Color(1f, 0.55f, 0.15f), light);
+                    float rim = Mathf.Clamp01((r - 0.82f) / 0.18f);
+                    var c = Color.Lerp(body, new Color(0.12f, 0.05f, 0.03f), rim);
+                    c.a = Mathf.Clamp01((1f - r) * 20f);
+                    pixels[y * size + x] = c;
+                }
+            tex.SetPixels(pixels);
+            tex.Apply(false, true);
+            return tex;
+        }
+
         // An Onion doesn't fight: passive items only, at full strength. Nothing that attacks
         // (Tesla Coil, Mired Urn), nothing tagged as damage or on-kill (it never hits or kills).
         static bool OnionItem(ItemIndex i)
@@ -560,6 +582,10 @@ namespace OlimarTest
                 baseRegen = 0f, levelRegen = 0f,
                 itemFilter = item => Plugin.OnionItems.Value && OnionItem(item),
             });
+
+            // The Onion's card in RoR2's ally list: its health, with a portrait of its own.
+            var onionBody = OnionMinion != null && OnionMinion.body ? OnionMinion.body.GetComponent<CharacterBody>() : null;
+            if (onionBody) onionBody.portraitIcon = OnionPortrait();
 
             var display = Prefabs.Clone(commandoDisplay, "OlimarTestDisplay", Plugin.Guid);
             DisplayModel.Attach(display, Plugin.Guid, OlimarDisplay.Get);

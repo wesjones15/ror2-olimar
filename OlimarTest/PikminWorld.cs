@@ -98,6 +98,11 @@ namespace OlimarTest
             public bool following = true, airborne = true;
             public bool releaseWhenReady;
             public bool dormant;
+            /// Dormant because its owner died (it wakes when he is alive again), not from damage.
+            public bool ownerDeath;
+            /// His squad is going home before it goes dormant: when that is over (Time.fixedTime), and the
+            /// next time to send the Pikmin still outside.
+            public float recallUntil, recallNext;
             /// Seconds dormant, and seconds into the revival (the sim's two phases), for its gauge.
             public float dormantAge, reviveAge;
             public bool reviving;
@@ -928,6 +933,20 @@ namespace OlimarTest
         {
             foreach (var flight in onionOf.Values)
             {
+                if (flight.recallUntil > 0f) RecallToOnion(flight);
+                if (flight.dormant && flight.ownerDeath && OwnerAlive(flight))
+                {
+                    flight.ownerDeath = false;
+                    Native.pik_sim_set_onion_dormancy_seconds(sim, (uint)flight.id, Mathf.Max(0f, Plugin.OnionReviveSeconds.Value));
+                    Plugin.Log.LogInfo($"Onion {flight.id}: its owner is alive again; reviving in {Plugin.OnionReviveSeconds.Value:0.#} seconds.");
+                }
+                if (flight.dormant && onionMinions.TryGetValue(flight.id, out var stale))
+                {
+                    // A dormant or recovering Onion has no body for enemies to find.
+                    stale.Release();
+                    onionMinions.Remove(flight.id);
+                    ForgetOnionBody(flight.id);
+                }
                 if (flight.dormant)
                 {
                     bool disabled = true;
@@ -1532,7 +1551,12 @@ namespace OlimarTest
             ReadBack();
             foreach (var kv in driverOf)
                 if (kv.Value && Native.pik_sim_captain(sim, (uint)kv.Key, out var cap) != 0)
+                {
                     kv.Value.Ticked(cap);
+                    // Pulling a sprout leaves him open: nothing can hurt him until he has it out.
+                    if (cap.plucking != 0 && kv.Value.Body && kv.Value.Body.healthComponent && kv.Value.Body.healthComponent.alive)
+                        kv.Value.Body.AddTimedBuff(RoR2Content.Buffs.HiddenInvincibility, 0.2f);
+                }
             KillFallen();
             DrainEvents();
             view.Snapshot();
@@ -2282,6 +2306,103 @@ namespace OlimarTest
             Native.pik_sim_shake_off(sim, id);
         }
 
+        // An Onion goes dormant, from damage (it revives on its own timer) or because its owner died (it
+        // waits for him). Its body is removed, so nothing on the enemy side can see or target it until it
+        // has fully recovered.
+        void GoDormant(OnionFlight f, float seconds, bool ownerDied)
+        {
+            f.dormant = true;
+            f.ownerDeath = ownerDied;
+            f.recallUntil = 0f;
+            f.dormantAge = f.reviveAge = 0f;
+            f.reviving = false;
+            f.following = f.airborne = false;
+            f.pickup = -1;
+            f.transitionDuration = 0f;
+            f.position = UnityHost.Snap(f.position);
+            var ground = UnityHost.ToSim(f.position);
+            Native.pik_sim_make_onion_dormant(sim, (uint)f.id, seconds, ref ground);
+            if (onionMinions.TryGetValue(f.id, out var minion))
+            {
+                minion.Release();
+                onionMinions.Remove(f.id);
+            }
+            ForgetOnionBody(f.id);
+        }
+
+        void ForgetOnionBody(int onion)
+        {
+            var gone = new List<CharacterBody>();
+            foreach (var kv in onionBodyIds)
+                if (kv.Value == onion || !kv.Key) gone.Add(kv.Key);
+            foreach (var key in gone) onionBodyIds.Remove(key);
+        }
+
+        static bool OwnerAlive(OnionFlight f) =>
+            f.owner && f.owner.GetBody() is CharacterBody b && b.healthComponent && b.healthComponent.alive;
+
+        // Olimar died with a friend still alive. His Onion cannot go on without him: if the friend is another
+        // Olimar the orphaned Pikmin try to join his squad and the Onion sleeps at once; otherwise the Onion
+        // lands where it is, the Pikmin walk home to it, and it sleeps when they have had their time (those
+        // that did not make it stand about, and the enemies see to them).
+        const float RecallSeconds = 20f;
+
+        void OnOlimarDied(OlimarDriver dead)
+        {
+            if (!onionOf.TryGetValue(dead.Captain, out var f) || f.dormant) return;
+            bool friendAlive = false;
+            var bodies = CharacterBody.readOnlyInstancesList;
+            for (int i = 0; i < bodies.Count; i++)
+                if (bodies[i] && bodies[i].isPlayerControlled && bodies[i] != dead.Body && bodies[i].healthComponent && bodies[i].healthComponent.alive)
+                    friendAlive = true;
+            if (!friendAlive) return; // the run is over
+            OlimarDriver heir = null;
+            foreach (var d in driverOf.Values)
+                if (d && d != dead && d.Captain >= 0 && d.Body && d.Body.isPlayerControlled && d.Body.healthComponent && d.Body.healthComponent.alive && d.Active)
+                { heir = d; break; }
+            if (heir != null)
+            {
+                uint joined = Native.pik_sim_adopt_orphans(sim, (uint)dead.Captain, (uint)heir.Captain);
+                Plugin.Log.LogInfo($"Olimar {dead.Captain} died: {joined} Pikmin join Olimar {heir.Captain}; Onion {f.id} goes dormant.");
+                GoDormant(f, 99999f, true);
+                return;
+            }
+            Plugin.Log.LogInfo($"Olimar {dead.Captain} died: his Onion {f.id} lands and calls his Pikmin home before it goes dormant.");
+            bool wasUp = f.airborne || f.following;
+            f.following = false;
+            f.recallUntil = Time.fixedTime + RecallSeconds;
+            f.recallNext = 0f;
+            if (wasUp) LandOnionNow(f);
+        }
+
+        void LandOnionNow(OnionFlight f)
+        {
+            var ground = Physics.Raycast(f.position + Vector3.up * 2f, Vector3.down, out var hit, 60f, UnityHost.Mask,
+                QueryTriggerInteraction.Ignore) && hit.normal.y >= 0.5f ? hit.point : UnityHost.Snap(f.position);
+            f.landing = ground;
+            f.transitionStart = f.position;
+            f.transitionElapsed = 0f;
+            f.transitionDuration = 2.5f;
+            f.following = false;
+            f.airborne = true;
+            WriteFlight(f);
+        }
+
+        // Each physics step while a dead owner's Onion waits for his Pikmin: once it is down, send the ones
+        // outside (every few seconds, for stragglers); at the end of the time, or when none are left, sleep.
+        void RecallToOnion(OnionFlight f)
+        {
+            if (f.dormant) { f.recallUntil = 0f; return; }
+            if (!f.airborne && Time.fixedTime >= f.recallNext)
+            {
+                f.recallNext = Time.fixedTime + 2f;
+                Native.pik_sim_send_orphans_home(sim, (uint)f.captain, (uint)f.id);
+            }
+            float started = f.recallUntil - RecallSeconds;
+            bool none = !f.airborne && Time.fixedTime >= started + 3f && Native.pik_sim_captain_piki_count(sim, (uint)f.captain) == 0;
+            if (Time.fixedTime >= f.recallUntil || none) GoDormant(f, 99999f, true);
+        }
+
         // A dead enemy leaves a corpse for the Pikmin to carry home (BTeki::dieSoon →
         // becomePellet): a pellet in the sim, drawn as the enemy's own body (Corpses).
         void OnDeath(DamageReport r)
@@ -2295,20 +2416,9 @@ namespace OlimarTest
             var v = r.victimBody;
             foreach (var f in onionOf.Values)
                 if (v && onionBodyIds.TryGetValue(v, out int onionId) && onionId == f.id
-                    && !f.dormant && onionMinions.TryGetValue(f.id, out var minion))
+                    && !f.dormant && onionMinions.TryGetValue(f.id, out _))
                 {
-                    f.dormant = true;
-                    f.dormantAge = f.reviveAge = 0f;
-                    f.reviving = false;
-                    f.following = f.airborne = false;
-                    f.pickup = -1;
-                    f.transitionDuration = 0f;
-                    f.position = UnityHost.Snap(f.position);
-                    var ground = UnityHost.ToSim(f.position);
-                    Native.pik_sim_make_onion_dormant(sim, (uint)f.id, Mathf.Max(0f, Plugin.OnionReviveSeconds.Value), ref ground);
-                    minion.Release();
-                    onionBodyIds.Remove(v);
-                    onionMinions.Remove(f.id);
+                    GoDormant(f, Mathf.Max(0f, Plugin.OnionReviveSeconds.Value), false);
                     Plugin.Log.LogInfo($"Onion {f.id} became dormant; revival starts in {Plugin.OnionReviveSeconds.Value:0.#} seconds.");
                     return;
                 }
@@ -2319,6 +2429,7 @@ namespace OlimarTest
                 // Commando model; RoR2's own death state still runs.
                 Native.pik_sim_down_captain(sim, (uint)olimar.Captain, 1);
                 stepUntil = Time.fixedTime + 3f;
+                OnOlimarDied(olimar);
                 return;
             }
             if (!v || r.victimTeamIndex == TeamIndex.Player) return;
