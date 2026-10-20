@@ -81,6 +81,10 @@ namespace OlimarTest
             DisposeModels();
             if (Ror2Common.RunAudio.Ended) return;
             models = PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
+            // Only the world's view: the swarm grows over a run, and on a machine that can't keep up far or
+            // off-screen Pikmin are re-posed less often. Not the lobby Olimar and his portrait, which are
+            // drawn by another camera and must be posed on every update.
+            if (models != null) models.Models.AdaptiveCulling = true;
             if (models != null)
             {
                 Plugin.Log.LogInfo($"Pikmin models: {models.Status}");
