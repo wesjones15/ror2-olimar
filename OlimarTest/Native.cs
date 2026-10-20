@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 39;
+        public const uint AbiVersion = 40;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
@@ -31,6 +31,11 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_ship_part_name(IntPtr sim, uint part, byte[] output, uint cap);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_ship_part(IntPtr sim, uint part, ref Vec3 pos, float yaw);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_recover_pellet(IntPtr sim, uint pellet, ref Vec3 pos);
+        // A guest character's (Mario's) hands: hold or move a part, put it down, put it into a ship's receiver.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_hold_pellet(IntPtr sim, uint pellet, ref Vec3 pos, float yaw);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_release_pellet(IntPtr sim, uint pellet, ref Vec3 pos, float yaw);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_hand_ship_part(IntPtr sim, uint ship, uint pellet);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_ship_hand_owned(IntPtr sim, uint ship);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_render_stings(byte[] dir, [Out] byte[] message, uint length);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_take_death_sting(IntPtr view, [Out] float[] samples, uint max);
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).
@@ -175,7 +180,7 @@ namespace OlimarTest
             public uint id;
             public int onion;
             public uint carriers, min_carriers, max_carriers;
-            // 0 idle, 1 carried, 2 being sucked up, 3 gone.
+            // 0 idle, 1 carried, 2 being sucked up, 3 gone, 4 held by a guest character.
             public byte state, has_creature, has_ship_part, _p1;
             public uint _p2;
         }

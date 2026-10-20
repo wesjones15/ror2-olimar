@@ -22,7 +22,7 @@ namespace OlimarTest
     // - items reach the sim through each Olimar's OlimarItems, and the shared parts here:
     //   per-Pikmin proc clocks, Wake of Vultures' affixes, healing wards, cooldown-scaled
     //   timers, Pluripotent Larva's squad, and Goobo Jr.'s temporary Olimar and squad.
-    internal class PikminWorld : MonoBehaviour
+    internal partial class PikminWorld : MonoBehaviour
     {
         public static PikminWorld Instance { get; private set; }
 
@@ -285,6 +285,7 @@ namespace OlimarTest
 
         internal uint UserForCaptain(int captain)
         {
+            if (guestUsers.TryGetValue(captain, out var guest)) return guest;
             if (!driverOf.TryGetValue(captain, out var driver) || !driver || !driver.Body || !driver.Body.master) return 0;
             var controller = driver.Body.master.GetComponent<PlayerCharacterMasterController>();
             return controller && controller.networkUser ? controller.networkUser.netId.Value : 0;
@@ -451,6 +452,8 @@ namespace OlimarTest
             onionOf.Clear();
             healing.Clear();
             dolphins.Clear();
+            guestUsers.Clear();
+            guestKeyOf.Clear();
             foreach (var m in onionMinions.Values) m.Release();
             onionMinions.Clear();
             onionBodyIds.Clear();

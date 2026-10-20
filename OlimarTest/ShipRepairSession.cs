@@ -166,6 +166,7 @@ namespace OlimarTest
         {
             if (!NetworkServer.active) return;
             EnrollPlayers();
+            ShipRepairGuests.Tick();
             var world = PikminWorld.Instance;
             bool sceneReady = Stage.instance && world && world.StageReady && world.SimHandle != IntPtr.Zero;
             if (sceneReady && (stage != Stage.instance || stageSim != world.SimHandle))
@@ -191,8 +192,9 @@ namespace OlimarTest
             {
                 arrivalAge += Time.fixedDeltaTime;
                 var drivers = FindObjectsOfType<OlimarDriver>().Where(d => d.Body && d.Body.isPlayerControlled).ToArray();
-                int expected = NetworkUser.readOnlyInstancesList.Count(u => u.isParticipating);
-                if (arrivalAge >= 20f || (drivers.Length >= expected && expected > 0 && drivers.All(d => !d.Arriving)))
+                int expected = NetworkUser.readOnlyInstancesList.Count(u => u.isParticipating && !ShipRepairGuests.IsGuestUser(u));
+                bool guestsOnly = expected == 0 && ShipRepairGuests.AnyGuests && arrivalAge >= 3f;
+                if (arrivalAge >= 20f || guestsOnly || (drivers.Length >= expected && expected > 0 && drivers.All(d => !d.Arriving)))
                 {
                     Progress.Release(); Broadcast();
                 }
@@ -219,7 +221,8 @@ namespace OlimarTest
             }
             if (!landed) { Plugin.Log.LogWarning("Ship Repair: no landed Dolphin; this stage has no parts."); yield break; }
             var graph = SceneInfo.instance ? SceneInfo.instance.groundNodes : null;
-            var body = CharacterBody.readOnlyInstancesList.FirstOrDefault(b => b.isPlayerControlled && b.GetComponent<OlimarDriver>());
+            var body = CharacterBody.readOnlyInstancesList.FirstOrDefault(b => b.isPlayerControlled && b.GetComponent<OlimarDriver>())
+                ?? CharacterBody.readOnlyInstancesList.FirstOrDefault(b => b.isPlayerControlled);
             if (!graph || !body) { Plugin.Log.LogWarning("Ship Repair: no ground graph or arrival body; this stage has no parts."); yield break; }
             for (uint id = 0; id < 30; id++)
                 if (Native.pik_sim_ship_part_weight(world.SimHandle, id) == 0)

@@ -74,7 +74,7 @@ namespace OlimarTest
             plugin.AddComponent<ShipRepairHint>();
             plugin.AddComponent<ShipRepairMusic>();
             NetworkModCompatibilityHelper.networkModList = NetworkModCompatibilityHelper.networkModList
-                .Concat(new[] { Plugin.Guid + ";ship-repair-abi37-v8-compact" });
+                .Concat(new[] { Plugin.Guid + ";ship-repair-abi40-v9-guests" });
             hooks.Add(new Hook(typeof(Run).GetProperty("spawnWithPod").GetMethod,
                 (Func<Func<Run, bool>, Run, bool>)((orig, run) => IsRepair(run) || orig(run))));
             hooks.Add(new Hook(typeof(PreGameController).GetMethod("StartLaunch", flags),
@@ -90,7 +90,7 @@ namespace OlimarTest
                 })));
             hooks.Add(new Hook(typeof(CharacterSelectBarController).GetMethod("ShouldDisplaySurvivor", flags),
                 (Func<Func<CharacterSelectBarController, SurvivorDef, bool>, CharacterSelectBarController, SurvivorDef, bool>)
-                    ((orig, bar, survivor) => orig(bar, survivor) && (!LobbyActive || IsOlimar(survivor)))));
+                    ((orig, bar, survivor) => orig(bar, survivor) && (!LobbyActive || IsOlimar(survivor) || ShipRepairGuests.IsAllowed(survivor)))));
             hooks.Add(new Hook(typeof(CharacterSelectBarController).GetMethod("Build", flags),
                 (Action<Action<CharacterSelectBarController>, CharacterSelectBarController>)((orig, bar) => {
                     orig(bar);
@@ -224,8 +224,8 @@ namespace OlimarTest
             string error = assetError;
             if (!Plugin.AssetsReady) error = "Ship Repair needs your extracted Pikmin disc assets. Wait for extraction to finish.";
             else if (NetworkUser.readOnlyInstancesList.Any(u => u.isParticipating &&
-                BodyCatalog.GetBodyPrefab(u.bodyIndexPreference)?.GetComponent<OlimarDriver>() == null))
-                error = "Ship Repair requires every player to choose Olimar.";
+                BodyCatalog.GetBodyPrefab(u.bodyIndexPreference)?.GetComponent<OlimarDriver>() == null && !ShipRepairGuests.IsGuestUser(u)))
+                error = ShipRepairGuests.AnyGuests ? "Ship Repair requires every player to choose Olimar or Mario." : "Ship Repair requires every player to choose Olimar.";
             return error;
         }
 
