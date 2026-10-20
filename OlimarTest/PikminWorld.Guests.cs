@@ -33,6 +33,9 @@ namespace OlimarTest
 
         bool SpawnGuestDolphin(CharacterBody body, uint user)
         {
+            // Without the Main Engine it lands beside him and waits there.
+            var session0 = ShipRepairSession.Instance;
+            if (session0 && !session0.HasEngine(user)) return SpawnWaitingGuestDolphin(body, user);
             var teleporter = TeleporterInteraction.instance;
             if (!teleporter) return false;
             var route = new List<Vector3>();
@@ -51,25 +54,52 @@ namespace OlimarTest
                 // Its goal (the receiver) is 100 sim units ahead of it.
                 var intake = candidate + new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)) * (100f * UnityHost.Scale);
                 if (!ShipPartNavigation.TryPath(body.footPosition, intake, route)) continue;
-                var pos = UnityHost.ToSim(candidate);
-                int id = Native.pik_sim_add_ship(sim, ref pos, yaw);
-                if (id < 0) return false;
-                Native.pik_sim_set_onion_pose(sim, (uint)id, ref pos, 0);
-                int key = nextGuestKey--;
-                guestUsers[key] = user;
-                guestKeyOf[user] = key;
-                var session = ShipRepairSession.Instance;
-                if (session)
-                {
-                    foreach (int part in session.PartsFor(user)) Native.pik_sim_give_ship_part(sim, (uint)id, (uint)part);
-                    if (session.Competitive) Native.pik_sim_set_ship_hand_owned(sim, (uint)id);
-                }
-                dolphins[key] = new DolphinFlight { id = id, captain = key, start = candidate, landing = candidate, complete = true, dock = candidate };
-                Plugin.Log.LogInfo($"Ship Repair: Dolphin {id} landed at the teleporter for guest {body.GetDisplayName()}.");
-                return true;
+                return AddGuestDolphin(body, user, candidate, yaw, false);
             }
             Plugin.Log.LogWarning("Ship Repair: no clear, reachable teleporter dock for a guest's Dolphin yet.");
             return false;
+        }
+
+        bool SpawnWaitingGuestDolphin(CharacterBody body, uint user)
+        {
+            var back = -Vector3.ProjectOnPlane(body.transform.forward, Vector3.up).normalized;
+            if (back.sqrMagnitude < 0.5f) back = Vector3.back;
+            for (int attempt = 0; attempt < 24; attempt++)
+            {
+                float turn = (attempt % 2 == 0 ? 1 : -1) * (attempt / 2) * 25f;
+                var spot = body.footPosition + Quaternion.Euler(0f, turn, 0f) * back * (6f + attempt / 8 * 3f);
+                if (!Physics.Raycast(spot + Vector3.up * 8f, Vector3.down, out var hit, 20f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.7f) continue;
+                var candidate = hit.point;
+                if (Physics.CheckCapsule(candidate + Vector3.up * 3.2f, candidate + Vector3.up * 8f, 3f, UnityHost.Mask, QueryTriggerInteraction.Ignore)) continue;
+                if (dolphins.Values.Any(other => Vector3.ProjectOnPlane(candidate - (other.dock ?? other.landing), Vector3.up).sqrMagnitude < 10f * 10f)) continue;
+                return AddGuestDolphin(body, user, candidate, UnityHost.Yaw(-back), true);
+            }
+            Plugin.Log.LogWarning("Ship Repair: no clear spot beside a guest for his Dolphin yet.");
+            return false;
+        }
+
+        bool AddGuestDolphin(CharacterBody body, uint user, Vector3 candidate, float yaw, bool waiting)
+        {
+            var pos = UnityHost.ToSim(candidate);
+            int id = Native.pik_sim_add_ship(sim, ref pos, yaw);
+            if (id < 0) return false;
+            Native.pik_sim_set_onion_pose(sim, (uint)id, ref pos, 0);
+            int key = nextGuestKey--;
+            guestUsers[key] = user;
+            guestKeyOf[user] = key;
+            var session = ShipRepairSession.Instance;
+            if (session)
+            {
+                foreach (int part in session.PartsFor(user)) Native.pik_sim_give_ship_part(sim, (uint)id, (uint)part);
+                if (session.Competitive) Native.pik_sim_set_ship_hand_owned(sim, (uint)id);
+            }
+            dolphins[key] = new DolphinFlight
+            {
+                id = id, captain = key, start = candidate, landing = candidate, complete = true,
+                dock = waiting ? (Vector3?)null : candidate, waitingForEngine = waiting,
+            };
+            Plugin.Log.LogInfo($"Ship Repair: Dolphin {id} landed for guest {body.GetDisplayName()}" + (waiting ? " (waiting for the Main Engine)." : " at the teleporter."));
+            return true;
         }
 
         /// A part by pellet id, from the server's sim or a client's replica.

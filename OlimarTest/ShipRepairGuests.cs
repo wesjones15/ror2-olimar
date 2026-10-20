@@ -118,6 +118,8 @@ namespace OlimarTest
             return user != null ? user.cachedBody : null;
         }
 
+        internal static CharacterBody BodyFor(uint user) => BodyOfUser(user);
+
         static CharacterBody BodyOfUser(uint user)
         {
             foreach (var b in guests) if (b && UserOf(b) == user) return b;

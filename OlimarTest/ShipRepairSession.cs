@@ -40,6 +40,10 @@ namespace OlimarTest
         // Parts lying on the map when a stage opens (slots 1..MapParts). Enemies add more on top:
         // slot 0 is the stage boss's, the slots after the map parts are the elite/miniboss drops.
         internal const int MapParts = 10;
+        /// The Main Engine (the first part in the story): without it a Dolphin cannot fly, so it is the first thing
+        /// to find, and it lies near every player when a stage opens until it has been fitted.
+        internal const int EnginePart = 4;
+        public bool HasEngine(uint user) => PartsFor(user).Contains(EnginePart);
         // A common enemy's chance to drop a part, still gated by the killer's drop interval.
         const double CommonDropChance = 0.04;
         static readonly Dictionary<int, string> partNames = new Dictionary<int, string>();
@@ -231,6 +235,9 @@ namespace OlimarTest
             var rng = new System.Random(unchecked((int)run.seed ^ (int)Progress.Epoch * 7919));
             var active = NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating).Select(u => u.netId.Value).ToArray();
             var masks = Competitive ? active.Select(id => race.Players[id].Mask).ToArray() : new[] { Progress.Mask };
+            // The engine is placed by hand below, so the draw never picks it.
+            masks = masks.Select(m => m | (1u << EnginePart)).ToArray();
+            yield return PlaceEngines(world, epoch, rng);
             int budget = 1 + MapParts + ShipRepairRace.EnemyBudget(active.Length, Competitive);
             var sample = ShipRepairRace.StageIds(run.seed, epoch, budget, masks);
             // Slot 0: guaranteed stage-boss part. Slots 1..MapParts: parts lying on the map.
@@ -279,6 +286,61 @@ namespace OlimarTest
             }
             Plugin.Log.LogInfo($"Ship Repair: stage {Progress.Epoch}, {parts.Count} reachable parts, {Progress.Count}/30 recovered.");
             placementsReady = true;
+        }
+
+        /// One Main Engine near each player who has not fitted one (one for the crew in the shared repair), on
+        /// ground the Dolphin's Pikmin can carry it from.
+        IEnumerator PlaceEngines(PikminWorld world, uint epoch, System.Random rng)
+        {
+            var bodies = CharacterBody.readOnlyInstancesList.Where(b => b.isPlayerControlled).ToList();
+            int placed = 0;
+            foreach (var body in bodies)
+            {
+                uint user = UserOfBody(body);
+                if (user == 0 || (Competitive ? HasEngine(user) : HasEngine(0))) continue;
+                if (!Competitive && placed > 0) break;
+                Vector3 point = default;
+                bool found = false;
+                for (int attempt = 0; attempt < 160 && !found; attempt++)
+                {
+                    if (!world || !world.StageReady || Progress.Epoch != epoch || Terminal) yield break;
+                    if (attempt % 20 == 19) yield return null;
+                    float angle = (float)rng.NextDouble() * Mathf.PI * 2f;
+                    float radius = 6f + attempt / 40 * 3f + (float)rng.NextDouble() * 4f;
+                    var around = body.footPosition + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * radius;
+                    if (!Physics.Raycast(around + Vector3.up * 10f, Vector3.down, out var hit, 24f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
+                        || hit.normal.y < 0.7f) continue;
+                    point = hit.point;
+                    if (Physics.CheckSphere(point + Vector3.up * 2.2f, 2f, UnityHost.Mask, QueryTriggerInteraction.Ignore)) continue;
+                    if (parts.Any(p => HorizontalDistanceSquared(point, p.origin) < 36f)) continue;
+                    if (attempt < 120 && !ReachableDolphin(world, point)) continue;
+                    found = true;
+                }
+                if (!found) { Plugin.Log.LogWarning("Ship Repair: no site for a Main Engine near " + body.GetDisplayName()); continue; }
+                var name = new byte[128];
+                Native.pik_sim_ship_part_name(world.SimHandle, (uint)EnginePart, name, (uint)name.Length);
+                int slot = 500 + placed;
+                var engine = new Part
+                {
+                    id = EnginePart, slot = slot, pellet = uint.MaxValue - (uint)slot, name = Native.Utf8(name),
+                    weight = Native.pik_sim_ship_part_weight(world.SimHandle, (uint)EnginePart),
+                    pos = point, last = point, safe = point, origin = point, discovered = true,
+                };
+                parts.Add(engine);
+                if (!SpawnPart(world, engine, point, (float)rng.NextDouble() * Mathf.PI * 2f)) { parts.Remove(engine); continue; }
+                placed++;
+                Broadcast();
+                yield return null;
+            }
+            if (placed > 0)
+                ShowToast("The Dolphin can't fly without its Main Engine — it is lying near you. Carry it to the Dolphin.");
+        }
+
+        static uint UserOfBody(CharacterBody body)
+        {
+            var master = body ? body.master : null;
+            var controller = master ? master.GetComponent<PlayerCharacterMasterController>() : null;
+            return controller && controller.networkUser ? controller.networkUser.netId.Value : 0;
         }
 
         void TrackParts(PikminWorld world)
@@ -401,7 +463,8 @@ namespace OlimarTest
         {
             var active = NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating).Select(u => u.netId.Value).ToArray();
             uint cooperativeUnavailable = parts.Where(p => !p.delivered).Aggregate(Progress.Mask, (mask, p) => mask | (1u << p.id));
-            var masks = Competitive ? active.Where(id => race.Players.ContainsKey(id)).Select(id => race.Players[id].Mask).ToArray() : new[] { cooperativeUnavailable };
+            var masks = (Competitive ? active.Where(id => race.Players.ContainsKey(id)).Select(id => race.Players[id].Mask).ToArray() : new[] { cooperativeUnavailable })
+                .Select(m => m | (1u << EnginePart)).ToArray();
             var ids = ShipRepairRace.StageIds(run.seed ^ (uint)bonusRng.Next(), Progress.Epoch, 1, masks);
             if (ids.Length == 0) return null;
             // Bound simultaneous world records, not the number earned in a stage.
@@ -461,6 +524,8 @@ namespace OlimarTest
             }
             part.delivered = true;
             world.FitShipPart((uint)part.id, user);
+            // The Main Engine lets the Dolphin fly to the teleporter.
+            if (part.id == EnginePart) world.EngineFitted(Competitive ? user : 0);
             ShowToast(Competitive ? race.Players[user].Name + " recovered " + part.name + " — " + race.Players[user].Order.Count + "/30" : $"{part.name} recovered — {Progress.Count}/30");
             Plugin.Log.LogInfo($"Ship Repair: delivered {part.id} ({part.name}) at {Progress.Seconds:F2}s; {Progress.Count}/30.");
             if (Winning)

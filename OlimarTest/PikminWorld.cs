@@ -120,6 +120,8 @@ namespace OlimarTest
             public Vector3 relocationStart;
             public float relocationAge;
             public bool relocating;
+            /// Landed and stuck there until the Main Engine is fitted (Ship Repair); then it flies to the teleporter.
+            public bool waitingForEngine;
             // The Onion releases the squad; the Dolphin beams Olimar down separately.
             public bool onionDown, squadOut;
             /// Seconds the Onion has stood landed; Olimar's beam-in progress 0..1 (-1 not started).
@@ -838,10 +840,16 @@ namespace OlimarTest
             ship.complete = true;
             ship.beam = -1f;
             driver.Arriving = false;
-            if (ShipRepairMode.Active && driver.Body && driver.Body.isPlayerControlled && TryRepairDock(ship, driver, out var dock))
+            if (ShipRepairMode.Active && driver.Body && driver.Body.isPlayerControlled)
             {
-                ship.dock = dock; ship.relocationStart = ship.landing;
-                ship.relocating = true; ship.relocationAge = 0f; ship.complete = false;
+                // The Dolphin can't fly to the teleporter without its Main Engine.
+                var session = ShipRepairSession.Instance;
+                if (session && !session.HasEngine(UserForCaptain(ship.captain))) ship.waitingForEngine = true;
+                else if (TryRepairDock(ship, driver, out var dock))
+                {
+                    ship.dock = dock; ship.relocationStart = ship.landing;
+                    ship.relocating = true; ship.relocationAge = 0f; ship.complete = false;
+                }
             }
             // Arriving by the Onion, the squad is already out of it; otherwise (a respawn, an aborted
             // arrival) they appear around Olimar.
@@ -849,7 +857,30 @@ namespace OlimarTest
             Plugin.Log.LogInfo($"Dolphin landed for captain {ship.captain}; " + (ship.onionDown ? "squad out of the Onion, which stays planted." : "Onion following."));
         }
 
-        bool TryRepairDock(DolphinFlight ship, OlimarDriver driver, out Vector3 point)
+        bool TryRepairDock(DolphinFlight ship, OlimarDriver driver, out Vector3 point) =>
+            TryRepairDockFrom(ship, driver.Body.footPosition, out point);
+
+        /// The Main Engine is fitted: the Dolphins that were waiting for it (`user`'s, or all in the shared repair)
+        /// fly to the teleporter.
+        internal void EngineFitted(uint user)
+        {
+            if (ClientMode || sim == IntPtr.Zero) return;
+            foreach (var ship in dolphins.Values.ToArray())
+            {
+                if (!ship.waitingForEngine) continue;
+                uint owner = UserForCaptain(ship.captain);
+                if (user != 0 && owner != user) continue;
+                ship.waitingForEngine = false;
+                var from = driverOf.TryGetValue(ship.captain, out var driver) && driver && driver.Body ? driver.Body.footPosition
+                    : ShipRepairGuests.BodyFor(owner) is CharacterBody guest ? guest.footPosition : ship.landing;
+                if (!TryRepairDockFrom(ship, from, out var dock)) continue;
+                ship.dock = dock; ship.relocationStart = ship.landing;
+                ship.relocating = true; ship.relocationAge = 0f; ship.complete = false;
+                Plugin.Log.LogInfo($"Ship Repair: the Main Engine is fitted; Dolphin {ship.id} flies to the teleporter.");
+            }
+        }
+
+        bool TryRepairDockFrom(DolphinFlight ship, Vector3 from, out Vector3 point)
         {
             point = default;
             var teleporter = TeleporterInteraction.instance;
@@ -868,7 +899,7 @@ namespace OlimarTest
                 if (dolphins.Values.Any(other => other != ship && other.dock.HasValue && Vector3.ProjectOnPlane(candidate - other.dock.Value, Vector3.up).sqrMagnitude < 14f * 14f)) continue;
                 if (Native.pik_sim_onion_goal(sim, (uint)ship.id, out var currentGoal) == 0) continue;
                 var intake = candidate + UnityHost.ToUnity(currentGoal) - ship.landing;
-                if (!ShipPartNavigation.TryPath(driver.Body.footPosition, intake, route)) continue;
+                if (!ShipPartNavigation.TryPath(from, intake, route)) continue;
                 point = candidate; return true;
             }
             Plugin.Log.LogWarning("Ship Repair: no clear, reachable teleporter dock; Dolphin remains at its safe arrival site.");
