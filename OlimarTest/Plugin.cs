@@ -592,7 +592,7 @@ namespace OlimarTest
             var display = Prefabs.Clone(commandoDisplay, "OlimarTestDisplay", Plugin.Guid);
             DisplayModel.Attach(display, Plugin.Guid, OlimarDisplay.Get);
             // His portrait, from the same lobby Olimar without the Pikmin beside him.
-            Portrait.Request(body, OlimarDisplay.Get, d => d.kind != Native.KindCaptain);
+            Portrait.Request(body, OlimarDisplay.Get, d => d.kind != Native.KindCaptain, framing: PortraitFraming.ThreeQuarter);
 
             var survivor = ScriptableObject.CreateInstance<SurvivorDef>();
             survivor.cachedName = "OlimarTest";
