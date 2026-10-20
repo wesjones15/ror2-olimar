@@ -746,6 +746,12 @@ namespace OlimarTest
 
         void OnGUI()
         {
+            // RoR2's pause menu is up: nothing of ours is drawn over it.
+            if (PauseMenu.IsOpen)
+            {
+                HideMenuGlyphs();
+                return;
+            }
             BottomHud();
             if (!MenuOpen || localUser == null || !PikminWorld.Instance)
             {

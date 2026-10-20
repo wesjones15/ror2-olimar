@@ -327,6 +327,8 @@ namespace OlimarTest
             ItemHooks.Install();
             // With the Pikmin controls the HUD's skill icons name the pad buttons the sim reads (Pad),
             // not RoR2's binds; the Aim scheme (VR) keeps RoR2's.
+            PauseControls.Install(gameObject);
+            PauseControls.Register("OlimarTestBody", _ => OlimarControls.Sheet());
             GlyphOverride.Install();
             GlyphOverride.Set("OlimarTestBody", () => Scheme == ControlScheme.Pikmin, new Dictionary<SkillSlot, PadButton[]>
             {

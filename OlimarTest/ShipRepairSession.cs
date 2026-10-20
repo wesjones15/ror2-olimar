@@ -610,7 +610,7 @@ namespace OlimarTest
 
         void OnGUI()
         {
-            if (!run || !ShipRepairMode.Active) return;
+            if (!run || !ShipRepairMode.Active || Ror2Common.PauseMenu.IsOpen) return;
             if (run.isGameOverServer || (Terminal && !Winning))
             {
                 return;

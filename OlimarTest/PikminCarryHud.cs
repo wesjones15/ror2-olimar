@@ -42,7 +42,7 @@ namespace OlimarTest
         void OnGUI()
         {
             if (Event.current.type != EventType.Repaint || !world || !world.Running ||
-                Ror2Common.RunAudio.Ended) return;
+                Ror2Common.RunAudio.Ended || Ror2Common.PauseMenu.IsOpen) return;
             var camera = Camera.main;
             if (!camera) return;
             LoadCarryDigits();
