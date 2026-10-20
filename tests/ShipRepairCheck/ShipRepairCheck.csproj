@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="../../OlimarTest/ShipRepairProgress.cs" Link="ShipRepairProgress.cs" />
     <Compile Include="../../OlimarTest/ShipRepairRace.cs" Link="ShipRepairRace.cs" />
+    <Compile Include="../../OlimarTest/TekiRules.cs" Link="TekiRules.cs" />
     <Compile Include="../../OlimarTest/ShipRepairDropPacing.cs" Link="ShipRepairDropPacing.cs" />
     <Compile Include="../../OlimarTest/ShipRepairMusicPolicy.cs" Link="ShipRepairMusicPolicy.cs" />
     <Compile Include="../../OlimarTest/ShipRepairPacket.cs" Link="ShipRepairPacket.cs" />

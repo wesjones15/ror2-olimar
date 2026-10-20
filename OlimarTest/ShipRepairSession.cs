@@ -11,7 +11,7 @@ using UnityEngine.Networking;
 
 namespace OlimarTest
 {
-    public sealed class ShipRepairSession : MonoBehaviour
+    public sealed partial class ShipRepairSession : MonoBehaviour
     {
         const short StateMessage = 0x4F04, RecoveryMessage = 0x4F05;
         internal static ShipRepairSession Instance { get; private set; }
@@ -404,6 +404,7 @@ namespace OlimarTest
             if (!NetworkServer.active || !Progress.Accepting || !placementsReady || stage != Stage.instance || stageSim != world.SimHandle) return;
             var victim = report.victimBody;
             if (!victim || report.victimTeamIndex != TeamIndex.Monster) return;
+            if (TekiBody.IsBig(victim)) { TekiPartReward(world, report, victim); return; }
             bool stageBoss = stageBossMasters.Contains(victim.master) || (TeleporterInteraction.instance && TeleporterInteraction.instance.bossGroup &&
                 TeleporterInteraction.instance.bossGroup.combatSquad.ContainsMember(victim.master));
             bool powerful = victim.isBoss || victim.isChampion || victim.baseMaxHealth >= 600f || (victim.isElite && victim.baseMaxHealth >= 200f);
@@ -459,11 +460,12 @@ namespace OlimarTest
             point = default; return false;
         }
 
-        Part BonusPart(PikminWorld world)
+        Part BonusPart(PikminWorld world, uint forUser = 0)
         {
             var active = NetworkUser.readOnlyInstancesList.Where(u => u.isParticipating).Select(u => u.netId.Value).ToArray();
             uint cooperativeUnavailable = parts.Where(p => !p.delivered).Aggregate(Progress.Mask, (mask, p) => mask | (1u << p.id));
-            var masks = (Competitive ? active.Where(id => race.Players.ContainsKey(id)).Select(id => race.Players[id].Mask).ToArray() : new[] { cooperativeUnavailable })
+            var masks = TekiRules.BenefitMasks(Competitive, forUser != 0 && race.Players.TryGetValue(forUser, out var beneficiary) ? beneficiary.Mask : (uint?)null,
+                    active.Where(id => race.Players.ContainsKey(id)).Select(id => race.Players[id].Mask), cooperativeUnavailable)
                 .Select(m => m | (1u << EnginePart)).ToArray();
             var ids = ShipRepairRace.StageIds(run.seed ^ (uint)bonusRng.Next(), Progress.Epoch, 1, masks);
             if (ids.Length == 0) return null;

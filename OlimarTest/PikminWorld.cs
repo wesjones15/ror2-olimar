@@ -2471,6 +2471,8 @@ namespace OlimarTest
             if (v.isElite) affixes.EliteDied(v, r.attackerBody, Pikis, PikiCount, Id(v));
             // The Pikmin that fought it earn the kill (growth), whoever struck the last blow.
             Native.pik_sim_credit_kill(sim, Id(v));
+            // A Pikmin enemy leaves the disc's own corpse (TekiBodies).
+            if (v.GetComponent<TekiBody>() is TekiBody teki && TekiBodies.Died(sim, v, teki)) return;
             int lying = 0;
             for (int i = 0; i < PelletCount; i++)
                 if (Pellets[i].state != 3) lying++;

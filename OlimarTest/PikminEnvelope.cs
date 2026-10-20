@@ -41,7 +41,7 @@ namespace OlimarTest
         /// Bumped whenever a wire format changes; a message with another number is ignored.
         public const byte Protocol = 5;
         /// pikmin.dll's ABI (Native.AbiVersion), compared so a mismatched build is refused.
-        public static byte Abi = 40;
+        public static byte Abi = 41;
 
         public enum Status { Ok, Corrupt, WrongProtocol, WrongAbi }
 

@@ -48,7 +48,10 @@ namespace OlimarTest
         {
             // The Dolphin's parts are drawn as the sim fits them: all 30 unless the ship-parts mode is on.
             Native.pik_view_set_repaired_ship(1);
+            // Pikmin's enemies are drawn by the Ship Repair world's view only.
+            TekiNative.pik_view_set_teki_models((byte)(ShipRepairMode.Active && TekiBodies.Enabled.Value ? 1 : 0));
             var v = Native.pik_view_new(Native.CString(assetsDir), (byte)(sound ? 1 : 0));
+            TekiNative.pik_view_set_teki_models(0);
             if (v == IntPtr.Zero)
             {
                 Plugin.Log.LogWarning($"Pikmin's models didn't load from {assetsDir}; drawing stand-ins");
@@ -84,6 +87,12 @@ namespace OlimarTest
                 }
             }
             return new PikminModels(v, models, parent);
+        }
+
+        /// The enemies to draw at the next Update (the host's, see TekiBody).
+        public void SetTekis(TekiNative.Instance[] list, int count)
+        {
+            if (view != IntPtr.Zero) TekiNative.pik_view_set_tekis(view, list, (uint)count);
         }
 
         /// Draw each captain's cursor and marker (on by default).

@@ -225,6 +225,7 @@ namespace OlimarTest
                 "Olimar's base max health (Commando's is 110).");
             OlimarHealthPerLevel = Config.Bind("Combat", "OlimarHealthPerLevel", 66f,
                 "Max health Olimar gains per level (Commando's is 33).");
+            TekiBodies.Bind(Config);
             MaxPellets = Config.Bind("Corpses", "MaxPellets", 30, "Most enemy corpses on the ground at once.");
             CarryBodies = Config.Bind("Corpses", "CarryBodies", false,
                 "Pikmin carry the enemy's own body instead of a numbered pellet. Experimental: the " +
@@ -339,11 +340,12 @@ namespace OlimarTest
                 [SkillSlot.Special] = new[] { PadButton.RB },
             });
 
-            ContentProvider.Register(Guid, pack => { Content.Fill(pack); ShipRepairMode.Fill(pack); });
+            ContentProvider.Register(Guid, pack => { Content.Fill(pack); ShipRepairMode.Fill(pack); TekiBodies.Fill(pack); });
             Language.onCurrentLanguageChanged += AddTokens;
             PikminWorld.Hook();
             PikminNet.Register();
             ShipRepairMode.Install(gameObject);
+            TekiBodies.Install();
         }
 
         static bool InVr()

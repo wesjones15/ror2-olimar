@@ -157,6 +157,30 @@ static class Program
         Check(ShipRepairPacket.Read(new ByteReader(packet.Write()), out decoded) && decoded.Parts[0].Recycling, "map part recycling round trip");
         packet.Parts[1].Recycling = false;
         Check(!ShipRepairPacket.Read(new ByteReader(packet.Write()), out _), "unspawned map part needs recycle state");
+        // Pikmin enemies: a big one always rewards a part, a small one only by the usual rule.
+        Check(TekiRules.RewardsPart(true, false, false, false, 0.99, 0.04), "big enemy ignores the drop interval and chance");
+        Check(!TekiRules.RewardsPart(false, false, false, true, 0.5, 0.04), "small enemy needs the 4% roll");
+        Check(TekiRules.RewardsPart(false, false, false, true, 0.01, 0.04), "small enemy can roll a drop");
+        Check(!TekiRules.RewardsPart(false, false, false, false, 0.01, 0.04), "small enemy waits for the killer's interval");
+        Check(TekiRules.RewardsPart(false, false, true, true, 0.99, 0.04), "powerful enemy drops without a roll");
+        Check(TekiRules.RewardsPart(false, true, false, false, 0.99, 0.04), "stage boss ignores the interval");
+        // In a race a big enemy's part is one its killer lacks; in the shared game, one the crew lacks.
+        uint killer = 0b1011, rival = 0b0100, crew = 0b0111;
+        for (uint epoch = 1; epoch < 40; epoch++)
+        {
+            var raced = ShipRepairRace.StageIds(77, epoch, 1, TekiRules.BenefitMasks(true, killer, new[] { killer, rival }, 0));
+            Check(raced.Length == 1 && (killer & (1u << raced[0])) == 0, "race reward is a part the killer lacks");
+            var shared = ShipRepairRace.StageIds(77, epoch, 1, TekiRules.BenefitMasks(false, null, new[] { killer, rival }, crew));
+            Check(shared.Length == 1 && (crew & (1u << shared[0])) == 0, "shared reward is a part the crew lacks");
+        }
+        Check(ShipRepairRace.StageIds(77, 1, 1, TekiRules.BenefitMasks(true, ShipRepairProgress.AllParts, new[] { killer }, 0)).Length == 0,
+            "a killer with every part has nothing to be rewarded with");
+        Check(TekiRules.BenefitMasks(true, null, new[] { killer, rival }, 0).SequenceEqual(new[] { killer, rival }), "unknown killer: any racer's need");
+        // The disc's corpse: Dwarf 3-6 Pikmin, Spotty 10-20; the multiplier never makes it 0 or inverts it.
+        Check(TekiRules.Carriers(3, 6, 1.0) == (3u, 6u) && TekiRules.Carriers(10, 20, 0.5) == (5u, 10u), "carrier counts");
+        Check(TekiRules.Carriers(3, 6, 0.0) == (1u, 1u) && TekiRules.Carriers(10, 20, -2.0).min >= 1, "carrier floor");
+        Check(TekiRules.CorpseDrawId(5) != 5 && TekiRules.CorpseDrawId(5) >= 0x8000_0000u, "corpse draw ids sit above the bodies'");
+        Console.WriteLine("PASS: Pikmin enemy part rewards, beneficiary masks and corpse sizes.");
         Console.WriteLine("PASS: sampling, receipts, epoch boundaries, clocks, failure, victory, restart, and objective packet validation.");
         return 0;
     }

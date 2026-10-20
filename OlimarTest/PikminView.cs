@@ -79,6 +79,7 @@ namespace OlimarTest
         public void StartModels()
         {
             DisposeModels();
+            TekiCorpses.Clear();
             if (Ror2Common.RunAudio.Ended) return;
             models = PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
             // Only the world's view: the swarm grows over a run, and on a machine that can't keep up far or
@@ -210,10 +211,16 @@ namespace OlimarTest
                     250f, UnityHost.Mask, QueryTriggerInteraction.Ignore) && hit.normal.y >= .5f)
                     models.SetOnionGround(onion.id, hit.point.y / UnityHost.Scale);
             }
+            if (TekiDraw.Any)
+            {
+                int tekis = TekiDraw.Collect(world, Time.deltaTime, out var list);
+                models.SetTekis(list, tekis);
+            }
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.DataHandle, ref frame, UnityHost.Scale, d =>
                 (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id)
                     : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && world.CaptainArriving(d.id)) ||
+                d.kind == Native.KindPellet && TekiCorpses.Has(d.id) ||
                 d.kind == Native.KindPellet &&
                 world.Corpses.Pose(d.id, new Vector3(d.pos.x, d.pos.y, d.pos.z) * UnityHost.Scale,
                     new Quaternion(d.rot_x, d.rot_y, d.rot_z, d.rot_w)));
