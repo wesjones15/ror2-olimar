@@ -573,6 +573,7 @@ namespace OlimarTest
             if (sentResults) return;
             sentResults = true;
             SaveSummary(true);
+            ShipRepairUnlocks.OnWin(runId);
             Progress.Complete();
             Broadcast();
             run.BeginGameOver(ShipRepairMode.Ending);
@@ -669,6 +670,7 @@ namespace OlimarTest
             if (packet.State == ShipRepairProgress.Phase.Failed || packet.State >= ShipRepairProgress.Phase.Winning)
             {
                 ResultWon = packet.State != ShipRepairProgress.Phase.Failed;
+                if (ResultWon) ShipRepairUnlocks.OnWin(runId);
                 ResultDetails = FormatTime(Seconds) + "  |  " + remoteStages + " DAYS  |  SEED " + run.seed;
                 resultLines = ScoreRows();
                 lastResultRun = runId;

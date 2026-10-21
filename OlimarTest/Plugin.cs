@@ -605,7 +605,7 @@ namespace OlimarTest
             survivor.outroFlavorToken = "OLIMARTEST_BODY_OUTRO";
             survivor.mainEndingEscapeFailureFlavorToken = "OLIMARTEST_BODY_FAIL";
             survivor.primaryColor = cb.bodyColor;
-            survivor.desiredSortPosition = 101f;
+            survivor.desiredSortPosition = 100f;
 
             pack.bodyPrefabs.Add(new[] { body });
             pack.survivorDefs.Add(new[] { survivor });
