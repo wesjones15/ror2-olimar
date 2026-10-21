@@ -14,10 +14,12 @@ namespace OlimarTest
 
         const float MinRange = 22f, MaxRange = 55f;
         Stage stage;
-        float stageSince, nextTry, nextWisp, nextWater;
-        bool breadbugDone;
+        float stageSince, nextTry, nextWisp, nextWater, nextPlant;
+        bool breadbugDone, clamDone;
+        int geysersPlaced;
         readonly List<TekiBody> wisps = new List<TekiBody>();
         readonly List<TekiBody> waterborne = new List<TekiBody>();
+        readonly List<TekiBody> posies = new List<TekiBody>();
 
         void FixedUpdate()
         {
@@ -26,10 +28,12 @@ namespace OlimarTest
             {
                 stage = Stage.instance;
                 stageSince = Time.time;
-                breadbugDone = false;
-                nextTry = nextWisp = nextWater = Time.time + 6f;
+                breadbugDone = clamDone = false;
+                geysersPlaced = 0;
+                nextTry = nextWisp = nextWater = nextPlant = Time.time + 6f;
                 wisps.Clear();
                 waterborne.Clear();
+                posies.Clear();
             }
             if (Time.time < nextTry || !TekiCatalog.Ready) return;
             nextTry = Time.time + 2f;
@@ -67,6 +71,50 @@ namespace OlimarTest
                 }
             }
 
+            // Plants, geysers and a shell: the stage's fixtures. Pellet Posies are kept grown, ready to be killed for their
+            // pellets; the first stage has none of the dangerous ones.
+            if (Time.time >= nextPlant)
+            {
+                nextPlant = Time.time + 20f;
+                posies.RemoveAll(p => !p);
+                if (TekiCatalog.Has(TekiCatalog.PelletPosy) && posies.Count < Mathf.Min(6, players.Count * TekiBodies.PosiesPerPlayer.Value))
+                {
+                    var at = PointNear(players, false, out _);
+                    if (at.HasValue)
+                    {
+                        var posy = TekiBodies.Spawn(TekiCatalog.PelletPosy, at.Value, Random.Range(0f, 360f));
+                        if (posy)
+                        {
+                            posy.count0 = 2;
+                            posies.Add(posy);
+                        }
+                    }
+                }
+                if (Run.instance.stageClearCount > 0)
+                {
+                    if (geysersPlaced < TekiBodies.FireGeysersPerStage.Value && TekiCatalog.Has(TekiCatalog.FireGeyser))
+                    {
+                        var at = PointNear(players, false, out _);
+                        if (at.HasValue && TekiBodies.Spawn(TekiCatalog.FireGeyser, at.Value, Random.Range(0f, 360f))) geysersPlaced++;
+                    }
+                    if (!clamDone && TekiBodies.ClamclampEveryStage.Value && TekiCatalog.Has(TekiCatalog.Clamclamp))
+                    {
+                        var at = PointNear(players, false, out _);
+                        if (at.HasValue)
+                        {
+                            var clam = TekiBodies.Spawn(TekiCatalog.Clamclamp, at.Value, Random.Range(0f, 360f));
+                            if (clam)
+                            {
+                                // Its pearl is a ship part for whoever breaks it.
+                                clam.count0 = 1;
+                                clamDone = true;
+                                Chat.AddMessage("<style=cWorldEvent>A Pearly Clamclamp sits nearby. Break its pearl while it is open for a ship part.</style>");
+                            }
+                        }
+                    }
+                }
+            }
+
             if (Time.time >= nextWater && TekiBodies.WaterEnemiesPerPlayer.Value > 0)
             {
                 nextWater = Time.time + 12f;
@@ -76,12 +124,15 @@ namespace OlimarTest
                     var at = PointNear(players, true, out bool found);
                     if (at.HasValue && found)
                     {
+                        // Any of the waterborne kinds (Water Dumple, Wogpole).
+                        var swimmers = new List<TekiSpec>();
                         foreach (var spec in TekiRoster.All)
+                            if (spec.Water && TekiCatalog.Has(spec.Kind)) swimmers.Add(spec);
+                        if (swimmers.Count > 0)
                         {
-                            if (!spec.Water || !TekiCatalog.Has(spec.Kind)) continue;
-                            var w = TekiBodies.Spawn(spec.Kind, at.Value, Random.Range(0f, 360f));
+                            var pick = swimmers[Random.Range(0, swimmers.Count)];
+                            var w = TekiBodies.Spawn(pick.Kind, at.Value, Random.Range(0f, 360f));
                             if (w) waterborne.Add(w);
-                            break;
                         }
                     }
                 }

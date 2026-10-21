@@ -24,7 +24,8 @@ namespace OlimarTest
         internal static ConfigEntry<int> BigMinStages;
         internal static ConfigEntry<float> HealthScale, SpeedScale, DamageScale, CarrierScale;
         internal static ConfigEntry<bool> FitSizes;
-        internal static ConfigEntry<int> HoneywispsPerPlayer, WaterEnemiesPerPlayer;
+        internal static ConfigEntry<int> HoneywispsPerPlayer, WaterEnemiesPerPlayer, PosiesPerPlayer, FireGeysersPerStage;
+        internal static ConfigEntry<bool> ClamclampEveryStage;
         static ConfigEntry<int>[] weights, costs;
 
         /// Seconds a bite's animation is squeezed into (RoR2's skills are shorter than the disc's).
@@ -52,6 +53,12 @@ namespace OlimarTest
                 "Honeywisps Ship Repair keeps flying about for each player (a hit one drops nectar). 0 for none.");
             WaterEnemiesPerPlayer = config.Bind("Enemies", "WaterEnemiesPerPlayer", 1,
                 "Waterborne enemies (Water Dumples) kept in the stage's water for each player, if it has any. 0 for none.");
+            PosiesPerPlayer = config.Bind("Enemies", "PelletPosiesPerPlayer", 1,
+                "Grown Pellet Posies Ship Repair keeps about for each player: kill one and its pellet is yours to carry. 0 for none.");
+            FireGeysersPerStage = config.Bind("Enemies", "FireGeysersPerStage", 2,
+                "Fire Geysers placed about each stage after the first (they erupt now and then and can't be killed). 0 for none.");
+            ClamclampEveryStage = config.Bind("Enemies", "ClamclampEveryStage", true,
+                "A Pearly Clamclamp on every stage after the first, with a ship part for a pearl. It snaps shut on Pikmin at its pearl.");
             BigMinStages = config.Bind("Enemies", "BigMinStagesCleared", 0, "Stages cleared before big Pikmin enemies can spawn.");
             HealthScale = config.Bind("Enemies", "HealthScale", 1f,
                 "RoR2 health per point of the disc's life (a Dwarf Bulborb has 130, a Spotty Bulborb 1100, a Smoky Progg 4000).");
@@ -252,8 +259,9 @@ namespace OlimarTest
 
         public static bool Died(IntPtr sim, CharacterBody victim, TekiBody teki)
         {
-            // A Honeywisp that was finished leaves nothing.
-            if (TekiRoster.Of(teki.kind)?.Ephemeral == true) return true;
+            // A Honeywisp that was finished leaves nothing, nor do plants, eggs and pearls (their strategies give what they hold).
+            var spec = TekiRoster.Of(teki.kind);
+            if (spec != null && (spec.Ephemeral || spec.NoCorpse)) return true;
             if (!TekiCatalog.Has(teki.kind)) return false;
             var info = TekiCatalog.Get(teki.kind);
             float yaw = UnityHost.Yaw(victim.transform.forward);

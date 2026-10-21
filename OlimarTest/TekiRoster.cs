@@ -1,9 +1,10 @@
 namespace OlimarTest
 {
     // Every Pikmin enemy the plugin can spawn: the disc's kind (libpikmin-present teki::KIND_TABLE order), its
-    // tier and the vanilla RoR2 monster whose AI, skills and hurt boxes it borrows. Pikmin 1's own strategies
-    // aren't ported; each enemy fights the way its template does, in the disc's body, with the disc's life,
-    // speed, animations, sounds and death effects. Small ones are common, big ones rare and always drop a part.
+    // tier and the vanilla RoR2 monster whose body, hurt boxes and health it borrows. Pikmin 1's own strategies
+    // (libpikmin-teki, ported from the decomp's Tai*/TAI* files) drive each of them: the borrowed monster's AI
+    // is removed and its body follows the strategy, in the disc's model with the disc's life, speed, animations,
+    // sounds and effects. Small ones are common, big ones rare and always drop a part.
     internal enum TekiHull { Human, Golem }
 
     internal sealed class TekiSpec
@@ -18,12 +19,16 @@ namespace OlimarTest
         /// The decomp's strategy is ported (libpikmin-teki) and drives the body; otherwise the borrowed monster's
         /// own AI fights.
         public bool Ported;
-        /// Not a fighter the director spawns: Ship Repair places it itself.
+        /// Not a fighter the director spawns: Ship Repair places it itself (TekiSpawner) or another enemy makes it.
         public bool NoCard;
-        /// Gone when its strategy says so, with no corpse or reward (the Honeywisp).
+        /// Gone when its strategy says so, with no corpse or reward (the Honeywisp, a Rolling Boulder).
         public bool Ephemeral;
         /// Lives in water: Ship Repair spawns it in the stage's water, if it has any.
         public bool Water;
+        /// Cannot be killed (a Fire Geyser, a Clamclamp): its body is given endless health and it stays.
+        public bool Hazard;
+        /// Leaves no corpse pellet when it dies (a plant, an egg, a pearl): what it gives comes from its strategy.
+        public bool NoCorpse;
 
         public TekiSpec(byte kind, string token, string display, bool big, bool flying, string body, string master, int weight, int cost, TekiHull hull)
         {
@@ -36,30 +41,40 @@ namespace OlimarTest
     {
         const string Base = "RoR2/Base/", Dlc1 = "RoR2/DLC1/";
 
-        // Beetle: a headbutting bug. Beetle Guard: slams. Bison: charges. Clay Grenadier: lobs tar. Elder Lemurian:
-        // breathes fire. Blind Pest/Vermin: small biters, one on the wing. Jellyfish: floats and novas.
+        // The bodies are borrowed for their hurt boxes and health: Beetle (a headbutting bug), Beetle Guard, Bison,
+        // Clay Grenadier, Elder Lemurian, Blind Pest/Vermin (small, one on the wing), Acid Larva, Hermit Crab, Jellyfish,
+        // Golem, Parent, Lemurian, Wisp.
         public static readonly TekiSpec[] All =
         {
             new TekiSpec(0, "DWARF", "Dwarf Bulborb", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 6, 25, TekiHull.Human) { Ported = true },
             new TekiSpec(1, "SPOTTY", "Spotty Bulborb", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 2, 250, TekiHull.Golem) { Ported = true },
             new TekiSpec(2, "DWARFORANGE", "Dwarf Bulbear", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 5, 25, TekiHull.Human) { Ported = true },
             new TekiSpec(3, "SPOTTYORANGE", "Spotty Bulbear", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 300, TekiHull.Golem) { Ported = true },
-            new TekiSpec(4, "WOLLYWOG", "Wollywog", true, false, Base + "Bison/BisonBody.prefab", Base + "Bison/BisonMaster.prefab", 2, 200, TekiHull.Golem),
-            new TekiSpec(5, "WOLLYWOGYELLOW", "Yellow Wollywog", true, false, Base + "Bison/BisonBody.prefab", Base + "Bison/BisonMaster.prefab", 1, 250, TekiHull.Golem),
-            new TekiSpec(6, "CANNONBEETLE", "Armored Cannon Beetle", true, false, Dlc1 + "ClayGrenadier/ClayGrenadierBody.prefab", Dlc1 + "ClayGrenadier/ClayGrenadierMaster.prefab", 1, 300, TekiHull.Golem),
-            new TekiSpec(7, "BLOWHOG", "Fiery Blowhog", true, false, Base + "LemurianBruiser/LemurianBruiserBody.prefab", Base + "LemurianBruiser/LemurianBruiserMaster.prefab", 2, 250, TekiHull.Golem),
-            new TekiSpec(8, "SNITCHBUG", "Swooping Snitchbug", false, true, Dlc1 + "FlyingVermin/FlyingVerminBody.prefab", Dlc1 + "FlyingVermin/FlyingVerminMaster.prefab", 3, 30, TekiHull.Human),
-            new TekiSpec(9, "SHEARGRUBF", "Female Sheargrub", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 4, 20, TekiHull.Human),
-            new TekiSpec(10, "SHEARGRUBM", "Male Sheargrub", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 4, 20, TekiHull.Human),
-            new TekiSpec(11, "SHEARWIG", "Shearwig", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 25, TekiHull.Human),
-            new TekiSpec(12, "WOGPOLE", "Wogpole", false, false, Dlc1 + "AcidLarva/AcidLarvaBody.prefab", Dlc1 + "AcidLarva/AcidLarvaMaster.prefab", 3, 25, TekiHull.Human),
-            new TekiSpec(13, "PUFFSTOOL", "Puffstool", true, false, Base + "HermitCrab/HermitCrabBody.prefab", Base + "HermitCrab/HermitCrabMaster.prefab", 1, 250, TekiHull.Golem),
-            new TekiSpec(14, "PUFFYBLOWHOG", "Puffy Blowhog", true, true, Base + "Jellyfish/JellyfishBody.prefab", Base + "Jellyfish/JellyfishMaster.prefab", 1, 250, TekiHull.Golem),
-            new TekiSpec(15, "MAMUTA", "Mamuta", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 300, TekiHull.Golem),
-            new TekiSpec(16, "PROGG", "Smoky Progg", true, false, Base + "Parent/ParentBody.prefab", Base + "Parent/ParentMaster.prefab", 1, 400, TekiHull.Golem),
+            new TekiSpec(4, "WOLLYWOG", "Wollywog", true, false, Base + "Bison/BisonBody.prefab", Base + "Bison/BisonMaster.prefab", 2, 200, TekiHull.Golem) { Ported = true },
+            new TekiSpec(5, "WOLLYWOGYELLOW", "Yellow Wollywog", true, false, Base + "Bison/BisonBody.prefab", Base + "Bison/BisonMaster.prefab", 1, 250, TekiHull.Golem) { Ported = true },
+            new TekiSpec(6, "CANNONBEETLE", "Armored Cannon Beetle", true, false, Dlc1 + "ClayGrenadier/ClayGrenadierBody.prefab", Dlc1 + "ClayGrenadier/ClayGrenadierMaster.prefab", 1, 300, TekiHull.Golem) { Ported = true },
+            new TekiSpec(7, "BLOWHOG", "Fiery Blowhog", true, false, Base + "LemurianBruiser/LemurianBruiserBody.prefab", Base + "LemurianBruiser/LemurianBruiserMaster.prefab", 2, 250, TekiHull.Golem) { Ported = true },
+            new TekiSpec(8, "SNITCHBUG", "Swooping Snitchbug", false, true, Dlc1 + "FlyingVermin/FlyingVerminBody.prefab", Dlc1 + "FlyingVermin/FlyingVerminMaster.prefab", 3, 30, TekiHull.Human) { Ported = true },
+            new TekiSpec(9, "SHEARGRUBF", "Female Sheargrub", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 4, 20, TekiHull.Human) { Ported = true },
+            new TekiSpec(10, "SHEARGRUBM", "Male Sheargrub", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 4, 20, TekiHull.Human) { Ported = true },
+            new TekiSpec(11, "SHEARWIG", "Shearwig", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 25, TekiHull.Human) { Ported = true },
+            new TekiSpec(12, "WOGPOLE", "Wogpole", false, false, Dlc1 + "AcidLarva/AcidLarvaBody.prefab", Dlc1 + "AcidLarva/AcidLarvaMaster.prefab", 3, 25, TekiHull.Human) { Ported = true, NoCard = true, Water = true },
+            new TekiSpec(13, "PUFFSTOOL", "Puffstool", true, false, Base + "HermitCrab/HermitCrabBody.prefab", Base + "HermitCrab/HermitCrabMaster.prefab", 1, 250, TekiHull.Golem) { Ported = true },
+            new TekiSpec(14, "PUFFYBLOWHOG", "Puffy Blowhog", true, true, Base + "Jellyfish/JellyfishBody.prefab", Base + "Jellyfish/JellyfishMaster.prefab", 1, 250, TekiHull.Golem) { Ported = true },
+            new TekiSpec(15, "MAMUTA", "Mamuta", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 300, TekiHull.Golem) { Ported = true },
+            new TekiSpec(16, "PROGG", "Smoky Progg", true, false, Base + "Parent/ParentBody.prefab", Base + "Parent/ParentMaster.prefab", 1, 400, TekiHull.Golem) { Ported = true },
             new TekiSpec(17, "DUMPLE", "Water Dumple", false, false, Base + "Lemurian/LemurianBody.prefab", Base + "Lemurian/LemurianMaster.prefab", 3, 25, TekiHull.Human) { Ported = true, NoCard = true, Water = true },
             new TekiSpec(18, "HONEYWISP", "Honeywisp", false, true, Base + "Wisp/WispBody.prefab", Base + "Wisp/WispMaster.prefab", 0, 1, TekiHull.Human) { Ported = true, NoCard = true, Ephemeral = true },
             new TekiSpec(19, "BREADBUG", "Breadbug", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 0, 20, TekiHull.Human) { Ported = true, NoCard = true },
+            // What the others make or Ship Repair places: the Cannon Beetle's boulder, the egg's Progg (above), a
+            // Clamclamp's pearls, and the stage's plants, geysers and shells.
+            new TekiSpec(20, "BOULDER", "Rolling Boulder", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Golem) { Ported = true, NoCard = true, Ephemeral = true },
+            new TekiSpec(21, "EGG", "Giant Egg", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 1, 150, TekiHull.Golem) { Ported = true, NoCorpse = true },
+            new TekiSpec(22, "GEYSER", "Fire Geyser", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Golem) { Ported = true, NoCard = true, Hazard = true, NoCorpse = true },
+            new TekiSpec(23, "POSY", "Pellet Posy", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Human) { Ported = true, NoCard = true, NoCorpse = true },
+            new TekiSpec(24, "CLAMCLAMP", "Pearly Clamclamp", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Golem) { Ported = true, NoCard = true, Hazard = true, NoCorpse = true },
+            new TekiSpec(25, "PEARL", "Clamclamp Pearl", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Human) { Ported = true, NoCard = true, NoCorpse = true },
+            new TekiSpec(26, "ROCPE", "Clamclamp Treasure", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Human) { Ported = true, NoCard = true, NoCorpse = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;

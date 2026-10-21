@@ -48,13 +48,16 @@ namespace OlimarTest
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_teki_models(byte on);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_tekis(IntPtr view, Instance[] list, uint count);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_spawn_effect(IntPtr view, uint id, ref Native.Vec3 pos);
+        [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_spawn_effect_dir(IntPtr view, uint id, ref Native.Vec3 pos, ref Native.Vec3 dir);
+        [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_teki_named_sound(IntPtr view, byte[] name, ref Native.Vec3 pos);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_teki_info(byte[] assets, uint kind, ref Info output);
     }
 
     // The two kinds the plugin spawns, read once from the extracted assets.
     internal static class TekiCatalog
     {
-        public const byte Dwarf = 0, Spotty = 1, Honeywisp = 18, Breadbug = 19;
+        public const byte Dwarf = 0, Spotty = 1, SmokyProgg = 16, Honeywisp = 18, Breadbug = 19, RollingBoulder = 20, GiantEgg = 21, FireGeyser = 22,
+            PelletPosy = 23, Clamclamp = 24, Pearl = 25, Rocpe = 26;
         public static readonly byte Kinds = (byte)TekiRoster.All.Length;
         static readonly TekiNative.Info[] infos = new TekiNative.Info[TekiRoster.All.Length];
         static readonly bool[] have = new bool[TekiRoster.All.Length];

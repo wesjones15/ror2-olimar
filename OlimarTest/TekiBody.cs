@@ -40,11 +40,17 @@ namespace OlimarTest
         internal bool Ai => TekiRoster.Of(kind)?.Ported == true;
         internal CharacterBody Body => body;
         internal uint NetId => body ? body.netId.Value : 0u;
+        /// What the strategy starts with (server): the velocity a boulder was shot with, a counter (a Posy's size, a
+        /// Clamclamp's part-holding pearl) and a goal.
+        internal Native.Vec3? spawnVelocity, goal;
+        internal int count0 = -1;
         // The strategy's id and last state (server).
         internal int aiId = -1;
         internal bool aiHave;
         internal TekiAiNative.State aiState;
         internal float aiLastHealth;
+        /// The body died and the strategy was told, so that it plays its dying (effects, what it drops).
+        internal bool aiDeathSent;
         int hurtDeactivated;
 
         void Awake()
@@ -62,8 +68,9 @@ namespace OlimarTest
                 body.levelMaxHealth = health * 0.3f;
                 body.baseMoveSpeed = Mathf.Max(1f, info.runSpeed * UnityHost.Scale * TekiBodies.SpeedScale.Value);
                 body.baseDamage *= Mathf.Max(0f, TekiBodies.DamageScale.Value);
-                // A Honeywisp is not killed: a hit makes it drop its nectar and fly off.
-                if (TekiRoster.Of(kind)?.Ephemeral == true) body.baseMaxHealth = body.levelMaxHealth = 1e6f;
+                // A Honeywisp is not killed (a hit makes it drop its nectar and fly off), nor is a geyser or a shell.
+                var spec = TekiRoster.Of(kind);
+                if (spec != null && (spec.Ephemeral || spec.Hazard)) body.baseMaxHealth = body.levelMaxHealth = 1e6f;
             }
         }
 
@@ -95,7 +102,7 @@ namespace OlimarTest
             var now = body.footPosition;
             float follow = 1f - Mathf.Exp(-30f * Time.fixedDeltaTime);
             var motor = body.characterMotor;
-            if (motor && !s.Flying)
+            if (motor && !s.Flying && !s.Airborne)
             {
                 var d = goal - now;
                 d.y = 0f;
@@ -336,7 +343,9 @@ namespace OlimarTest
                 if (!corpse.effects)
                 {
                     corpse.effects = true;
-                    foreach (int fx in TekiRules.DeathEffects(info.carcassSize)) TekiDraw.Queue(fx, centre);
+                    // A strategy's own dying makes them (TaiStartDyingAction, createDeadEffect), here and on the clients.
+                    if (TekiRoster.Of(corpse.kind)?.Ported != true)
+                        foreach (int fx in TekiRules.DeathEffects(info.carcassSize)) TekiDraw.Queue(fx, centre);
                 }
                 if (!corpse.soul && Time.time - corpse.born >= dead.end / 30f)
                 {
@@ -383,14 +392,33 @@ namespace OlimarTest
 
         static readonly List<(int id, Native.Vec3 at)> effects = new List<(int, Native.Vec3)>();
 
+        static readonly List<(int id, Native.Vec3 at, Native.Vec3 dir)> directed = new List<(int, Native.Vec3, Native.Vec3)>();
+        static readonly List<(string name, Native.Vec3 at)> sounds = new List<(string, Native.Vec3)>();
+
         /// An effect to play at the next draw.
         public static void Queue(int id, Native.Vec3 at) => effects.Add((id, at));
 
+        /// An effect that emits along `dir` (a flame out of a mouth).
+        public static void Queue(int id, Native.Vec3 at, Native.Vec3 dir) => directed.Add((id, at, dir));
+
+        /// A sound effect of the game's tables, by name, heard from `at`.
+        public static void QueueSound(string name, Native.Vec3 at)
+        {
+            if (sounds.Count < 64) sounds.Add((name, at));
+        }
+
         public static void Flush(PikminModels models)
         {
-            if (effects.Count == 0) return;
-            if (models != null) foreach (var (id, at) in effects) models.SpawnEffect(id, at);
+            if (effects.Count == 0 && directed.Count == 0 && sounds.Count == 0) return;
+            if (models != null)
+            {
+                foreach (var (id, at) in effects) models.SpawnEffect(id, at);
+                foreach (var (id, at, dir) in directed) models.SpawnEffect(id, at, dir);
+                foreach (var (name, at) in sounds) models.PlayNamed(name, at);
+            }
             effects.Clear();
+            directed.Clear();
+            sounds.Clear();
         }
 
         public static int Collect(PikminWorld world, float dt, out TekiNative.Instance[] instances)

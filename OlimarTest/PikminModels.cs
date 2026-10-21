@@ -95,6 +95,18 @@ namespace OlimarTest
             if (view != IntPtr.Zero) TekiNative.pik_view_spawn_effect(view, (uint)id, ref at);
         }
 
+        /// As SpawnEffect, emitting along `dir` (a flame, a gust of wind).
+        public void SpawnEffect(int id, Native.Vec3 at, Native.Vec3 dir)
+        {
+            if (view != IntPtr.Zero) TekiNative.pik_view_spawn_effect_dir(view, (uint)id, ref at, ref dir);
+        }
+
+        /// A sound effect the game's tables know by name (SE_*), from `at` (sim units).
+        public void PlayNamed(string name, Native.Vec3 at)
+        {
+            if (view != IntPtr.Zero) TekiNative.pik_view_teki_named_sound(view, Native.CString(name), ref at);
+        }
+
         /// The enemies to draw at the next Update (the host's, see TekiBody).
         public void SetTekis(TekiNative.Instance[] list, int count)
         {
