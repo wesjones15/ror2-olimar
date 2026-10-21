@@ -15,7 +15,8 @@ namespace OlimarTest
             public uint id;
             public Native.Vec3 pos;
             public float size;
-            public byte alive, p0, p1, p2;
+            /// 1 while the player is buried (a Mamuta's punch).
+            public byte alive, buried, p1, p2;
         }
 
         // flags: bit 0 visible, 1 alive, 2 flying, 3 collidable, 4 holding a pellet, 5 off the ground.

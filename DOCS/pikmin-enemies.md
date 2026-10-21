@@ -37,7 +37,10 @@ file) and the Honeywisp spawner (`Mizigen`; Ship Repair places Honeywisps itself
 
 - No route graphs, Onions or work objects (bridges): wandering uses random points in the territory, the Smoky Progg heads
   for the nearest player (or a goal the host sets), the Sheargrubs' bridge-eating states are empty.
-- Spores of the Puffstool hurt Pikmin; they do not turn them into Puffmin. The Mamuta's "bury" is damage.
+- Spores of the Puffstool hurt Pikmin; they do not turn them into Puffmin.
+- The Mamuta's punch buries (`InteractBury`): a Pikmin becomes a flower sprout thrown a little way and landing to take root; a
+  player takes the punch's damage and is rooted (`Entangle`) for 4 seconds instead of wiggling free, and a buried player calms it
+  (`TAIAcheckSatisfyMiurin`, `Navi::isBuried`).
 - A Puffy Blowhog's wind pushes with `flick_pikis_in_sphere` inside the cone; Pikmin are not blown by particles.
 - Footstep dust for the walkers (`TAIAeffCloudOfDust` / `TaiJointEffectAction`) is a timer, not a foot-sink test, except
   where noted in the Rust file.

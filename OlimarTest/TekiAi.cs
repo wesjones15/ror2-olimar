@@ -20,6 +20,9 @@ namespace OlimarTest
         static readonly Dictionary<uint, CharacterBody> bodiesByNet = new Dictionary<uint, CharacterBody>();
         static float sentAt;
         static readonly Dictionary<uint, float> burnedAt = new Dictionary<uint, float>();
+        // Players a Mamuta buried, and until when (`InteractBury`: they dig themselves out, here after a few seconds).
+        static readonly Dictionary<uint, float> buriedUntil = new Dictionary<uint, float>();
+        const float BuriedSeconds = 4f;
         static IntPtr currentSim;
         static readonly List<TekiBody> dying = new List<TekiBody>();
 
@@ -123,6 +126,7 @@ namespace OlimarTest
                 navis[count++] = new TekiAiNative.Navi
                 {
                     id = net, pos = UnityHost.ToSim(body.footPosition), size = Mathf.Max(0.3f, body.radius) / UnityHost.Scale, alive = 1,
+                    buried = (byte)(buriedUntil.TryGetValue(net, out float until) && until > Time.time ? 1 : 0),
                 };
             }
 
@@ -299,7 +303,14 @@ namespace OlimarTest
                 if (b && b.aiId == (int)o.teki) { from = b; break; }
             if (from == null || !from.Body || !victim.healthComponent) return;
             float scale = Mathf.Clamp(Mathf.Max(o.x, 10f) / 10f, 1f, 4f) * Mathf.Max(0f, TekiBodies.DamageScale.Value);
-            if (o.y < 0f)
+            if (o.y <= -1.5f)
+            {
+                // `InteractBury`: dug in to the neck and held there; the Mamuta takes that as having had its fill.
+                buriedUntil[victim.netId.Value] = Time.time + BuriedSeconds;
+                var root = ByName.Buff("Entangle");
+                if (root != BuffIndex.None) victim.AddTimedBuff(root, BuriedSeconds);
+            }
+            else if (o.y < 0f)
             {
                 // A burn lands every tick the victim is in the flame: hurt it a little, a few times a second.
                 if (burnedAt.TryGetValue(victim.netId.Value, out float last) && Time.time - last < 0.4f) return;
