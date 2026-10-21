@@ -13,25 +13,25 @@ using UnityEngine.AddressableAssets;
 
 namespace OlimarTest
 {
-    // Pikmin's enemies as RoR2 monsters, for Ship Repair only: a Dwarf Bulborb (common) and a Spotty Bulborb
-    // (rare, big). Each is a clone of a vanilla melee monster (Beetle, Beetle Guard) with its AI, skills,
-    // hurt boxes and health, its model drawn by libpikmin's view instead (TekiBody) and its life and speed
-    // from the disc's tekipara. The combat director spawns them from cards added to the stage's monster
+    // Pikmin's enemies as RoR2 monsters, for Ship Repair only (TekiRoster lists them). Each is a clone of a
+    // vanilla monster with its AI, skills, hurt boxes and health, its model drawn by libpikmin's view
+    // instead (TekiBody), sized to the Bulborb it carries, and its life and speed from the disc's tekipara. The combat director spawns them from cards added to the stage's monster
     // categories while a Ship Repair run is on. A dead one leaves the disc's corpse pellet (PikminWorld.OnDeath →
     // Died), and a big one also drops a ship part for its killer (ShipRepairSession.Teki).
     internal static class TekiBodies
     {
         internal static ConfigEntry<bool> Enabled;
-        internal static ConfigEntry<int> SmallWeight, BigWeight, SmallCost, BigCost, BigMinStages;
+        internal static ConfigEntry<int> BigMinStages;
         internal static ConfigEntry<float> HealthScale, SpeedScale, DamageScale, CarrierScale;
+        internal static ConfigEntry<bool> FitSizes;
+        static ConfigEntry<int>[] weights, costs;
 
         /// Seconds a bite's animation is squeezed into (RoR2's skills are shorter than the disc's).
         internal const float AttackSeconds = 1.3f;
 
         sealed class Entry
         {
-            public byte kind;
-            public bool big;
+            public TekiSpec spec;
             public CharacterSpawnCard card;
         }
 
@@ -43,79 +43,82 @@ namespace OlimarTest
         public static void Bind(ConfigFile config)
         {
             Enabled = config.Bind("Enemies", "Enabled", true,
-                "Ship Repair spawns Pikmin's enemies (Dwarf and Spotty Bulborbs, drawn from your disc) among the monsters.");
-            SmallWeight = config.Bind("Enemies", "SmallWeight", 6,
-                "The combat director's weight for the small enemy (Dwarf Bulborb) among the basic monsters (most are 1).");
-            BigWeight = config.Bind("Enemies", "BigWeight", 2,
-                "The director's weight for the big enemy (Spotty Bulborb) among the minibosses (most are 1). 0 turns it off.");
-            SmallCost = config.Bind("Enemies", "SmallCost", 25, "Director credits a Dwarf Bulborb costs.");
-            BigCost = config.Bind("Enemies", "BigCost", 250, "Director credits a Spotty Bulborb costs.");
-            BigMinStages = config.Bind("Enemies", "BigMinStagesCleared", 0, "Stages cleared before Spotty Bulborbs can spawn.");
+                "Ship Repair spawns Pikmin's enemies (drawn from your disc) among the monsters: small ones among the basic " +
+                "monsters, big ones (which always drop a ship part) among the minibosses.");
+            FitSizes = config.Bind("Enemies", "FitSizes", true,
+                "Scale each borrowed monster's model, hurt boxes and hit boxes to the size of the Pikmin enemy drawn on it.");
+            BigMinStages = config.Bind("Enemies", "BigMinStagesCleared", 0, "Stages cleared before big Pikmin enemies can spawn.");
             HealthScale = config.Bind("Enemies", "HealthScale", 1f,
-                "RoR2 health per point of the disc's life (a Dwarf Bulborb has 130, a Spotty Bulborb 1100).");
+                "RoR2 health per point of the disc's life (a Dwarf Bulborb has 130, a Spotty Bulborb 1100, a Smoky Progg 4000).");
             SpeedScale = config.Bind("Enemies", "SpeedScale", 1.5f,
                 "Multiplies the disc's run speed (metres a second at the plugin's scale) for their RoR2 bodies.");
-            DamageScale = config.Bind("Enemies", "DamageScale", 1f, "Multiplies the cloned monster's damage.");
+            DamageScale = config.Bind("Enemies", "DamageScale", 1f, "Multiplies the borrowed monster's damage.");
             CarrierScale = config.Bind("Enemies", "CorpseCarrierScale", 1f,
                 "Multiplies the Pikmin a corpse needs to be lifted, from the disc's pellet config (3-6 Dwarf, 10-20 Spotty).");
+            weights = new ConfigEntry<int>[TekiRoster.All.Length];
+            costs = new ConfigEntry<int>[TekiRoster.All.Length];
+            foreach (var spec in TekiRoster.All)
+            {
+                string stem = spec.Display.Replace(" ", "");
+                weights[spec.Kind] = config.Bind("Enemies", stem + "Weight", spec.Weight,
+                    $"The combat director's weight for the {spec.Display} among the {(spec.Big ? "minibosses" : "basic monsters")} (most vanilla ones are 1). 0 turns it off.");
+                costs[spec.Kind] = config.Bind("Enemies", stem + "Cost", spec.Cost, $"Director credits a {spec.Display} costs.");
+            }
         }
 
         /// The bodies, masters and spawn cards, at content load.
         public static void Fill(ContentPack pack)
         {
-            Define(pack, TekiCatalog.Dwarf, false, "RoR2/Base/Beetle/BeetleBody.prefab", "RoR2/Base/Beetle/BeetleMaster.prefab",
-                "Dwarf", HullClassification.Human);
-            Define(pack, TekiCatalog.Spotty, true, "RoR2/Base/BeetleGuard/BeetleGuardBody.prefab", "RoR2/Base/BeetleGuard/BeetleGuardMaster.prefab",
-                "Spotty", HullClassification.Golem);
+            foreach (var spec in TekiRoster.All) Define(pack, spec);
         }
 
-        static void Define(ContentPack pack, byte kind, bool big, string bodyAddress, string masterAddress, string name, HullClassification hull)
+        static void Define(ContentPack pack, TekiSpec spec)
         {
             try
             {
-                var srcBody = Addressables.LoadAssetAsync<GameObject>(bodyAddress).WaitForCompletion();
-                var srcMaster = Addressables.LoadAssetAsync<GameObject>(masterAddress).WaitForCompletion();
+                var srcBody = Addressables.LoadAssetAsync<GameObject>(spec.Body).WaitForCompletion();
+                var srcMaster = Addressables.LoadAssetAsync<GameObject>(spec.Master).WaitForCompletion();
                 if (!srcBody || !srcMaster || !srcBody.GetComponent<CharacterBody>() || !srcMaster.GetComponent<CharacterMaster>())
                 {
-                    Plugin.Log.LogWarning($"Pikmin enemies: {bodyAddress} or {masterAddress} isn't in this RoR2; no {name} Bulborb.");
+                    Plugin.Log.LogWarning($"Pikmin enemies: {spec.Body} or {spec.Master} isn't in this RoR2; no {spec.Display}.");
                     return;
                 }
-                var body = Prefabs.Clone(srcBody, $"OlimarTeki{name}Body", Plugin.Guid);
+                string key = "OlimarTeki" + spec.Token;
+                var body = Prefabs.Clone(srcBody, key + "Body", Plugin.Guid);
                 var cb = body.GetComponent<CharacterBody>();
-                cb.baseNameToken = $"OLIMARTEST_TEKI_{name.ToUpperInvariant()}_NAME";
+                cb.baseNameToken = $"OLIMARTEST_TEKI_{spec.Token}_NAME";
                 cb.subtitleNameToken = "OLIMARTEST_TEKI_SUBTITLE";
                 // The model is hidden (its renderers are switched off each frame), and its hurt boxes ride its
                 // bones, so the animator has to keep running with nothing drawn.
                 foreach (var animator in body.GetComponentsInChildren<Animator>(true))
                     animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                 var teki = body.AddComponent<TekiBody>();
-                teki.kind = kind;
-                teki.big = big;
+                teki.kind = spec.Kind;
+                teki.big = spec.Big;
 
-                var master = Prefabs.Clone(srcMaster, $"OlimarTeki{name}Master", Plugin.Guid);
+                var master = Prefabs.Clone(srcMaster, key + "Master", Plugin.Guid);
                 master.GetComponent<CharacterMaster>().bodyPrefab = body;
                 pack.bodyPrefabs.Add(new[] { body });
                 pack.masterPrefabs.Add(new[] { master });
 
                 var card = ScriptableObject.CreateInstance<CharacterSpawnCard>();
-                card.name = $"cscOlimarTeki{name}";
+                card.name = "csc" + key;
                 card.prefab = master;
                 card.sendOverNetwork = true;
-                card.hullSize = hull;
-                card.nodeGraphType = MapNodeGroup.GraphType.Ground;
+                card.hullSize = spec.Hull == TekiHull.Human ? HullClassification.Human : HullClassification.Golem;
+                card.nodeGraphType = spec.Flying ? MapNodeGroup.GraphType.Air : MapNodeGroup.GraphType.Ground;
                 card.requiredFlags = NodeFlags.None;
                 card.forbiddenFlags = NodeFlags.NoCharacterSpawn;
-                card.directorCreditCost = Mathf.Max(1, big ? BigCost.Value : SmallCost.Value);
+                card.directorCreditCost = Mathf.Max(1, costs[spec.Kind].Value);
                 card.occupyPosition = false;
                 card.loadout = new SerializableLoadout();
                 card.noElites = false;
                 card.forbiddenAsBoss = false;
-                entries.Add(new Entry { kind = kind, big = big, card = card });
-                Plugin.Log.LogInfo($"Pikmin enemy registered: {name} Bulborb ({(big ? "big" : "small")}).");
+                entries.Add(new Entry { spec = spec, card = card });
             }
             catch (Exception e)
             {
-                Plugin.Log.LogError($"Pikmin enemies: {name} Bulborb failed to register: {e}");
+                Plugin.Log.LogError($"Pikmin enemies: {spec.Display} failed to register: {e}");
             }
         }
 
@@ -157,8 +160,7 @@ namespace OlimarTest
         {
             var lang = Language.currentLanguage;
             if (lang == null) return;
-            lang.SetStringByToken("OLIMARTEST_TEKI_DWARF_NAME", "Dwarf Bulborb");
-            lang.SetStringByToken("OLIMARTEST_TEKI_SPOTTY_NAME", "Spotty Bulborb");
+            foreach (var spec in TekiRoster.All) lang.SetStringByToken($"OLIMARTEST_TEKI_{spec.Token}_NAME", spec.Display);
             lang.SetStringByToken("OLIMARTEST_TEKI_SUBTITLE", "Creature of the distant planet");
         }
 
@@ -172,10 +174,11 @@ namespace OlimarTest
             bool added = false;
             foreach (var e in entries)
             {
-                int weight = e.big ? BigWeight.Value : SmallWeight.Value;
-                if (weight <= 0 || !TekiCatalog.Has(e.kind)) continue;
+                var spec = e.spec;
+                int weight = weights[spec.Kind].Value;
+                if (weight <= 0 || !TekiCatalog.Has(spec.Kind)) continue;
                 if (monsters.categories.Any(c => c.cards != null && c.cards.Any(d => d != null && d.spawnCard == e.card))) continue;
-                int at = FindCategory(monsters, e.big ? "mini" : "basic");
+                int at = FindCategory(monsters, spec.Big ? "mini" : "basic");
                 if (at < 0) continue;
                 var card = new DirectorCard
                 {
@@ -183,7 +186,7 @@ namespace OlimarTest
                     selectionWeight = weight,
                     spawnDistance = DirectorCore.MonsterSpawnDistance.Standard,
                     preventOverhead = false,
-                    minimumStageCompletions = e.big ? Mathf.Max(0, BigMinStages.Value) : 0,
+                    minimumStageCompletions = spec.Big ? Mathf.Max(0, BigMinStages.Value) : 0,
                 };
                 monsters.AddCard(at, card);
                 added = true;

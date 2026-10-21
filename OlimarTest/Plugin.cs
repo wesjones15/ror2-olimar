@@ -374,14 +374,23 @@ namespace OlimarTest
             bool needIntro = !File.Exists(Path.Combine(audio, "spawn.wav"))
                 || !File.Exists(Path.Combine(audio, "stings.version"))
                 || File.ReadAllText(Path.Combine(audio, "stings.version")).Trim() != "1";
-            if (ready && !needIntro) return;
+            // An older extraction has only the first three enemies' files; the rest come from the disc (extraction tops it up).
+            bool needTekis = ready && !File.Exists(Path.Combine(AssetsDir, "tekis", ".all"));
+            if (ready && !needIntro && !needTekis) return;
             string disc = configuredDisc?.Trim();
-            if (!ready && string.IsNullOrEmpty(disc))
+            if ((!ready || needTekis) && string.IsNullOrEmpty(disc))
             {
                 string parent = Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here;
                 var found = new byte[1024];
                 if (Native.pik_find_disc(Native.CString(here + ";" + parent), found, (uint)found.Length) != 0)
                     disc = Native.Utf8(found);
+            }
+            if (needTekis && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))
+            {
+                Log.LogWarning("Pikmin's other enemies need their files from your disc, and none was found; only the Bulborbs will spawn. " +
+                               $"Set Paths.Disc in BepInEx/config/{Guid}.cfg to your Pikmin disc.");
+                needTekis = false;
+                if (!needIntro) return;
             }
             if (!ready && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))
             {
@@ -397,6 +406,12 @@ namespace OlimarTest
                 try
                 {
                     var msg = new byte[2048];
+                    if (needTekis)
+                    {
+                        byte ok = Native.pik_extract(Native.CString(disc), Native.CString(AssetsDir), msg, (uint)msg.Length);
+                        if (ok != 0) Log.LogInfo($"Pikmin enemies' files added: {Native.Utf8(msg)}");
+                        else Log.LogWarning($"Couldn't add Pikmin's other enemies: {Native.Utf8(msg)}");
+                    }
                     if (!ready)
                     {
                         byte ok = Native.pik_extract(Native.CString(disc), Native.CString(AssetsDir), msg, (uint)msg.Length);

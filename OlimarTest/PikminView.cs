@@ -211,6 +211,7 @@ namespace OlimarTest
                     250f, UnityHost.Mask, QueryTriggerInteraction.Ignore) && hit.normal.y >= .5f)
                     models.SetOnionGround(onion.id, hit.point.y / UnityHost.Scale);
             }
+            TekiDraw.Flush(models);
             if (TekiDraw.Any)
             {
                 int tekis = TekiDraw.Collect(world, Time.deltaTime, out var list);

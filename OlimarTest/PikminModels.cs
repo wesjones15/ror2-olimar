@@ -89,6 +89,12 @@ namespace OlimarTest
             return new PikminModels(v, models, parent);
         }
 
+        /// Plays EffectMgr's effect `id` once at `at` (sim units): an enemy's death smoke or soul.
+        public void SpawnEffect(int id, Native.Vec3 at)
+        {
+            if (view != IntPtr.Zero) TekiNative.pik_view_spawn_effect(view, (uint)id, ref at);
+        }
+
         /// The enemies to draw at the next Update (the host's, see TekiBody).
         public void SetTekis(TekiNative.Instance[] list, int count)
         {

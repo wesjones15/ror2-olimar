@@ -9,7 +9,7 @@ namespace OlimarTest
     internal static class TekiNative
     {
         public const byte KindTeki = 12;
-        public const int InfoSize = 400, InstanceSize = 44, Slots = 10;
+        public const int InfoSize = 404, InstanceSize = 44, Slots = 10;
 
         // Indices into Info.motions (libpikmin-present teki::slot).
         public const int Wait = 0, Turn = 1, Chase = 2, Attack = 3, Gulp = 4, Flick = 5, Dead = 6, Hurt = 7, Sleep = 8, Cry = 9;
@@ -30,6 +30,7 @@ namespace OlimarTest
             public uint corpseMinCarriers, corpseMaxCarriers;
             public int corpseSeedsMatching, corpseSeedsOther;
             public uint swallowCount;
+            public int carcassSize;
             public Native.Vec3 corpseOffset, lo, hi;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = Slots)] public Motion[] motions;
         }
@@ -46,15 +47,17 @@ namespace OlimarTest
 
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_teki_models(byte on);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_tekis(IntPtr view, Instance[] list, uint count);
+        [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_spawn_effect(IntPtr view, uint id, ref Native.Vec3 pos);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_teki_info(byte[] assets, uint kind, ref Info output);
     }
 
     // The two kinds the plugin spawns, read once from the extracted assets.
     internal static class TekiCatalog
     {
-        public const byte Dwarf = 0, Spotty = 1, Kinds = 2;
-        static readonly TekiNative.Info[] infos = new TekiNative.Info[Kinds];
-        static readonly bool[] have = new bool[Kinds];
+        public const byte Dwarf = 0, Spotty = 1;
+        public static readonly byte Kinds = (byte)TekiRoster.All.Length;
+        static readonly TekiNative.Info[] infos = new TekiNative.Info[TekiRoster.All.Length];
+        static readonly bool[] have = new bool[TekiRoster.All.Length];
         static bool tried;
 
         /// Whether the files for at least one kind loaded. Reads them the first time the assets are ready.
@@ -63,7 +66,8 @@ namespace OlimarTest
             get
             {
                 if (!tried && Plugin.AssetsReady) Load();
-                return have[Dwarf] || have[Spotty];
+                foreach (bool h in have) if (h) return true;
+                return false;
             }
         }
 
@@ -84,7 +88,7 @@ namespace OlimarTest
                 var info = new TekiNative.Info { motions = new TekiNative.Motion[TekiNative.Slots] };
                 if (TekiNative.pik_teki_info(dir, k, ref info) == 0)
                 {
-                    Plugin.Log.LogWarning($"Pikmin enemy {k}: its files aren't in the extracted assets (tekis/, tekipara/); it won't spawn.");
+                    Plugin.Log.LogWarning($"Pikmin enemy {TekiRoster.All[k].Display}: its files aren't in the extracted assets (tekis/, tekipara/); it won't spawn.");
                     continue;
                 }
                 infos[k] = info;

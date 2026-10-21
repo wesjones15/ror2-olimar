@@ -38,6 +38,14 @@ namespace OlimarTest
             return (min, max);
         }
 
+        /// The effects an enemy's death plays by its `TPI_CarcassSize` (0 large, 1 medium, 2 small, 3 none):
+        /// `EFF_Teki_DeathWave`, `DeathGlow` and `DeathSmoke` (`BTeki::createDeadEffect`).
+        public static int[] DeathEffects(int carcass) =>
+            carcass == 2 ? new[] { 61, 62, 63 } : carcass == 1 ? new[] { 58, 59, 60 } : carcass == 0 ? new[] { 55, 56, 57 } : new int[0];
+
+        /// The soul that rises when the corpse is made, or -1 (`BTeki::createSoulEffect`).
+        public static int SoulEffect(int carcass) => carcass == 2 ? 66 : carcass == 1 ? 65 : carcass == 0 ? 64 : -1;
+
         /// The draw id of a corpse's model: above every enemy body's, which TekiBody numbers from 1
         /// below 2^31.
         public static uint CorpseDrawId(uint pellet) => 0x8000_0000u | pellet;

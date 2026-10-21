@@ -180,6 +180,26 @@ static class Program
         Check(TekiRules.Carriers(3, 6, 1.0) == (3u, 6u) && TekiRules.Carriers(10, 20, 0.5) == (5u, 10u), "carrier counts");
         Check(TekiRules.Carriers(3, 6, 0.0) == (1u, 1u) && TekiRules.Carriers(10, 20, -2.0).min >= 1, "carrier floor");
         Check(TekiRules.CorpseDrawId(5) != 5 && TekiRules.CorpseDrawId(5) >= 0x8000_0000u, "corpse draw ids sit above the bodies'");
+        // The roster of Pikmin enemies: kinds are the native table's order, every one has a template and sane
+        // director numbers, and the big ones (which always drop a part) cost more than the small ones.
+        for (int i = 0; i < TekiRoster.All.Length; i++)
+        {
+            var e = TekiRoster.All[i];
+            Check(e.Kind == i && TekiRoster.Of((byte)i) == e, "roster kind " + i + " is its index");
+            Check(!string.IsNullOrEmpty(e.Body) && !string.IsNullOrEmpty(e.Master) && e.Body.EndsWith("Body.prefab") && e.Master.EndsWith("Master.prefab"), "template of " + e.Display);
+            Check(e.Weight > 0 && e.Cost > 0 && e.Token == e.Token.ToUpperInvariant() && !e.Token.Contains(" "), "numbers and token of " + e.Display);
+        }
+        Check(TekiRoster.All.Length == 18 && TekiRoster.Of(18) == null, "eighteen kinds");
+        Check(TekiRoster.All.Select(e => e.Token).Distinct().Count() == TekiRoster.All.Length, "tokens are unique");
+        int smallest = TekiRoster.All.Where(e => e.Big).Min(e => e.Cost), largest = TekiRoster.All.Where(e => !e.Big).Max(e => e.Cost);
+        Check(smallest > largest, "every big enemy costs more than any small one");
+        Check(TekiRoster.All.Where(e => !e.Big).Sum(e => e.Weight) > 3 * TekiRoster.All.Where(e => e.Big).Sum(e => e.Weight) / 2,
+            "small enemies are the common ones");
+        Check(TekiRoster.All.Where(e => e.Flying).All(e => e.Kind == 8 || e.Kind == 14), "the fliers are the Snitchbug and the Puffy Blowhog");
+        // Death and soul effects follow the carcass size (BTeki::createDeadEffect / createSoulEffect).
+        Check(TekiRules.DeathEffects(2).SequenceEqual(new[] { 61, 62, 63 }) && TekiRules.DeathEffects(0).SequenceEqual(new[] { 55, 56, 57 })
+            && TekiRules.DeathEffects(1).SequenceEqual(new[] { 58, 59, 60 }) && TekiRules.DeathEffects(3).Length == 0, "death effects by size");
+        Check(TekiRules.SoulEffect(2) == 66 && TekiRules.SoulEffect(1) == 65 && TekiRules.SoulEffect(0) == 64 && TekiRules.SoulEffect(3) == -1, "soul by size");
         Console.WriteLine("PASS: Pikmin enemy part rewards, beneficiary masks and corpse sizes.");
         Console.WriteLine("PASS: sampling, receipts, epoch boundaries, clocks, failure, victory, restart, and objective packet validation.");
         return 0;

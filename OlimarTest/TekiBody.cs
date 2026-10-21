@@ -50,6 +50,27 @@ namespace OlimarTest
 
         void OnDestroy() => All.Remove(this);
 
+        // The disc's size for the kind: the borrowed monster's model (and so its hurt boxes and hit boxes) is
+        // scaled to match the Bulborb drawn on it.
+        void Start()
+        {
+            if (!TekiBodies.FitSizes.Value || !body || !body.hurtBoxGroup || !TekiCatalog.Has(kind)) return;
+            var model = body.modelLocator ? body.modelLocator.modelTransform : null;
+            if (!model || body.hurtBoxGroup.hurtBoxes == null) return;
+            Bounds box = default;
+            bool any = false;
+            foreach (var hb in body.hurtBoxGroup.hurtBoxes)
+            {
+                if (!hb || !hb.collider) continue;
+                if (any) box.Encapsulate(hb.collider.bounds);
+                else { box = hb.collider.bounds; any = true; }
+            }
+            if (!any || box.size.y < 0.1f) return;
+            var info = TekiCatalog.Get(kind);
+            float fit = Mathf.Clamp((info.hi.y - info.lo.y) * UnityHost.Scale / box.size.y, 0.4f, 4f);
+            if (Mathf.Abs(fit - 1f) > 0.1f) model.localScale *= fit;
+        }
+
         // The vanilla model stays (its hurt boxes ride its bones) but isn't drawn. Items add renderers
         // as they go, so this repeats.
         void LateUpdate()
@@ -144,6 +165,7 @@ namespace OlimarTest
         {
             public byte kind;
             public float born, missingSince = -1f;
+            public bool effects, soul;
         }
 
         const short Message = 0x4F20;
@@ -203,6 +225,20 @@ namespace OlimarTest
                 var info = TekiCatalog.Get(corpse.kind);
                 var dead = info.motions[TekiNative.Dead];
                 var p = world.Pellets[i];
+                // The death smoke as it falls, the soul once the dying motion is done (BTeki::dieSoon).
+                var centre = p.pos;
+                centre.y += (info.hi.y - info.lo.y) * 0.5f;
+                if (!corpse.effects)
+                {
+                    corpse.effects = true;
+                    foreach (int fx in TekiRules.DeathEffects(info.carcassSize)) TekiDraw.Queue(fx, centre);
+                }
+                if (!corpse.soul && Time.time - corpse.born >= dead.end / 30f)
+                {
+                    corpse.soul = true;
+                    int soul = TekiRules.SoulEffect(info.carcassSize);
+                    if (soul >= 0) TekiDraw.Queue(soul, centre);
+                }
                 // The pellet is on the body; the model's origin is the offset behind it (BTeki::dieSoon).
                 float s = Mathf.Sin(p.yaw), c = Mathf.Cos(p.yaw);
                 var o = info.corpseOffset;
@@ -239,6 +275,18 @@ namespace OlimarTest
         static TekiNative.Instance[] array = new TekiNative.Instance[16];
 
         public static bool Any => TekiBody.All.Count > 0 || TekiCorpses.Count > 0;
+
+        static readonly List<(int id, Native.Vec3 at)> effects = new List<(int, Native.Vec3)>();
+
+        /// An effect to play at the next draw.
+        public static void Queue(int id, Native.Vec3 at) => effects.Add((id, at));
+
+        public static void Flush(PikminModels models)
+        {
+            if (effects.Count == 0) return;
+            if (models != null) foreach (var (id, at) in effects) models.SpawnEffect(id, at);
+            effects.Clear();
+        }
 
         public static int Collect(PikminWorld world, float dt, out TekiNative.Instance[] instances)
         {
