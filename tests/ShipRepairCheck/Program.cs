@@ -187,15 +187,17 @@ static class Program
             var e = TekiRoster.All[i];
             Check(e.Kind == i && TekiRoster.Of((byte)i) == e, "roster kind " + i + " is its index");
             Check(!string.IsNullOrEmpty(e.Body) && !string.IsNullOrEmpty(e.Master) && e.Body.EndsWith("Body.prefab") && e.Master.EndsWith("Master.prefab"), "template of " + e.Display);
-            Check(e.Weight > 0 && e.Cost > 0 && e.Token == e.Token.ToUpperInvariant() && !e.Token.Contains(" "), "numbers and token of " + e.Display);
+            Check((e.Weight > 0 || e.NoCard) && e.Cost > 0 && e.Token == e.Token.ToUpperInvariant() && !e.Token.Contains(" "), "numbers and token of " + e.Display);
         }
-        Check(TekiRoster.All.Length == 18 && TekiRoster.Of(18) == null, "eighteen kinds");
+        Check(TekiRoster.All.Length == 20 && TekiRoster.Of(20) == null, "twenty kinds");
         Check(TekiRoster.All.Select(e => e.Token).Distinct().Count() == TekiRoster.All.Length, "tokens are unique");
         int smallest = TekiRoster.All.Where(e => e.Big).Min(e => e.Cost), largest = TekiRoster.All.Where(e => !e.Big).Max(e => e.Cost);
         Check(smallest > largest, "every big enemy costs more than any small one");
         Check(TekiRoster.All.Where(e => !e.Big).Sum(e => e.Weight) > 3 * TekiRoster.All.Where(e => e.Big).Sum(e => e.Weight) / 2,
             "small enemies are the common ones");
-        Check(TekiRoster.All.Where(e => e.Flying).All(e => e.Kind == 8 || e.Kind == 14), "the fliers are the Snitchbug and the Puffy Blowhog");
+        Check(TekiRoster.All.Where(e => e.Flying).All(e => e.Kind == 8 || e.Kind == 14 || e.Kind == 18), "the fliers are the Snitchbug, the Puffy Blowhog and the Honeywisp");
+        Check(TekiRoster.All.Where(e => e.Ported).All(e => e.Kind <= 3 || e.Kind >= 17), "only the ported kinds are marked");
+        Check(TekiRoster.All.Single(e => e.Ephemeral).Display == "Honeywisp" && TekiRoster.All.Where(e => e.Water).All(e => e.NoCard), "the Honeywisp is ephemeral, water enemies are placed not drawn");
         // Death and soul effects follow the carcass size (BTeki::createDeadEffect / createSoulEffect).
         Check(TekiRules.DeathEffects(2).SequenceEqual(new[] { 61, 62, 63 }) && TekiRules.DeathEffects(0).SequenceEqual(new[] { 55, 56, 57 })
             && TekiRules.DeathEffects(1).SequenceEqual(new[] { 58, 59, 60 }) && TekiRules.DeathEffects(3).Length == 0, "death effects by size");

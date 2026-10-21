@@ -54,7 +54,7 @@ namespace OlimarTest
     // The two kinds the plugin spawns, read once from the extracted assets.
     internal static class TekiCatalog
     {
-        public const byte Dwarf = 0, Spotty = 1;
+        public const byte Dwarf = 0, Spotty = 1, Honeywisp = 18, Breadbug = 19;
         public static readonly byte Kinds = (byte)TekiRoster.All.Length;
         static readonly TekiNative.Info[] infos = new TekiNative.Info[TekiRoster.All.Length];
         static readonly bool[] have = new bool[TekiRoster.All.Length];

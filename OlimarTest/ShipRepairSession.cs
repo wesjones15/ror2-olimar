@@ -404,7 +404,7 @@ namespace OlimarTest
             if (!NetworkServer.active || !Progress.Accepting || !placementsReady || stage != Stage.instance || stageSim != world.SimHandle) return;
             var victim = report.victimBody;
             if (!victim || report.victimTeamIndex != TeamIndex.Monster) return;
-            if (TekiBody.IsBig(victim)) { TekiPartReward(world, report, victim); return; }
+            if (TekiBody.GuaranteesPart(victim)) { TekiPartReward(world, report, victim); return; }
             bool stageBoss = stageBossMasters.Contains(victim.master) || (TeleporterInteraction.instance && TeleporterInteraction.instance.bossGroup &&
                 TeleporterInteraction.instance.bossGroup.combatSquad.ContainsMember(victim.master));
             bool powerful = victim.isBoss || victim.isChampion || victim.baseMaxHealth >= 600f || (victim.isElite && victim.baseMaxHealth >= 200f);

@@ -346,6 +346,7 @@ namespace OlimarTest
             PikminNet.Register();
             ShipRepairMode.Install(gameObject);
             TekiBodies.Install();
+            TekiSpawner.Install(gameObject);
         }
 
         static bool InVr()

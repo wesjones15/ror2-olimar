@@ -24,6 +24,7 @@ namespace OlimarTest
         internal static ConfigEntry<int> BigMinStages;
         internal static ConfigEntry<float> HealthScale, SpeedScale, DamageScale, CarrierScale;
         internal static ConfigEntry<bool> FitSizes;
+        internal static ConfigEntry<int> HoneywispsPerPlayer, WaterEnemiesPerPlayer;
         static ConfigEntry<int>[] weights, costs;
 
         /// Seconds a bite's animation is squeezed into (RoR2's skills are shorter than the disc's).
@@ -47,6 +48,10 @@ namespace OlimarTest
                 "monsters, big ones (which always drop a ship part) among the minibosses.");
             FitSizes = config.Bind("Enemies", "FitSizes", true,
                 "Scale each borrowed monster's model, hurt boxes and hit boxes to the size of the Pikmin enemy drawn on it.");
+            HoneywispsPerPlayer = config.Bind("Enemies", "HoneywispsPerPlayer", 1,
+                "Honeywisps Ship Repair keeps flying about for each player (a hit one drops nectar). 0 for none.");
+            WaterEnemiesPerPlayer = config.Bind("Enemies", "WaterEnemiesPerPlayer", 1,
+                "Waterborne enemies (Water Dumples) kept in the stage's water for each player, if it has any. 0 for none.");
             BigMinStages = config.Bind("Enemies", "BigMinStagesCleared", 0, "Stages cleared before big Pikmin enemies can spawn.");
             HealthScale = config.Bind("Enemies", "HealthScale", 1f,
                 "RoR2 health per point of the disc's life (a Dwarf Bulborb has 130, a Spotty Bulborb 1100, a Smoky Progg 4000).");
@@ -98,6 +103,10 @@ namespace OlimarTest
 
                 var master = Prefabs.Clone(srcMaster, key + "Master", Plugin.Guid);
                 master.GetComponent<CharacterMaster>().bodyPrefab = body;
+                // The decomp's strategy drives these: the borrowed monster's skill drivers would fight it.
+                if (spec.Ported)
+                    foreach (var driver in master.GetComponents<RoR2.CharacterAI.AISkillDriver>())
+                        UnityEngine.Object.DestroyImmediate(driver);
                 pack.bodyPrefabs.Add(new[] { body });
                 pack.masterPrefabs.Add(new[] { master });
 
@@ -125,6 +134,7 @@ namespace OlimarTest
         public static void Install()
         {
             TekiCorpses.RegisterMessages();
+            TekiAi.Register();
             Language.onCurrentLanguageChanged += AddTokens;
             var rebuild = typeof(ClassicStageInfo).GetMethod("RebuildCards", Flags);
             if (rebuild == null)
@@ -176,7 +186,7 @@ namespace OlimarTest
             {
                 var spec = e.spec;
                 int weight = weights[spec.Kind].Value;
-                if (weight <= 0 || !TekiCatalog.Has(spec.Kind)) continue;
+                if (spec.NoCard || weight <= 0 || !TekiCatalog.Has(spec.Kind)) continue;
                 if (monsters.categories.Any(c => c.cards != null && c.cards.Any(d => d != null && d.spawnCard == e.card))) continue;
                 int at = FindCategory(monsters, spec.Big ? "mini" : "basic");
                 if (at < 0) continue;
@@ -216,8 +226,34 @@ namespace OlimarTest
 
         /// A Pikmin enemy died on the server: its corpse is the disc's pellet (carriers and seeds from
         /// pelMgr.bin), on the body. False if its kind isn't loaded, so the generic corpse is left to do.
+        /// Spawns an enemy body of `kind` at `pos` (server), as the combat director would.
+        public static TekiBody Spawn(byte kind, Vector3 pos, float yawDegrees)
+        {
+            foreach (var e in entries)
+            {
+                if (e.spec.Kind != kind || !e.card || !DirectorCore.instance || !Run.instance) continue;
+                var rule = new DirectorPlacementRule { placementMode = DirectorPlacementRule.PlacementMode.Direct, position = pos };
+                var request = new DirectorSpawnRequest(e.card, rule, Run.instance.spawnRng)
+                {
+                    teamIndexOverride = TeamIndex.Monster,
+                    ignoreTeamMemberLimit = true,
+                };
+                var go = DirectorCore.instance.TrySpawnObject(request);
+                var master = go ? go.GetComponent<CharacterMaster>() : null;
+                var body = master ? master.GetBody() : null;
+                if (body)
+                {
+                    body.transform.rotation = Quaternion.Euler(0f, yawDegrees, 0f);
+                    return body.GetComponent<TekiBody>();
+                }
+            }
+            return null;
+        }
+
         public static bool Died(IntPtr sim, CharacterBody victim, TekiBody teki)
         {
+            // A Honeywisp that was finished leaves nothing.
+            if (TekiRoster.Of(teki.kind)?.Ephemeral == true) return true;
             if (!TekiCatalog.Has(teki.kind)) return false;
             var info = TekiCatalog.Get(teki.kind);
             float yaw = UnityHost.Yaw(victim.transform.forward);

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Ror2Common;
 using RoR2;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace OlimarTest
 {
@@ -30,6 +31,22 @@ namespace OlimarTest
 
         internal static bool IsBig(CharacterBody b) => b && b.GetComponent<TekiBody>() is TekiBody t && t.big;
 
+        /// Its death always rewards a ship part: a big enemy, or one Ship Repair marked (the first stage's Breadbug).
+        public bool guaranteedPart;
+        internal static bool GuaranteesPart(CharacterBody b) => b && b.GetComponent<TekiBody>() is TekiBody t && (t.big || t.guaranteedPart);
+        internal static bool IsEphemeral(CharacterBody b) => b && b.GetComponent<TekiBody>() is TekiBody t && TekiRoster.Of(t.kind)?.Ephemeral == true;
+
+        /// The decomp's strategy for this kind runs it (TekiAi), rather than the borrowed monster's AI.
+        internal bool Ai => TekiRoster.Of(kind)?.Ported == true;
+        internal CharacterBody Body => body;
+        internal uint NetId => body ? body.netId.Value : 0u;
+        // The strategy's id and last state (server).
+        internal int aiId = -1;
+        internal bool aiHave;
+        internal TekiAiNative.State aiState;
+        internal float aiLastHealth;
+        int hurtDeactivated;
+
         void Awake()
         {
             body = GetComponent<CharacterBody>();
@@ -45,15 +62,62 @@ namespace OlimarTest
                 body.levelMaxHealth = health * 0.3f;
                 body.baseMoveSpeed = Mathf.Max(1f, info.runSpeed * UnityHost.Scale * TekiBodies.SpeedScale.Value);
                 body.baseDamage *= Mathf.Max(0f, TekiBodies.DamageScale.Value);
+                // A Honeywisp is not killed: a hit makes it drop its nectar and fly off.
+                if (TekiRoster.Of(kind)?.Ephemeral == true) body.baseMaxHealth = body.levelMaxHealth = 1e6f;
             }
         }
 
-        void OnDestroy() => All.Remove(this);
+        void OnDestroy()
+        {
+            All.Remove(this);
+            if (Ai && NetworkServer.active) TekiAi.Forget(this);
+        }
+
+        // Follows where its strategy wants it, a little behind it, facing as it does.
+        void FixedUpdate()
+        {
+            if (!Ai || !body || !NetworkServer.active) return;
+            if (!aiHave || !body.healthComponent || !body.healthComponent.alive) return;
+            var s = aiState;
+            // Hidden between trips: nothing can hit it.
+            bool solid = s.Collidable && s.Visible;
+            if (!solid && hurtDeactivated == 0 && body.hurtBoxGroup)
+            {
+                body.hurtBoxGroup.hurtBoxesDeactivatorCounter++;
+                hurtDeactivated = 1;
+            }
+            else if (solid && hurtDeactivated == 1 && body.hurtBoxGroup)
+            {
+                body.hurtBoxGroup.hurtBoxesDeactivatorCounter--;
+                hurtDeactivated = 0;
+            }
+            var goal = UnityHost.ToUnity(s.pos);
+            var now = body.footPosition;
+            float follow = 1f - Mathf.Exp(-30f * Time.fixedDeltaTime);
+            var motor = body.characterMotor;
+            if (motor && !s.Flying)
+            {
+                var d = goal - now;
+                d.y = 0f;
+                motor.rootMotion += d * follow;
+            }
+            else
+            {
+                var root = transform.position - now;
+                var to = Vector3.Lerp(now, goal, follow) + root;
+                transform.position = to;
+                if (body.rigidbody) { body.rigidbody.position = to; body.rigidbody.velocity = Vector3.zero; }
+            }
+            var look = Quaternion.Euler(0f, s.yaw * Mathf.Rad2Deg, 0f);
+            transform.rotation = Quaternion.Slerp(transform.rotation, look, 1f - Mathf.Exp(-20f * Time.fixedDeltaTime));
+        }
 
         // The disc's size for the kind: the borrowed monster's model (and so its hurt boxes and hit boxes) is
         // scaled to match the Bulborb drawn on it.
         void Start()
         {
+            // The strategy turns it; RoR2's own turning would fight it.
+            if (Ai && NetworkServer.active && GetComponent<CharacterDirection>() is CharacterDirection direction) direction.enabled = false;
             if (!TekiBodies.FitSizes.Value || !body || !body.hurtBoxGroup || !TekiCatalog.Has(kind)) return;
             var model = body.modelLocator ? body.modelLocator.modelTransform : null;
             if (!model || body.hurtBoxGroup.hurtBoxes == null) return;
@@ -81,6 +145,46 @@ namespace OlimarTest
             if (model) GameSettings.HideRenderers(model, true);
         }
 
+        // The strategy's own motion and frame: from the server's state, or what it last sent.
+        TekiAiNative.State remote;
+        float remoteAge;
+
+        bool SampleAi(float dt, out TekiNative.Instance instance)
+        {
+            instance = default;
+            TekiAiNative.State s;
+            if (NetworkServer.active)
+            {
+                if (!aiHave) return false;
+                s = aiState;
+            }
+            else
+            {
+                if (!TekiAi.Remote.TryGetValue(NetId, out var r)) return false;
+                if (r.at != remoteAge)
+                {
+                    remote = r.state;
+                    remoteAge = r.at;
+                }
+                remote.frame += 30f * dt;
+                s = remote;
+            }
+            if (!s.Visible) return false;
+            instance = new TekiNative.Instance
+            {
+                id = id,
+                kind = kind,
+                pos = UnityHost.ToSim(body.footPosition),
+                yaw = NetworkServer.active ? s.yaw : UnityHost.Yaw(transform.forward),
+                motion = s.motion,
+                frame = s.frame,
+                flash = s.flash,
+                scale = 1f,
+                alpha = Mathf.Clamp01(s.fade),
+            };
+            return true;
+        }
+
         // Whether a skill is running: any state machine but the body's own that isn't idle.
         bool Attacking()
         {
@@ -99,6 +203,7 @@ namespace OlimarTest
             instance = default;
             var health = body ? body.healthComponent : null;
             if (!health || !health.alive || !TekiCatalog.Has(kind)) return false;
+            if (Ai) return SampleAi(dt, out instance);
             var info = TekiCatalog.Get(kind);
             var foot = body.footPosition;
             if (seen && dt > 0f)

@@ -15,6 +15,15 @@ namespace OlimarTest
         public string Body, Master;
         public int Weight, Cost;
         public TekiHull Hull;
+        /// The decomp's strategy is ported (libpikmin-teki) and drives the body; otherwise the borrowed monster's
+        /// own AI fights.
+        public bool Ported;
+        /// Not a fighter the director spawns: Ship Repair places it itself.
+        public bool NoCard;
+        /// Gone when its strategy says so, with no corpse or reward (the Honeywisp).
+        public bool Ephemeral;
+        /// Lives in water: Ship Repair spawns it in the stage's water, if it has any.
+        public bool Water;
 
         public TekiSpec(byte kind, string token, string display, bool big, bool flying, string body, string master, int weight, int cost, TekiHull hull)
         {
@@ -31,10 +40,10 @@ namespace OlimarTest
         // breathes fire. Blind Pest/Vermin: small biters, one on the wing. Jellyfish: floats and novas.
         public static readonly TekiSpec[] All =
         {
-            new TekiSpec(0, "DWARF", "Dwarf Bulborb", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 6, 25, TekiHull.Human),
-            new TekiSpec(1, "SPOTTY", "Spotty Bulborb", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 2, 250, TekiHull.Golem),
-            new TekiSpec(2, "DWARFORANGE", "Dwarf Bulbear", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 5, 25, TekiHull.Human),
-            new TekiSpec(3, "SPOTTYORANGE", "Spotty Bulbear", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 300, TekiHull.Golem),
+            new TekiSpec(0, "DWARF", "Dwarf Bulborb", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 6, 25, TekiHull.Human) { Ported = true },
+            new TekiSpec(1, "SPOTTY", "Spotty Bulborb", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 2, 250, TekiHull.Golem) { Ported = true },
+            new TekiSpec(2, "DWARFORANGE", "Dwarf Bulbear", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 5, 25, TekiHull.Human) { Ported = true },
+            new TekiSpec(3, "SPOTTYORANGE", "Spotty Bulbear", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 300, TekiHull.Golem) { Ported = true },
             new TekiSpec(4, "WOLLYWOG", "Wollywog", true, false, Base + "Bison/BisonBody.prefab", Base + "Bison/BisonMaster.prefab", 2, 200, TekiHull.Golem),
             new TekiSpec(5, "WOLLYWOGYELLOW", "Yellow Wollywog", true, false, Base + "Bison/BisonBody.prefab", Base + "Bison/BisonMaster.prefab", 1, 250, TekiHull.Golem),
             new TekiSpec(6, "CANNONBEETLE", "Armored Cannon Beetle", true, false, Dlc1 + "ClayGrenadier/ClayGrenadierBody.prefab", Dlc1 + "ClayGrenadier/ClayGrenadierMaster.prefab", 1, 300, TekiHull.Golem),
@@ -48,7 +57,9 @@ namespace OlimarTest
             new TekiSpec(14, "PUFFYBLOWHOG", "Puffy Blowhog", true, true, Base + "Jellyfish/JellyfishBody.prefab", Base + "Jellyfish/JellyfishMaster.prefab", 1, 250, TekiHull.Golem),
             new TekiSpec(15, "MAMUTA", "Mamuta", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 300, TekiHull.Golem),
             new TekiSpec(16, "PROGG", "Smoky Progg", true, false, Base + "Parent/ParentBody.prefab", Base + "Parent/ParentMaster.prefab", 1, 400, TekiHull.Golem),
-            new TekiSpec(17, "DUMPLE", "Water Dumple", false, false, Base + "Lemurian/LemurianBody.prefab", Base + "Lemurian/LemurianMaster.prefab", 3, 25, TekiHull.Human),
+            new TekiSpec(17, "DUMPLE", "Water Dumple", false, false, Base + "Lemurian/LemurianBody.prefab", Base + "Lemurian/LemurianMaster.prefab", 3, 25, TekiHull.Human) { Ported = true, NoCard = true, Water = true },
+            new TekiSpec(18, "HONEYWISP", "Honeywisp", false, true, Base + "Wisp/WispBody.prefab", Base + "Wisp/WispMaster.prefab", 0, 1, TekiHull.Human) { Ported = true, NoCard = true, Ephemeral = true },
+            new TekiSpec(19, "BREADBUG", "Breadbug", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 0, 20, TekiHull.Human) { Ported = true, NoCard = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;

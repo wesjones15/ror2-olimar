@@ -1581,6 +1581,7 @@ namespace OlimarTest
             OlimarPerformance.Ticks(ticks);
             RunDeferred();
             if (ticks == 0) return;
+            TekiAi.Step(sim, (int)ticks);
 
             ReadBack();
             foreach (var kv in driverOf)
