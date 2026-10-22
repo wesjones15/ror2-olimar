@@ -621,7 +621,8 @@ namespace OlimarTest
             survivor.outroFlavorToken = "OLIMARTEST_BODY_OUTRO";
             survivor.mainEndingEscapeFailureFlavorToken = "OLIMARTEST_BODY_FAIL";
             survivor.primaryColor = cb.bodyColor;
-            survivor.desiredSortPosition = 100f;
+            // Second behind Mario everywhere except Ship Repair, where ShipRepairMode.ApplySelectOrder puts him first.
+            survivor.desiredSortPosition = SurvivorOrder.OlimarPosition(false);
 
             pack.bodyPrefabs.Add(new[] { body });
             pack.survivorDefs.Add(new[] { survivor });

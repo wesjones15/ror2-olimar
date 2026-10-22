@@ -206,6 +206,52 @@ static class Program
         Check(TekiRules.SoulEffect(2) == 66 && TekiRules.SoulEffect(1) == 65 && TekiRules.SoulEffect(0) == 64 && TekiRules.SoulEffect(3) == -1, "soul by size");
         Console.WriteLine("PASS: Pikmin enemy part rewards, beneficiary masks and corpse sizes.");
         Console.WriteLine("PASS: sampling, receipts, epoch boundaries, clocks, failure, victory, restart, and objective packet validation.");
+        SurvivorOrderCheck();
         return 0;
+    }
+
+    sealed class Def { public string Name; public float Pos; }
+
+    // The select-bar order: RoR2 sorts the survivors once by desiredSortPosition, then SurvivorOrder re-sorts the slice
+    // holding Olimar and Mario when the lobby mode changes.
+    static void SurvivorOrderCheck()
+    {
+        var olimar = new Def { Name = "Olimar", Pos = SurvivorOrder.OlimarPosition(false) };
+        var mario = new Def { Name = "Mario", Pos = SurvivorOrder.MarioPosition(false) };
+        var all = new[] { new Def { Name = "Commando", Pos = 0 }, new Def { Name = "Huntress", Pos = 2 }, olimar, mario,
+            new Def { Name = "Samus", Pos = 102 }, new Def { Name = "Fox", Pos = 103 }, new Def { Name = "DK", Pos = 109 } };
+        var ordered = all.OrderBy(d => d.Pos).ToArray(); // the catalog's one-time sort
+        var slots = new int[all.Length];
+        Func<string> names = () => string.Join(",", ordered.Select(d => d.Name));
+        const string vanilla = "Commando,Huntress,";
+        const string melee = ",Samus,Fox,DK";
+        Check(names() == vanilla + "Mario,Olimar" + melee, "outside Ship Repair Mario leads Olimar: " + names());
+        Check(SurvivorOrder.Lead < 102 && SurvivorOrder.Second < 102, "Melee positions start at 102");
+
+        Action<bool> apply = repair =>
+        {
+            olimar.Pos = SurvivorOrder.OlimarPosition(repair); mario.Pos = SurvivorOrder.MarioPosition(repair);
+            SurvivorOrder.Reorder(ordered, olimar, mario, d => d.Pos, (d, slot) => slots[Array.IndexOf(all, d)] = slot);
+        };
+        apply(true);
+        Check(names() == vanilla + "Olimar,Mario" + melee, "Ship Repair puts Olimar first: " + names());
+        Check(slots[Array.IndexOf(all, olimar)] == 2 && slots[Array.IndexOf(all, mario)] == 3, "slot callback for the swapped pair");
+        Check(!SurvivorOrder.Reorder(ordered, olimar, mario, d => d.Pos, null), "re-applying the same mode moves nothing");
+        apply(false);
+        Check(names() == vanilla + "Mario,Olimar" + melee, "leaving Ship Repair restores Mario first: " + names());
+        apply(true); apply(false); apply(true); apply(false);
+        Check(names() == vanilla + "Mario,Olimar" + melee, "repeated mode flips are stable");
+
+        // A third-party survivor between them keeps its place relative to both.
+        var other = new Def { Name = "Other", Pos = 100.5f };
+        ordered = all.Concat(new[] { other }).OrderBy(d => d.Pos).ToArray();
+        Check(names() == vanilla + "Mario,Other,Olimar" + melee, "third-party setup: " + names());
+        slots = new int[all.Length + 1]; all = all.Concat(new[] { other }).ToArray();
+        apply(true);
+        Check(names() == vanilla + "Olimar,Other,Mario" + melee, "third-party between the pair: " + names());
+
+        // Without Mario's plugin there is nothing to reorder.
+        Check(!SurvivorOrder.Reorder(ordered, olimar, null, d => d.Pos, null), "no Mario, no reorder");
+        Console.WriteLine("PASS: character-select order (Mario, Olimar outside Ship Repair; Olimar, Mario inside; Melee untouched).");
     }
 }

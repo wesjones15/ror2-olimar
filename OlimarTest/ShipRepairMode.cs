@@ -93,6 +93,8 @@ namespace OlimarTest
                     ((orig, bar, survivor) => orig(bar, survivor) && (!LobbyActive || IsOlimar(survivor) || ShipRepairGuests.IsAllowed(survivor)))));
             hooks.Add(new Hook(typeof(CharacterSelectBarController).GetMethod("Build", flags),
                 (Action<Action<CharacterSelectBarController>, CharacterSelectBarController>)((orig, bar) => {
+                    // Build lays icons out in SurvivorCatalog.orderedSurvivorDefs order, so order it first.
+                    ApplySelectOrder(LobbyActive);
                     orig(bar);
                     if (LobbyActive)
                     {
@@ -209,6 +211,30 @@ namespace OlimarTest
         }
 
         static bool IsOlimar(SurvivorDef survivor) => survivor && survivor.cachedName == "OlimarTest";
+
+        static readonly FieldInfo orderedField = typeof(SurvivorCatalog).GetField("_orderedSurvivorDefs", BindingFlags.Static | BindingFlags.NonPublic);
+        static readonly FieldInfo orderPositionsField = typeof(SurvivorCatalog).GetField("survivorOrderPositions", BindingFlags.Static | BindingFlags.NonPublic);
+
+        /// Mario leads the character select, then Olimar, except in a Ship Repair lobby where Olimar leads and Mario
+        /// (locked there) follows. RoR2 sorts SurvivorCatalog.orderedSurvivorDefs once at catalog init, so this moves
+        /// the two defs inside that array (and survivorOrderPositions) and keeps desiredSortPosition in step.
+        /// Called before every CharacterSelectBarController.Build, which also runs when the host changes the mode.
+        internal static void ApplySelectOrder(bool shipRepair)
+        {
+            var olimar = SurvivorCatalog.FindSurvivorDef("OlimarTest");
+            var mario = SurvivorCatalog.FindSurvivorDef("MarioTest");
+            if (!olimar || !mario) return;
+            olimar.desiredSortPosition = SurvivorOrder.OlimarPosition(shipRepair);
+            mario.desiredSortPosition = SurvivorOrder.MarioPosition(shipRepair);
+            var ordered = orderedField?.GetValue(null) as SurvivorDef[];
+            var positions = orderPositionsField?.GetValue(null) as int[];
+            if (ordered == null || positions == null) return;
+            SurvivorOrder.Reorder(ordered, olimar, mario, def => def.desiredSortPosition, (def, slot) =>
+            {
+                int index = (int)def.survivorIndex;
+                if (index >= 0 && index < positions.Length) positions[index] = slot;
+            });
+        }
 
         internal static void RefreshSelectionIfModeChanged()
         {
