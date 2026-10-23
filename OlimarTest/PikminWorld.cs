@@ -623,6 +623,7 @@ namespace OlimarTest
             if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive) Native.pik_sim_set_ship_part_competitive_delivery(sim, 1);
             reportedPoison = false;
             epoch++;
+            loggedPellets.Clear();
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
             Native.pik_sim_set_shake_protection(sim, Plugin.ShakeProtection.Value);
             Native.pik_sim_set_auto_carry(sim, Mathf.Max(0f, Plugin.AutoCarryMetres.Value) / UnityHost.Scale);
@@ -1970,9 +1971,15 @@ namespace OlimarTest
                 if (p.id < procReadyAt.Length) procReadyAt[p.id] = 0f;
             }
             PelletCount = Read(ref Pellets, readPellets ??= (a, n) => Native.pik_sim_pellets(sim, a, n));
+            // Each numbered pellet's colour once, as the sim holds it: what the view then draws it in.
+            for (int i = 0; i < PelletCount; i++)
+                if (Pellets[i].color != 255 && loggedPellets.Add(Pellets[i].id))
+                    Plugin.Log.LogInfo($"Pellet {Pellets[i].id} is {Colour(Pellets[i].color)} in the sim ({Pellets[i].min_carriers} Pikmin to lift)");
             ReadOnions();
             SproutCount = Read(ref Sprouts, readSprouts ??= (a, n) => Native.pik_sim_sprouts(sim, a, n));
         }
+
+        readonly HashSet<uint> loggedPellets = new HashSet<uint>();
 
         void ReadOnions() => OnionCount = Read(ref Onions, readOnions ??= (a, n) => Native.pik_sim_onions(sim, a, n));
 

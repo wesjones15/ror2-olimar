@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using RoR2;
 using Ror2Common;
 using UnityEngine;
@@ -160,6 +161,36 @@ namespace OlimarTest
             Pose(sim, ref frame);
             Models.Update(scale, null, hide);
             particles.Draw(scale);
+            LogNewPellets();
+        }
+
+        readonly HashSet<ulong> loggedPellets = new HashSet<ulong>();
+
+        /// Once per pellet drawn: the texture the view named for it, that texture's mean colour as the view
+        /// baked it, and what the instance on screen is made of (the colour of a pellet that looks wrong).
+        void LogNewPellets()
+        {
+            for (int i = 0; i < Models.DrawCount; i++)
+            {
+                var d = Models.DrawAt(i);
+                if (d.kind != Native.KindPellet || !loggedPellets.Add(d.key)) continue;
+                var ids = Native.pik_view_texture_ids(view, out uint n);
+                var text = new System.Text.StringBuilder();
+                for (int b = 0; ids != IntPtr.Zero && d.first_color + b < n && b < 2; b++)
+                {
+                    int id = System.Runtime.InteropServices.Marshal.ReadInt32(ids, (int)(d.first_color + b) * 4);
+                    text.Append($" batch {b} texture {id}");
+                    if (id < 0 || Native.pik_view_texture(view, (uint)id, out var info, null, 0) == 0) continue;
+                    var px = new byte[info.width * info.height * 4];
+                    if (Native.pik_view_texture(view, (uint)id, out info, px, (uint)px.Length) == 0) continue;
+                    long r = 0, g = 0, bl = 0, c = 0;
+                    for (int p = 0; p + 3 < px.Length; p += 4)
+                        if (px[p + 3] > 0) { r += px[p]; g += px[p + 1]; bl += px[p + 2]; c++; }
+                    if (c > 0) text.Append($" (mean colour {r / c},{g / c},{bl / c})");
+                }
+                Native.pik_view_model(view, d.model, out var modelInfo);
+                Plugin.Log.LogInfo($"Pellet {d.id} drawn: model {d.model} ({modelInfo.texture_count} textures baked in all);{text}; on screen: {Models.DescribeInstance(d.key)}");
+            }
         }
 
         public void Dispose()
