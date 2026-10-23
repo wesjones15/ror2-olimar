@@ -56,6 +56,8 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_squad_pace(IntPtr sim, float leaf, float bud, float flower);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_kill_growth(IntPtr sim, uint kills);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_credit_kill(IntPtr sim, ulong creature);
+        /// How many living Pikmin of each colour (blue, red, yellow) attacked the creature; ask before pik_sim_credit_kill.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_attackers(IntPtr sim, ulong creature, [Out] uint[] byColour);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_carry(IntPtr sim, float range);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_give_onion_seeds(IntPtr sim, uint onion, uint color, uint seeds);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_pluck(IntPtr sim, float seconds);
@@ -181,7 +183,9 @@ namespace OlimarTest
             public int onion;
             public uint carriers, min_carriers, max_carriers;
             // 0 idle, 1 carried, 2 being sucked up, 3 gone, 4 held by a guest character.
-            public byte state, has_creature, has_ship_part, _p1;
+            public byte state, has_creature, has_ship_part;
+            /// The sim's colour for a numbered pellet (0 blue, 1 red, 2 yellow), or 255.
+            public byte color;
             public uint _p2;
         }
 

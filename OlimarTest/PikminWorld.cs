@@ -2444,6 +2444,30 @@ namespace OlimarTest
             return ownerBody && ownerBody.GetComponent<OlimarDriver>();
         }
 
+        // Pikmin colours in the sim's order, and the order that breaks a tie: red first.
+        static readonly int[] ColourTieOrder = { 1, 2, 0 };
+
+        /// The colour of the pellet `v` leaves: the colour most of the Pikmin that fought it were (a tie goes
+        /// to the colour there are fewer of); with none that fought it (Olimar's own kill), the colour there
+        /// are fewest of among the Pikmin he has; with none at all, red.
+        int CorpseColour(CharacterBody v)
+        {
+            var fought = new uint[3];
+            Native.pik_sim_attackers(sim, Id(v), fought);
+            var have = new int[3];
+            for (int i = 0; i < PikiCount; i++)
+                if (Pikis[i].alive != 0 && Pikis[i].color < 3) have[Pikis[i].color]++;
+            int best = -1;
+            foreach (int c in ColourTieOrder)
+                if (fought[c] > 0 && (best < 0 || fought[c] > fought[best] || fought[c] == fought[best] && have[c] < have[best]))
+                    best = c;
+            if (best >= 0) return best;
+            foreach (int c in ColourTieOrder)
+                if (have[c] > 0 && (best < 0 || have[c] < have[best]))
+                    best = c;
+            return best >= 0 ? best : 1;
+        }
+
         // A dead enemy leaves a corpse for the Pikmin to carry home (BTeki::dieSoon →
         // becomePellet): a pellet in the sim, drawn as the enemy's own body (Corpses).
         void OnDeath(DamageReport r)
@@ -2476,6 +2500,9 @@ namespace OlimarTest
             if (!v || r.victimTeamIndex == TeamIndex.Player) return;
             if (ShipRepairMode.Active && ShipRepairSession.Instance) ShipRepairSession.Instance.EnemyDefeated(this, r);
             if (v.isElite) affixes.EliteDied(v, r.attackerBody, Pikis, PikiCount, Id(v));
+            // Asked before the kill is credited, which forgets who fought it.
+            int colour = CorpseColour(v);
+            Plugin.Log.LogInfo($"{v.GetDisplayName()} died: Pikmin colour {Colour(colour)} for its corpse");
             // The Pikmin that fought it earn the kill (growth), whoever struck the last blow.
             Native.pik_sim_credit_kill(sim, Id(v));
             // Only what Olimar or his Pikmin kill leaves a corpse: not what another player, an ally or the
@@ -2494,9 +2521,8 @@ namespace OlimarTest
             float yaw = UnityHost.Yaw(v.transform.forward);
             if (!Plugin.CarryBodies.Value)
             {
-                // A numbered pellet, as Pikmin 1 drops: 1, 5, 10 or 20 by the enemy's size, in a
-                // random colour, carried and sized as on the disc.
-                int colour = UnityEngine.Random.Range(0, 3);
+                // A numbered pellet, as Pikmin 1 drops: 1, 5, 10 or 20 by the enemy's size, in the colour
+                // of the Pikmin that fought it (CorpseColour), carried and sized as on the disc.
                 int pellet = Native.pik_sim_spawn_numbered_pellet(sim, (uint)weight, (uint)colour, ref at, yaw);
                 if (pellet >= 0) Native.pik_sim_recruit_to_pellet(sim, (uint)pellet, Id(v), 8f / UnityHost.Scale);
                 if (Plugin.LogEvents.Value && pellet >= 0)
