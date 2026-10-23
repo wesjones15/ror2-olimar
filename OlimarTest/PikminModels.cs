@@ -68,7 +68,10 @@ namespace OlimarTest
                         ? GameSettings.SfxVolume() * Mathf.Clamp(Plugin.SoundVolume.Value, 0f, 2f) : 0f);
                 else Plugin.Log.LogWarning("Sundown death bell could not be prepared from the disc audio.");
             }
-            var models = ModelView.Create(new PikViewSource(v), name, parent);
+            // Respect each GameCube batch's face culling. Double-sided Pikmin bodies show a
+            // bright body-colour fringe at distance in RoR2; only batches authored as two-sided
+            // should draw both faces.
+            var models = ModelView.Create(new PikViewSource(v), name, parent, sourceCulling: true);
             if (models == null)
             {
                 Native.pik_view_free(v);
