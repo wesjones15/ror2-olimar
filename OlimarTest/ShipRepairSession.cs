@@ -699,7 +699,11 @@ namespace OlimarTest
                     scene ? Language.GetString(scene.nameToken) : null,
                     scene && !string.IsNullOrEmpty(scene.subtitleToken) ? Language.GetString(scene.subtitleToken) : null,
                     siteUntil);
-            if (Time.unscaledTime < toastUntil) GUI.Box(new Rect(Screen.width / 2f - 260, 75, 520, 45), toast);
+            if (Time.unscaledTime < toastUntil)
+            {
+                GUI.Box(new Rect(Screen.width / 2f - 360, 75, 720, 50), GUIContent.none);
+                ShipRepairUi.PikminText(toast, Screen.width / 2f, 86f, 28f, 690f, new Color(1f, .94f, .72f));
+            }
             if (Winning)
             {
                 GUI.Box(new Rect(Screen.width / 2f - 220, 130, 440, 60), WinText + "\n" + FormatTime(Seconds));
@@ -721,8 +725,10 @@ namespace OlimarTest
                 if (!camera) continue;
                 var screen = camera.WorldToScreenPoint(part.pos + Vector3.up * 2f);
                 if (screen.z <= 0) continue;
-                GUI.Label(new Rect(Mathf.Clamp(screen.x - 90, 0, Screen.width - 180), Mathf.Clamp(Screen.height - screen.y, 40, Screen.height - 40), 220, 40),
-                    $"◆ {part.name}\n{part.weight} carriers" + (Competitive && race.Players.TryGetValue(LocalUserId, out var me) && (me.Mask & (1u << part.id)) != 0 ? " · Onion salvage" : ""));
+                float labelX = Mathf.Clamp(screen.x, 130f, Screen.width - 130f), labelY = Mathf.Clamp(Screen.height - screen.y, 40, Screen.height - 70);
+                ShipRepairUi.PikminText(part.name, labelX, labelY, 26f, 260f, new Color(1f, .78f, .28f));
+                ShipRepairUi.PikminText(part.weight + " carriers" + (Competitive && race.Players.TryGetValue(LocalUserId, out var me) && (me.Mask & (1u << part.id)) != 0 ? " - Onion salvage" : ""),
+                    labelX, labelY + 28f, 18f, 260f, new Color(1f, .94f, .72f));
             }
         }
         static int CountBits(uint mask) { int n = 0; while (mask != 0) { mask &= mask - 1; n++; } return n; }

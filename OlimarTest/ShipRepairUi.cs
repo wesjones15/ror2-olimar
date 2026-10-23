@@ -94,7 +94,16 @@ namespace OlimarTest
                 new Rect(rect.xMax - 104f, rect.y + 8f, 86f, rect.height - 16f), 2);
         }
 
-        static void LocationText(string value, float center, float y, int size, Color color)
+        /// Part names and notices in Pikmin's own letters (bigFont), in capitals and shrunk to fit `maxWidth`.
+        internal static void PikminText(string value, float center, float y, float size, float maxWidth, Color color)
+        {
+            Load();
+            if (string.IsNullOrEmpty(value)) return;
+            value = value.ToUpperInvariant().Replace('—', '-').Replace('·', '-');
+            LocationText(value, center, y, Mathf.Min(size, maxWidth / (value.Length * .68f)), color);
+        }
+
+        static void LocationText(string value, float center, float y, float size, Color color)
         {
             if (string.IsNullOrEmpty(value)) return;
             if (locationGlyphs.Count == 0)
