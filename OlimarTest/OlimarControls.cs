@@ -1,57 +1,77 @@
+using Rewired;
+using RoR2;
+using RoR2.UI;
 using Ror2Common;
 
 namespace OlimarTest
 {
-    // Olimar's entry in the pause menu's controls window (ror2-common PauseControls).
+    // The pause window chooses the section for the player's last input device.
     internal static class OlimarControls
     {
+        static string Pad(Rewired.Player player, PadButton button, string fallback) =>
+            GlyphOverride.PhysicalGlyph(player, button) ?? fallback;
+
+        static string Key(MPEventSystem eventSystem, string action, string fallback)
+        {
+            if (!eventSystem) return fallback;
+            var glyph = Glyphs.GetGlyphString(eventSystem, action, AxisRange.Full,
+                MPEventSystem.InputSource.MouseAndKeyboard, true);
+            return string.IsNullOrEmpty(glyph) ? fallback : glyph;
+        }
+
         public static ControlSheet Sheet()
         {
+            var user = LocalUserManager.GetFirstLocalUser();
+            var player = user?.inputPlayer;
+            var eventSystem = user?.eventSystem;
+            string A = Pad(player, PadButton.A, "A"), B = Pad(player, PadButton.B, "B");
+            string X = Pad(player, PadButton.X, "X"), Y = Pad(player, PadButton.Y, "Y");
+            string LB = Pad(player, PadButton.LB, "LB"), RB = Pad(player, PadButton.RB, "RB");
+            string RT = Pad(player, PadButton.RT, "RT"), RS = Pad(player, PadButton.RS, "RS");
+            string primary = Key(eventSystem, "PrimarySkill", "Primary");
+            string secondary = Key(eventSystem, "SecondarySkill", "Secondary");
+            string utility = Key(eventSystem, "UtilitySkill", "Utility");
+            string equipment = Key(eventSystem, "Equipment", "Equipment");
+            string jump = Key(eventSystem, "Jump", "Jump");
+            string special = Key(eventSystem, "SpecialSkill", "Special");
+
             var sheet = new ControlSheet
             {
-                Subtitle = "Captain of the Dolphin, with his Pikmin",
-                Footer = "X is also RoR2's interact: with a prompt up it goes to that, not the Onion.",
+                Subtitle = "Captain of the S.S. Dolphin, Conqueror of PNF-404",
             };
 
-            sheet.Pad("Moving")
-                .Add("Left stick", "Walk, run")
-                .Add("B", "Jump")
-                .Add("Right stick", "Swarm the squad")
-                .Add("LT", "Recentre the camera")
-                .Add("Right stick click", "Zoom")
-                .Add("RT", "Hold to lock on to an enemy");
-            sheet.Pad("Pikmin")
-                .Add("A", "Hold to grab one, release to throw")
-                .Add("D-pad left / right", "Next colour to throw")
-                .Add("LB + B", "Whistle: call Pikmin to you")
-                .Add("RB", "Dismiss strike (a melee blow)")
-                .Add("RB while locked", "Cycle the target")
-                .Add("A at a sprout", "Pluck it");
-            sheet.Pad("The Onion")
-                .Add("X", "Raise it to follow, or lower it")
-                .Add("X X (flying)", "Dump the Pikmin out of it")
-                .Add("In its beam: X", "Call Pikmin out")
-                .Add("In its beam: Y", "Put the squad away")
-                .Add("In its beam: RB", "Heal from its stock")
-                .Add("In its beam: LB", "Recall stuck carriers");
+            sheet.Pad("")
+                .Add(B, "Jump")
+                .Add(A, "Grab and Throw Pikmin")
+                .Add(RB, "Dismiss Strike / Pikmin Charge")
+                .Add("hold " + RT, "Lock on to target")
+                .Add(RT + " + tap " + RB, "Cycle target")
+                .Add(RT + " + tap " + A, "Rapidly throw Pikmin at target")
+                .Add(LB + " + " + B, "Whistle to call Pikmin")
+                .Add(LB + " + " + RS, "Swarm Pikmin")
+                .Add(X, "Land/lift Onion")
+                .Add("tap " + X + " + " + X, "Dump all Onion Pikmin");
+            sheet.Pad("While Standing Under Onion")
+                .Add(X, "Empty Onion")
+                .Add(Y, "Fill Onion with Squad")
+                .Add(LB, "Call straggler Pikmin")
+                .Add(RB, "Restore Olimar's Health...\n<pos=170>For a price");
 
-            sheet.Keys("Moving")
-                .Add("Move", "Walk (Sprint: run)")
-                .Add("Secondary", "Jump")
-                .Add("Special", "Swarm toward the cursor")
-                .Add("Jump", "Recentre the camera")
-                .Add("C", "Zoom");
-            sheet.Keys("Pikmin")
-                .Add("Primary", "Hold to grab one, release to throw")
-                .Add("Mouse wheel", "Next colour to throw")
-                .Add("Jump + Secondary", "Whistle: call Pikmin to you")
-                .Add("F", "Dismiss strike (a melee blow)")
-                .Add("G", "Recall stuck carriers");
-            sheet.Keys("The Onion")
-                .Add("Utility", "Raise it to follow, or lower it")
-                .Add("Utility Utility (flying)", "Dump the Pikmin out of it")
-                .Add("In its beam: Utility", "Call Pikmin out")
-                .Add("In its beam: Equipment", "Put the squad away");
+            // Keyboard actions use the player's RoR2 bindings. F and G are direct
+            // keys in Pad.Read, so they remain literal here.
+            sheet.Keys("")
+                .Add(secondary, "Jump")
+                .Add(primary, "Grab and Throw Pikmin")
+                .Add("F", "Dismiss Strike / Pikmin Charge")
+                .Add(jump + " + " + secondary, "Whistle to call Pikmin")
+                .Add(special, "Swarm Pikmin")
+                .Add(utility, "Land/lift Onion")
+                .Add("tap " + utility + " + " + utility, "Dump all Onion Pikmin");
+            sheet.Keys("While Standing Under Onion")
+                .Add(utility, "Empty Onion")
+                .Add(equipment, "Fill Onion with Squad")
+                .Add("G", "Call straggler Pikmin")
+                .Add("F", "Restore Olimar's Health...\n<pos=170>For a price");
             return sheet;
         }
     }
