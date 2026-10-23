@@ -27,7 +27,6 @@ namespace OlimarTest
         public static PikminWorld Instance { get; private set; }
 
         const int MaxPartsPerCreature = 32;
-        const float FallKillMetres = 60f;
 
         static readonly Native.DamageFn damageFn = Damage;
 
@@ -1592,7 +1591,8 @@ namespace OlimarTest
                     if (cap.plucking != 0 && kv.Value.Body && kv.Value.Body.healthComponent && kv.Value.Body.healthComponent.alive)
                         kv.Value.Body.AddTimedBuff(RoR2Content.Buffs.HiddenInvincibility, 0.2f);
                 }
-            KillFallen();
+            // Pikmin that fall off the map are not killed here: the sim brings them back to their captain
+            // (Sim::rescue_fallen), as Olimar is brought back by OlimarDriver's fall guard.
             DrainEvents();
             view.Snapshot();
             SendSnapshot((int)ticks);
@@ -1986,19 +1986,6 @@ namespace OlimarTest
                 total = fetch(buf, (uint)buf.Length);
             }
             return (int)Math.Min(total, (uint)buf.Length);
-        }
-
-        // RoR2 maps have voids; a Pikmin that falls well below every captain is gone.
-        void KillFallen()
-        {
-            float lowest = float.MaxValue;
-            foreach (var d in driverOf.Values)
-                if (d && d.Body) lowest = Mathf.Min(lowest, d.Body.footPosition.y);
-            if (lowest == float.MaxValue) return;
-            float floor = (lowest - FallKillMetres) / UnityHost.Scale;
-            for (int i = 0; i < PikiCount; i++)
-                if (Pikis[i].alive != 0 && Pikis[i].pos.y < floor)
-                    Native.pik_sim_kill_piki(sim, Pikis[i].id);
         }
 
         void DrainEvents()
