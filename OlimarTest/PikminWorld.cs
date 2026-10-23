@@ -1891,6 +1891,9 @@ namespace OlimarTest
                     }
                 if (PartCount == start)
                     AddPart(b.corePosition, Mathf.Max(0.3f, b.bestFitRadius));
+                // A Pikmin enemy wears a borrowed monster's hurt boxes, which can stand taller or wider than the
+                // body drawn on it.
+                if (b.GetComponent<TekiBody>() is TekiBody teki) FitToTeki(teki, b, start);
 
                 bodies[id] = b;
                 if (attackWatched.Add(b)) b.onSkillActivatedServer += EnemyAttacked;
@@ -1907,6 +1910,36 @@ namespace OlimarTest
                 };
             }
         }
+
+        // Keeps a Pikmin enemy's latch spheres inside the box of the body drawn on it (the disc's bounds for the kind,
+        // turned with the body), so a Pikmin that sticks to a sphere's surface sticks to the creature, not to the air
+        // above or beside it. A sphere is shrunk to fit and moved in; the ones already inside stay as they are.
+        void FitToTeki(TekiBody teki, CharacterBody b, int start)
+        {
+            if (!TekiCatalog.Has(teki.kind)) return;
+            var info = TekiCatalog.Get(teki.kind);
+            var lo = new Vector3(info.lo.x, info.lo.y, info.lo.z);
+            var hi = new Vector3(info.hi.x, info.hi.y, info.hi.z);
+            if (hi.x <= lo.x || hi.y <= lo.y || hi.z <= lo.z) return;
+            var foot = UnityHost.ToSim(b.footPosition + partShift);
+            float yaw = UnityHost.Yaw(b.transform.forward), sin = Mathf.Sin(yaw), cos = Mathf.Cos(yaw);
+            float room = Mathf.Max(3f, Mathf.Min(hi.x - lo.x, Mathf.Min(hi.y - lo.y, hi.z - lo.z)) * .5f);
+            for (int i = start; i < PartCount; i++)
+            {
+                var part = parts[i];
+                float dx = part.centre.x - foot.x, dz = part.centre.z - foot.z;
+                var local = new Vector3(dx * cos - dz * sin, part.centre.y - foot.y, dx * sin + dz * cos);
+                float r = Mathf.Min(part.radius, room);
+                local.x = Inside(local.x, lo.x + r, hi.x - r);
+                local.y = Inside(local.y, lo.y + r, hi.y - r);
+                local.z = Inside(local.z, lo.z + r, hi.z - r);
+                parts[i].radius = r;
+                parts[i].centre = new Native.Vec3(foot.x + local.x * cos + local.z * sin, foot.y + local.y, foot.z - local.x * sin + local.z * cos);
+            }
+        }
+
+        // `v` held within [a, b]; a box too narrow for the sphere gets its middle.
+        static float Inside(float v, float a, float b) => a > b ? (a + b) * .5f : Mathf.Clamp(v, a, b);
 
         // Adds a sphere unless this creature already has the most the sim is given.
         void AddPartLimited(Vector3 centre, float radius)
