@@ -55,7 +55,7 @@ namespace OlimarTest
                 .Add(X, "Empty Onion")
                 .Add(Y, "Fill Onion with Squad")
                 .Add(LB, "Call straggler Pikmin")
-                .Add(RB, "Restore Olimar's Health...\n<pos=170>For a price");
+                .Add(RB, "Restore health... for a price");
 
             // Keyboard actions use the player's RoR2 bindings. F and G are direct
             // keys in Pad.Read, so they remain literal here.
@@ -71,7 +71,7 @@ namespace OlimarTest
                 .Add(utility, "Empty Onion")
                 .Add(equipment, "Fill Onion with Squad")
                 .Add("G", "Call straggler Pikmin")
-                .Add("F", "Restore Olimar's Health...\n<pos=170>For a price");
+                .Add("F", "Restore health... for a price");
             ControlSheetLayout.SpaceRows(sheet);
             return sheet;
         }

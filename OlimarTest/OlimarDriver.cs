@@ -344,8 +344,8 @@ namespace OlimarTest
                 i.cycle = B(pad.Cycle);
                 i.jump = B(pad.Jump);
                 i.jump_blocked = B(pad.jumpBlocked);
-                // Follow the camera crosshair on the ground. Keep the free cursor about one
-                // foot from Olimar at minimum, so looking straight down can still aim close.
+                // Follow the camera crosshair on the ground. Keep the free cursor at least
+                // one metre from Olimar, so looking straight down can still aim close.
                 // The sim keeps the existing ThrowReach maximum and finds the ground height.
                 var sceneCam = camRig ? camRig.sceneCam : null;
                 if (sceneCam)
@@ -354,7 +354,7 @@ namespace OlimarTest
                     bool hitGround = Physics.Raycast(ray, out var hit, 60f, UnityHost.Mask,
                         QueryTriggerInteraction.Ignore);
                     var aim = hitGround ? hit.point : ray.GetPoint(60f);
-                    const float minRadius = 0.3048f; // One foot in Unity's metre units.
+                    const float minRadius = 1f;
                     var offset = new Vector2(aim.x - feet.x, aim.z - feet.z);
                     if (offset.sqrMagnitude < minRadius * minRadius)
                     {
