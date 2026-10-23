@@ -53,6 +53,7 @@ namespace OlimarTest
         internal static ConfigEntry<float> LookUpDegrees;
         internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach, ShakeProtection, LockRange;
         internal static ConfigEntry<int> MaxPellets;
+        internal static ConfigEntry<bool> OnlyOwnKills;
         internal static ConfigEntry<float> CarriersPerMetre;
         internal static ConfigEntry<bool> CarryBodies;
         internal static ConfigEntry<bool> LogEvents, LogLatches;
@@ -227,6 +228,9 @@ namespace OlimarTest
                 "Max health Olimar gains per level (Commando's is 33).");
             TekiBodies.Bind(Config);
             MaxPellets = Config.Bind("Corpses", "MaxPellets", 30, "Most enemy corpses on the ground at once.");
+            OnlyOwnKills = Config.Bind("Corpses", "OnlyOwnKills", true,
+                "Only enemies that Olimar, his Pikmin or his Onions kill leave a corpse to carry. Off: every enemy that dies " +
+                "while Olimar is in the game does, whoever killed it.");
             CarryBodies = Config.Bind("Corpses", "CarryBodies", false,
                 "Pikmin carry the enemy's own body instead of a numbered pellet. Experimental: the " +
                 "pellet the Pikmin go for stays where the enemy died while the body may roll away.");

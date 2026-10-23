@@ -2425,6 +2425,18 @@ namespace OlimarTest
             if (Time.fixedTime >= f.recallUntil || none) GoDormant(f, 99999f, true);
         }
 
+        /// The killing blow was Olimar's: his own, his Pikmin's (their hits land as damage from him), a
+        /// clone's, or a minion of his (an Onion).
+        static bool KilledByOlimar(DamageReport r)
+        {
+            var killer = r.attackerBody;
+            if (!killer) return false;
+            if (killer.GetComponent<OlimarDriver>()) return true;
+            var owner = killer.master && killer.master.minionOwnership ? killer.master.minionOwnership.ownerMaster : null;
+            var ownerBody = owner ? owner.GetBody() : null;
+            return ownerBody && ownerBody.GetComponent<OlimarDriver>();
+        }
+
         // A dead enemy leaves a corpse for the Pikmin to carry home (BTeki::dieSoon →
         // becomePellet): a pellet in the sim, drawn as the enemy's own body (Corpses).
         void OnDeath(DamageReport r)
@@ -2459,6 +2471,9 @@ namespace OlimarTest
             if (v.isElite) affixes.EliteDied(v, r.attackerBody, Pikis, PikiCount, Id(v));
             // The Pikmin that fought it earn the kill (growth), whoever struck the last blow.
             Native.pik_sim_credit_kill(sim, Id(v));
+            // Only what Olimar or his Pikmin kill leaves a corpse: not what another player, an ally or the
+            // world killed while he is in the game (Corpses.OnlyOwnKills).
+            if (Plugin.OnlyOwnKills.Value && !KilledByOlimar(r)) return;
             // A Pikmin enemy leaves the disc's own corpse (TekiBodies).
             if (v.GetComponent<TekiBody>() is TekiBody teki && TekiBodies.Died(sim, v, teki)) return;
             int lying = 0;
