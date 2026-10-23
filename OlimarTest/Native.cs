@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 44;
+        public const uint AbiVersion = 45;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
@@ -79,6 +79,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_launch_captain(IntPtr sim, uint captain, ref Vec3 velocity, float gravity, byte squad);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_recruit_to_pellet(IntPtr sim, uint pellet, ulong defeated, float range);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_lock_target(IntPtr sim, uint captain, ulong target, byte enabled);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_lock_pellet(IntPtr sim, uint captain, uint pellet, byte enabled);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_camera_preset(uint zoom, byte top, out Vec3 settings);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_camera_pan(uint mode, ref Vec3 angles, float x, float y, float dt, float minPitch);
 

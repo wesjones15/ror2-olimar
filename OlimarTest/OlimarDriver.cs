@@ -77,6 +77,22 @@ namespace OlimarTest
         float spawnAge;
         /// The enemy he's locked onto, for the server's captain (the locked body's network id).
         uint lockNetId;
+        /// The pellet, corpse or ship part he's locked onto, plus one (0: none), for the same.
+        uint lockThing;
+
+        /// What the lock can take besides enemies: the pellets, corpses and ship parts on the ground that can
+        /// still take a carrier.
+        static void CollectLockPoints(System.Collections.Generic.List<EnemyLock.LockPoint> into)
+        {
+            var world = PikminWorld.Instance;
+            if (!world) return;
+            for (int n = 0; n < world.PelletCount; n++)
+            {
+                var p = world.Pellets[n];
+                if (p.state > 1 || p.carriers >= p.max_carriers) continue;
+                into.Add(new EnemyLock.LockPoint { Id = p.id, Position = UnityHost.ToUnity(p.pos) + Vector3.up * .6f });
+            }
+        }
 
         // The latest of a client's Olimar's packets (server), with the buttons pressed since the last step.
         PikminInputPacket remotePacket;
@@ -435,15 +451,20 @@ namespace OlimarTest
                     strikeSwallow = Plugin.Scheme == ControlScheme.Pikmin ? pad.Strike : input.skill3.down;
                 }
             }
+            enemyLock.Points = CollectLockPoints;
+            bool onThing = false;
+            uint thingId = 0;
             var locked = IsAi ? brainTarget : enemyLock.Update(Body,
                 Plugin.Scheme == ControlScheme.Pikmin && Plugin.Camera.Value == CameraMode.Orbit
                     && pad.lockHeld && !MenuOpen && !Arriving,
-                pad.cycleTarget, pad.targetDirection);
+                pad.cycleTarget, pad.targetDirection, out onThing, out thingId);
             pad.cycleTarget = false;
-            LockedOn = locked;
+            LockedOn = locked || onThing;
             Native.pik_sim_set_lock_target(PikminWorld.Instance.SimHandle, (uint)captain,
                 locked ? unchecked((ulong)(uint)locked.GetInstanceID()) : 0, B(locked));
+            Native.pik_sim_set_lock_pellet(PikminWorld.Instance.SimHandle, (uint)captain, thingId, B(onThing));
             lockNetId = locked ? locked.netId.Value : 0;
+            lockThing = onThing ? thingId + 1 : 0;
             return i;
         }
 
@@ -507,6 +528,7 @@ namespace OlimarTest
                 if (target) creature = unchecked((ulong)(uint)target.GetInstanceID());
             }
             Native.pik_sim_set_lock_target(world.SimHandle, (uint)captain, creature, B(creature != 0));
+            Native.pik_sim_set_lock_pellet(world.SimHandle, (uint)captain, p.lockPellet - 1, B(p.lockPellet != 0));
             // A teleport (anything that moves him far between ticks) brings his squad with him.
             var at = UnityHost.ToUnity(i.pose_pos);
             if (lastFeetSet) Teleported(world, lastFeet, at);
@@ -538,7 +560,7 @@ namespace OlimarTest
                 netId = Body.netId.Value,
                 px = c.pos.x, py = c.pos.y, pz = c.pos.z, vx = c.vel.x, vy = c.vel.y, vz = c.vel.z, face = c.face,
                 cx = c.cursor_world.x, cy = c.cursor_world.y, cz = c.cursor_world.z,
-                buttons = outPulses, swarmX = i.swarm_x, swarmY = i.swarm_y, lockNetId = lockNetId,
+                buttons = outPulses, swarmX = i.swarm_x, swarmY = i.swarm_y, lockNetId = lockNetId, lockPellet = lockThing,
             };
             outPulses = 0;
             PikminNet.SendInput(packet);

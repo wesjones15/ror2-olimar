@@ -9,7 +9,7 @@ namespace OlimarTest
     // makes malformed/truncated messages testable without loading Unity or the game.
     internal sealed class ShipRepairPacket
     {
-        public const byte Protocol = 5, Abi = 44;
+        public const byte Protocol = 5, Abi = 45;
         // A reliable UNET message may carry at most 1100 bytes; the 0.3.8 packet with 17 named parts was 1103
         // and never reached the clients. Names are looked up from the disc on the receiver and delivered
         // parts are left out, so a state message stays far under that.

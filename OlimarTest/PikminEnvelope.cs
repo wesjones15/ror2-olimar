@@ -39,7 +39,7 @@ namespace OlimarTest
     internal static class PikminEnvelope
     {
         /// Bumped whenever a wire format changes; a message with another number is ignored.
-        public const byte Protocol = 5;
+        public const byte Protocol = 6;
         /// pikmin.dll's ABI (Native.AbiVersion), compared so a mismatched build is refused.
         public static byte Abi = 44;
 
@@ -106,6 +106,8 @@ namespace OlimarTest
         public float swarmX, swarmY;
         /// The network id of the enemy he's locked onto, or 0.
         public uint lockNetId;
+        /// The pellet, corpse or ship part he's locked onto (its id plus one), or 0.
+        public uint lockPellet;
 
         public const byte Whistle = 1, Throw = 2, Dismiss = 4, Cycle = 8, SwarmToCursor = 16;
 
@@ -121,6 +123,7 @@ namespace OlimarTest
             w.U8(p.buttons);
             w.F32(p.swarmX); w.F32(p.swarmY);
             w.U32(p.lockNetId);
+            w.U32(p.lockPellet);
             return w.ToArray();
         }
 
@@ -136,6 +139,7 @@ namespace OlimarTest
             p.buttons = r.U8();
             p.swarmX = r.F32(); p.swarmY = r.F32();
             p.lockNetId = r.U32();
+            p.lockPellet = r.U32();
             return !r.Failed && r.Done;
         }
     }
