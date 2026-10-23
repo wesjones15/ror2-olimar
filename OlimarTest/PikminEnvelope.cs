@@ -39,7 +39,7 @@ namespace OlimarTest
     internal static class PikminEnvelope
     {
         /// Bumped whenever a wire format changes; a message with another number is ignored.
-        public const byte Protocol = 6;
+        public const byte Protocol = 7;
         /// pikmin.dll's ABI (Native.AbiVersion), compared so a mismatched build is refused.
         public static byte Abi = 44;
 
