@@ -8,19 +8,6 @@ namespace OlimarTest
     // The pause window chooses the section for the player's last input device.
     internal static class OlimarControls
     {
-        // Spacer lines go between actions, never inside an action's wrapped text.
-        static void SpaceRows(ControlSheet sheet)
-        {
-            foreach (var sections in new[] { sheet.Gamepad, sheet.Keyboard })
-                foreach (var section in sections)
-                    for (int i = 0; i < section.Rows.Count - 1; i++)
-                    {
-                        var row = section.Rows[i];
-                        row.Action += "\n<size=50%> </size>";
-                        section.Rows[i] = row;
-                    }
-        }
-
         static string Pad(Rewired.Player player, PadButton button, string fallback) =>
             GlyphOverride.PhysicalGlyph(player, button) ?? fallback;
 
@@ -85,7 +72,7 @@ namespace OlimarTest
                 .Add(equipment, "Fill Onion with Squad")
                 .Add("G", "Call straggler Pikmin")
                 .Add("F", "Restore Olimar's Health...\n<pos=170>For a price");
-            SpaceRows(sheet);
+            ControlSheetLayout.SpaceRows(sheet);
             return sheet;
         }
     }
