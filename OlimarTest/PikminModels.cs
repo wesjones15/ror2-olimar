@@ -131,6 +131,11 @@ namespace OlimarTest
             if (view != IntPtr.Zero) Native.pik_view_set_onion_ground(view, onion, height);
         }
 
+        public void SetOnionMenuBeam(uint onion, bool active)
+        {
+            if (view != IntPtr.Zero) Native.pik_view_set_onion_menu_beam(view, onion, (byte)(active ? 1 : 0));
+        }
+
         public void PlaySound(byte sound, Native.Vec3 at)
         {
             if (view != IntPtr.Zero) Native.pik_view_play_sound(view, sound, at);

@@ -13,7 +13,7 @@ namespace OlimarTest
     // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,
     // jump + secondary whistle, utility relocates the Onion, F strikes, special swarm toward the
     // cursor, jump recentre, C zoom, sprint to run, mouse wheel for the next colour.
-    // Standing in a landed Onion's beam shows direct X/Y/RB/LB/A shortcuts; G recalls
+    // Standing in an Onion's beam shows direct X/Y/RB/LB/A shortcuts; G recalls
     // stuck carriers on keyboard.
     //
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap

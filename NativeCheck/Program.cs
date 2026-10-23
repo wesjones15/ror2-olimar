@@ -134,13 +134,16 @@ static class Program
         Check(n > 100 && n < 20000, $"a snapshot of 20 Pikmin is {n} bytes");
         Check(Native.pik_sim_snapshot(server, new byte[8], 8) == 0, "a buffer that is too small writes nothing");
 
-        var sent = new List<CaptainInfo> { new CaptainInfo { id = 0, netId = 77, flags = CaptainInfo.Arriving | CaptainInfo.Following, beam = 0.5f, onion = 3 } };
+        var sent = new List<CaptainInfo> { new CaptainInfo { id = 0, netId = 77,
+            flags = CaptainInfo.Arriving | CaptainInfo.Following | CaptainInfo.MenuBeam | CaptainInfo.MenuReady,
+            beam = 0.5f, onion = 3 } };
         var envelope = PikminEnvelope.Write(3, sent, buffer, (int)n);
         var infos = new List<CaptainInfo>();
         var status = PikminEnvelope.Read(new ByteReader(envelope), out uint epoch, infos, out var snapshot, out _);
         Check(status == PikminEnvelope.Status.Ok && epoch == 3 && infos.Count == 1 && infos[0].netId == 77
             && infos[0].IsArriving && !infos[0].IsTemporary && infos[0].beam == 0.5f && infos[0].onion == 3
-            && infos[0].OnionFollowing && !infos[0].OnionAirborne && snapshot.Length == (int)n, "envelope round trip");
+            && infos[0].OnionFollowing && !infos[0].OnionAirborne && infos[0].OnionMenuBeam
+            && infos[0].OnionMenuReady && snapshot.Length == (int)n, "envelope round trip");
         sent[0] = new CaptainInfo { id = 0, netId = 77, flags = CaptainInfo.Healing, beam = 0.25f, healingCount = 7, onion = 3 };
         infos.Clear();
         var healingEnvelope = PikminEnvelope.Write(3, sent, buffer, (int)n);
@@ -641,6 +644,25 @@ static class Program
             Check(Array.Exists(draws, d => d.kind == Native.KindCaptain) && Array.Exists(draws, d => d.kind == Native.KindOnion)
                   && last.first_vertex + li.vertex_count == vc && last.first_color + li.batch_count == cc,
                 $"{nd} draws, {vc} vertices, {cc} colours");
+
+            var hover = new Native.Vec3(onionAt.x, 125f, onionAt.z);
+            Native.pik_sim_set_onion_pose(sim, (uint)onion, ref hover, 1);
+            Native.pik_view_set_onion_ground(view, (uint)onion, 0f);
+            for (int i = 0; i < 60; i++) Native.pik_view_update(view, sim, ref frame);
+            var beamDraws = new ViewDraw[Native.pik_view_draws(view, null, 0)];
+            Native.pik_view_draws(view, beamDraws, (uint)beamDraws.Length);
+            Check(!Array.Exists(beamDraws, d => d.kind == Native.KindBeam), "flying Onion retracts its beam");
+            Native.pik_view_set_onion_menu_beam(view, (uint)onion, 1);
+            Native.pik_view_update(view, sim, ref frame);
+            beamDraws = new ViewDraw[Native.pik_view_draws(view, null, 0)];
+            Native.pik_view_draws(view, beamDraws, (uint)beamDraws.Length);
+            Check(Array.Exists(beamDraws, d => d.kind == Native.KindBeam), "flying menu stretches its beam to the ground");
+            Native.pik_view_set_onion_menu_beam(view, (uint)onion, 0);
+            for (int i = 0; i < 60; i++) Native.pik_view_update(view, sim, ref frame);
+            beamDraws = new ViewDraw[Native.pik_view_draws(view, null, 0)];
+            Native.pik_view_draws(view, beamDraws, (uint)beamDraws.Length);
+            Check(!Array.Exists(beamDraws, d => d.kind == Native.KindBeam), "leaving the flying menu retracts its beam");
+            Native.pik_sim_set_onion_pose(sim, (uint)onion, ref onionAt, 0);
 
             CheckRenderClock(view, sim, ref host, c);
 

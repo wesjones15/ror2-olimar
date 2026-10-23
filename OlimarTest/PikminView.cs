@@ -206,6 +206,7 @@ namespace OlimarTest
             {
                 var onion = world.Onions[i];
                 if (onion.is_ship != 0) continue;
+                models.SetOnionMenuBeam(onion.id, world.OnionMenuBeam(onion.id));
                 var at = UnityHost.ToUnity(onion.pos);
                 if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var hit,
                     250f, UnityHost.Mask, QueryTriggerInteraction.Ignore) && hit.normal.y >= .5f)

@@ -25,7 +25,8 @@ namespace OlimarTest
         /// His Onion's id in the sim, or -1.
         public short onion;
 
-        public const byte Temporary = 1, Arriving = 2, Following = 4, Airborne = 8, Healing = 16;
+        public const byte Temporary = 1, Arriving = 2, Following = 4, Airborne = 8, Healing = 16,
+            MenuBeam = 32, MenuReady = 64;
 
         public bool IsTemporary => (flags & Temporary) != 0;
         public bool IsArriving => (flags & Arriving) != 0;
@@ -34,14 +35,16 @@ namespace OlimarTest
         public bool OnionFollowing => (flags & Following) != 0;
         /// His Onion is in the air (following, taking off or landing).
         public bool OnionAirborne => (flags & Airborne) != 0;
+        public bool OnionMenuBeam => (flags & MenuBeam) != 0;
+        public bool OnionMenuReady => (flags & MenuReady) != 0;
     }
 
     internal static class PikminEnvelope
     {
         /// Bumped whenever a wire format changes; a message with another number is ignored.
-        public const byte Protocol = 7;
+        public const byte Protocol = 8;
         /// pikmin.dll's ABI (Native.AbiVersion), compared so a mismatched build is refused.
-        public static byte Abi = 44;
+        public static byte Abi = 46;
 
         public enum Status { Ok, Corrupt, WrongProtocol, WrongAbi }
 

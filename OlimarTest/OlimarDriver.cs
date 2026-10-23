@@ -423,7 +423,7 @@ namespace OlimarTest
             // RoR2 interactions have first claim on the button.
             bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Relocate : input.skill3.down;
             if (!dismiss) onionPressClaimed = false;
-            // Only the landed beam provides an Onion interact prompt. Elsewhere X relocates it.
+            // A landed or deliberately descended Onion provides the menu. Elsewhere X relocates it.
             bool pikminX = Plugin.Scheme == ControlScheme.Pikmin;
             if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !realPrompt
                 && !InteractPrompt() && pikminX && !PikminWorld.Instance.OnionFlying(DataCaptain))
@@ -655,7 +655,7 @@ namespace OlimarTest
         static byte B(bool v) => v ? (byte)1 : (byte)0;
 
         // ------------------------------------------------------------------------------------
-        // The landed Onion's beam offers direct actions. Olimar may walk out
+        // The Onion's beam offers direct actions. Olimar may walk out
         // while the popup is visible; RoR2 and his Pikmin keep running.
 
         InteractionDriver Interaction()
@@ -675,7 +675,7 @@ namespace OlimarTest
             else if (action == FlyingXAction.Land) world.CommandOnion(DataCaptain, false);
         }
 
-        // Show the shortcut popup automatically in the landed beam. Real RoR2
+        // Show the shortcut popup automatically in the Onion beam. Real RoR2
         // interact prompts still have first claim on X.
         void OnionPrompt()
         {
@@ -689,7 +689,7 @@ namespace OlimarTest
             else if (menuOnion != onion) OpenOnionMenu(onion);
         }
 
-        /// Onion `onion` has a landed beam Olimar can stand in now.
+        /// Onion `onion` has a beam Olimar can stand in now.
         public bool CanOpenOnion(int onion) =>
             onion >= 0 && !MenuOpen && Active && PikminWorld.Instance && PikminWorld.Instance.OnionInReach(DataCaptain) == onion;
 
@@ -724,6 +724,12 @@ namespace OlimarTest
             {
                 byte kind = pad.releaseAll ? OnionCommandPacket.ReleaseAll : OnionCommandPacket.ReturnAll;
                 pad.releaseAll = pad.returnAll = false;
+                if (kind == OnionCommandPacket.ReturnAll && world.OnionFlying(DataCaptain))
+                {
+                    menuNote = "Land the Onion to put Pikmin away.";
+                    world.PlaySound(2, Body.footPosition);
+                    return;
+                }
                 if (world.ManageOnion(DataCaptain, kind)) menuNote = null;
                 else { menuNote = "Stand in the Onion beam to manage Pikmin."; world.PlaySound(2, Body.footPosition); }
                 return;
@@ -743,6 +749,12 @@ namespace OlimarTest
             if (pad.confirm)
             {
                 pad.confirm = false;
+                if (world.OnionFlying(DataCaptain))
+                {
+                    menuNote = "Land the Onion to send its plucker.";
+                    world.PlaySound(2, Body.footPosition);
+                    return;
+                }
                 if (!world.TriggerOnionPlucker(DataCaptain))
                     menuNote = "No ready sprouts near the Onion.";
                 else menuNote = null;

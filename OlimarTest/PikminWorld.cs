@@ -107,6 +107,11 @@ namespace OlimarTest
             public bool reviving;
             public int pickup = -1;
             public float pickupDwell;
+            // The owner walked back beneath a hovering Onion. It holds this spot while its
+            // beam descends, then rises to the saved hover height when he walks away.
+            public bool menuBeam, menuReturning;
+            public Vector3 menuGround, menuHover;
+            public bool menuReady => menuBeam && Vector3.Distance(position, menuGround) < 0.15f;
         }
         readonly Dictionary<CharacterMaster, Cargo> cargo = new Dictionary<CharacterMaster, Cargo>();
         sealed class DolphinFlight
@@ -729,6 +734,7 @@ namespace OlimarTest
             if (onionOf.TryGetValue(captain, out var onion))
             {
                 onion.following = onion.airborne = true;
+                onion.menuBeam = onion.menuReturning = false;
                 onion.transitionDuration = 0f;
                 onion.position = start + Vector3.right * 3f + Vector3.up * 4f;
                 WriteFlight(onion);
@@ -1016,13 +1022,14 @@ namespace OlimarTest
                         }
                 }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
+                if (flight.following && UpdateOnionMenuHover(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionPickup(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && driverOf.TryGetValue(flight.captain, out var d) && d && d.Body)
                 {
                     var at = d.Body.footPosition;
                     // Keep the feet clear of terrain even when following uphill.
                     var forward = d.HasState ? UnityHost.Forward(d.State.face) : d.Body.transform.forward;
-                    var target = at - forward * 3f + Vector3.up * 5f;
+                    var target = at - forward * 8f + Vector3.up * 5f;
                     target.y = Mathf.Max(target.y, UnityHost.Snap(target).y + 3f);
                     if (flight.transitionDuration > 0f)
                     {
@@ -1057,6 +1064,51 @@ namespace OlimarTest
         // then 0.75). Zero is where a landed Onion stands (`landing = hit.point`), so the bottom
         // of its beam touches the ground.
         const float PickupHeight = 0f;
+
+        // Hold the Onion over the spot Olimar walked back to. The same ground-height beam
+        // stretch used during pellet suction draws its cone throughout this descent.
+        bool UpdateOnionMenuHover(OnionFlight flight)
+        {
+            if (!driverOf.TryGetValue(flight.captain, out var driver) || !driver || !driver.Body)
+                return false;
+            var feet = driver.Body.footPosition;
+            if (flight.menuBeam || flight.menuReturning)
+            {
+                var flat = Vector3.ProjectOnPlane(feet - flight.menuGround, Vector3.up);
+                bool stillUnder = OnionMenuPolicy.UnderHover(flat.x, flat.z, true)
+                    && Mathf.Abs(feet.y - flight.menuGround.y) < 1f;
+                if (flight.menuBeam && !stillUnder)
+                {
+                    flight.menuBeam = false;
+                    flight.menuReturning = true;
+                }
+                else if (flight.menuReturning && stillUnder)
+                {
+                    flight.menuBeam = true;
+                    flight.menuReturning = false;
+                }
+                if (flight.menuBeam)
+                    flight.position = Vector3.MoveTowards(flight.position, flight.menuGround, 3f * Time.fixedDeltaTime);
+                else
+                {
+                    flight.position = Vector3.MoveTowards(flight.position, flight.menuHover, 3f * Time.fixedDeltaTime);
+                    if (Vector3.Distance(flight.position, flight.menuHover) < 0.1f)
+                        flight.menuReturning = false;
+                }
+                return true;
+            }
+            if (flight.pickup >= 0 || flight.transitionDuration > 0f) return false;
+            var offset = Vector3.ProjectOnPlane(feet - flight.position, Vector3.up);
+            if (!OnionMenuPolicy.UnderHover(offset.x, offset.z, false)) return false;
+            if (!Physics.Raycast(flight.position + Vector3.up * 2f, Vector3.down, out var floor,
+                30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || floor.normal.y < 0.5f
+                || Mathf.Abs(feet.y - floor.point.y) >= 1f) return false;
+            flight.menuGround = new Vector3(flight.position.x, floor.point.y, flight.position.z);
+            flight.menuHover = flight.position;
+            flight.menuBeam = true;
+            flight.position = Vector3.MoveTowards(flight.position, flight.menuGround, 3f * Time.fixedDeltaTime);
+            return true;
+        }
 
         // Flying Onions must descend and dwell before sucking up a loose pellet.
         // Carry teams can still hand theirs off normally once the Onion is low enough.
@@ -1115,6 +1167,12 @@ namespace OlimarTest
         public bool OnionFlying(int captain) => ClientMode
             ? remoteInfo.TryGetValue(captain, out var info) && info.OnionAirborne
             : onionOf.TryGetValue(captain, out var f) && f.airborne;
+        public bool OnionMenuBeam(uint onion)
+        {
+            if (ClientMode)
+                return remoteInfo.Values.Any(info => info.onion == (int)onion && info.OnionMenuBeam);
+            return onionOf.Values.Any(f => f.id == (int)onion && f.menuBeam);
+        }
         public uint OnionColour(int onion)
         {
             foreach (var f in onionOf.Values)
@@ -1139,6 +1197,7 @@ namespace OlimarTest
             if (f.dormant) return false;
             f.pickup = -1;
             f.pickupDwell = 0f;
+            f.menuBeam = f.menuReturning = false;
             if (follow == f.following && (follow || f.airborne)) return true;
             if (!follow)
             {
@@ -1317,21 +1376,24 @@ namespace OlimarTest
                 for (int i = 0; i < OnionCount; i++)
                     if (Onions[i].id == info.onion)
                         return InOnionBeam(moverDriver, moverSim, 0, UnityHost.ToUnity(Onions[i].pos),
-                            info.OnionAirborne, info.OnionFollowing, OnionDisabled(info.onion)) ? info.onion : -1;
+                            info.OnionAirborne, info.OnionFollowing, info.OnionMenuReady, OnionDisabled(info.onion)) ? info.onion : -1;
                 return -1;
             }
             if (sim == IntPtr.Zero || !onionOf.TryGetValue(captain, out var f)
                 || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body) return -1;
-            return InOnionBeam(d, sim, captain, f.position, f.airborne, f.following, f.dormant) ? f.id : -1;
+            return InOnionBeam(d, sim, captain, f.position, f.airborne, f.following, f.menuReady, f.dormant) ? f.id : -1;
         }
 
         static bool InOnionBeam(OlimarDriver driver, IntPtr captainSim, int captain, Vector3 position,
-            bool airborne, bool following, bool dormant)
+            bool airborne, bool following, bool hoverReady, bool dormant)
         {
             if (!driver.Active || captainSim == IntPtr.Zero
                 || Native.pik_sim_captain(captainSim, (uint)captain, out var state) == 0) return false;
-            var offset = (driver.Body.footPosition - position) / UnityHost.Scale;
-            return OnionMenuPolicy.InBeam(airborne, following, dormant, state.on_ground != 0,
+            float groundY = position.y;
+            if (hoverReady && Physics.Raycast(position + Vector3.up * 2f, Vector3.down, out var floor,
+                30f, UnityHost.Mask, QueryTriggerInteraction.Ignore)) groundY = floor.point.y;
+            var offset = (driver.Body.footPosition - new Vector3(position.x, groundY, position.z)) / UnityHost.Scale;
+            return OnionMenuPolicy.InBeam(airborne, following, hoverReady, dormant, state.on_ground != 0,
                 offset.x, offset.y, offset.z);
         }
 
@@ -1391,7 +1453,7 @@ namespace OlimarTest
         public bool TriggerOnionPlucker(int captain)
         {
             int onion = OnionInReach(captain);
-            if (onion < 0) return false;
+            if (onion < 0 || OnionFlying(captain)) return false;
             if (ClientMode)
             {
                 if (!moverDriver) return false;
@@ -1419,11 +1481,13 @@ namespace OlimarTest
         }
 
         // Resolve bulk commands on the server, against current stock, not a client's snapshot.
-        // All menu commands require standing in the landed beam, including remote requests.
+        // All menu commands require standing in the beam, including remote requests.
         public bool ManageOnion(int captain, byte kind, uint count = 0)
         {
             int onion = OnionInReach(captain);
             if (onion < 0 || kind < OnionCommandPacket.CallOutAny || kind > OnionCommandPacket.ReturnAll) return false;
+            if (OnionFlying(captain) && (kind == OnionCommandPacket.PutAwayAny || kind == OnionCommandPacket.ReturnAll))
+                return false;
             if (ClientMode)
             {
                 if (!moverDriver) return false;
@@ -1469,6 +1533,7 @@ namespace OlimarTest
 
         public uint PutAway(int captain, int onion, uint colour, uint n)
         {
+            if (OnionFlying(captain)) return 0;
             if (ClientMode)
             {
                 if (moverDriver) moverDriver.SendOnion(OnionCommandPacket.PutAway, colour, n);
@@ -1637,6 +1702,8 @@ namespace OlimarTest
                     onion = (short)flight.id;
                     if (flight.following) flags |= CaptainInfo.Following;
                     if (flight.airborne) flags |= CaptainInfo.Airborne;
+                    if (flight.menuBeam) flags |= CaptainInfo.MenuBeam;
+                    if (flight.menuReady) flags |= CaptainInfo.MenuReady;
                 }
                 float heal = HealingProgress((uint)kv.Key);
                 if (heal >= 0f) flags |= CaptainInfo.Healing;
@@ -2379,6 +2446,7 @@ namespace OlimarTest
             f.dormantAge = f.reviveAge = 0f;
             f.reviving = false;
             f.following = f.airborne = false;
+            f.menuBeam = f.menuReturning = false;
             f.pickup = -1;
             f.transitionDuration = 0f;
             f.position = UnityHost.Snap(f.position);
@@ -2439,6 +2507,7 @@ namespace OlimarTest
 
         void LandOnionNow(OnionFlight f)
         {
+            f.menuBeam = f.menuReturning = false;
             var ground = Physics.Raycast(f.position + Vector3.up * 2f, Vector3.down, out var hit, 60f, UnityHost.Mask,
                 QueryTriggerInteraction.Ignore) && hit.normal.y >= 0.5f ? hit.point : UnityHost.Snap(f.position);
             f.landing = ground;
