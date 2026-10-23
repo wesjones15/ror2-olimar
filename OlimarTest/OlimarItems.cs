@@ -539,8 +539,8 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
                 $"<style=cIsUtility>Press RB</style> to strike every enemy within <style=cIsUtility>{Plugin.StrikeReachMetres.Value:0.#} m</style> for " +
-                $"{strikeDamage} and stun them for 1 second (bosses resist). The squad charges the way you struck for " +
-                $"<style=cIsUtility>{Plugin.StrikeChargeSeconds.Value:0.#} seconds</style>. A kill refunds the cooldown. " +
+                $"{strikeDamage} and stun them for 1 second (bosses resist). Pikmin charge enemies in that direction, " +
+                $"jump, and latch on. With no target, they swarm forward for <style=cIsUtility>{Plugin.StrikeChargeSeconds.Value:0.#} seconds</style>. A kill refunds the cooldown. " +
                 $"Cooldown: <style=cIsUtility>{Plugin.StrikeCooldown.Value:0.#} seconds</style>.");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_NAME", "Onion Pluckers");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_DESC",

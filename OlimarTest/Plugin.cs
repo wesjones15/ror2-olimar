@@ -158,8 +158,8 @@ namespace OlimarTest
                 "his damage stat; 22.5 is a quarter of the dismiss strike's 4x, about 1.1 times his damage stat. 0: the disc's. " +
                 "The strike is a multiple of this.");
             StrikeChargeSeconds = Config.Bind("Combat", "StrikeChargeSeconds", 3f,
-                "After a strike the squad swarms the way he struck (at the enemy he is locked onto, else the way he faces) for this many seconds, " +
-                "counted from the strike. Moving the right stick swarms instead. 0: no charge.");
+                "After a strike, Pikmin charge enemies in the attack direction, jump, and latch on. With no target they swarm forward for this many seconds. " +
+                "Moving the right stick overrides the forward swarm. 0: no charge.");
             StrikeStun = Config.Bind("Combat", "StrikeStun", true, "The strike staggers what it hits (RoR2's one-second stun; bosses resist).");
             StrikeKillReset = Config.Bind("Combat", "StrikeKillReset", true,
                 "A kill with the strike gives its charge straight back. Off: the cooldown always runs in full.");
