@@ -720,6 +720,8 @@ namespace OlimarTest
                     if (NetworkServer.active) Recover(part.slot);
                     else { var w = new ByteWriter(); w.Str(runId); w.U32(remoteEpoch); w.I32(part.slot); Mp.SendToServer(RecoveryMessage, w.ToArray(), true); }
                 }
+                // Once Pikmin have it, the carrier count over it says what is needed; the name steps aside.
+                if (HasCarriers(part)) continue;
                 var user = LocalUserManager.GetFirstLocalUser();
                 var camera = user?.cameraRigController ? user.cameraRigController.sceneCam : Camera.main;
                 if (!camera) continue;
@@ -730,6 +732,15 @@ namespace OlimarTest
                 ShipRepairUi.PikminText(part.weight + " carriers" + (Competitive && race.Players.TryGetValue(LocalUserId, out var me) && (me.Mask & (1u << part.id)) != 0 ? " - Onion salvage" : ""),
                     labelX, labelY + 28f, 18f, 260f, new Color(1f, .94f, .72f));
             }
+        }
+        // Whether any Pikmin have taken hold of the part (the world's pellets, or a client's replica of them).
+        static bool HasCarriers(Part part)
+        {
+            var world = PikminWorld.Instance;
+            if (!world) return false;
+            for (int i = 0; i < world.PelletCount; i++)
+                if (world.Pellets[i].id == part.pellet) return world.Pellets[i].state <= 1 && world.Pellets[i].carriers > 0;
+            return false;
         }
         static int CountBits(uint mask) { int n = 0; while (mask != 0) { mask &= mask - 1; n++; } return n; }
         static string FormatTime(double seconds) => TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss");
