@@ -344,10 +344,9 @@ namespace OlimarTest
                 i.cycle = B(pad.Cycle);
                 i.jump = B(pad.Jump);
                 i.jump_blocked = B(pad.jumpBlocked);
-                // The camera centres on Olimar, so its crosshair ray normally meets the ground
-                // almost at his feet. Lead a nearby floor hit forward to keep the free cursor
-                // useful while following the camera's heading. The sim clamps it to ThrowReach
-                // and finds the ground height at the resulting XZ position.
+                // Aim at the camera crosshair's world point, including ground close to Olimar.
+                // The sim clamps only the maximum distance to ThrowReach and finds the ground
+                // height at the resulting XZ position; there is no minimum cursor distance.
                 var sceneCam = camRig ? camRig.sceneCam : null;
                 if (sceneCam)
                 {
@@ -355,12 +354,6 @@ namespace OlimarTest
                     bool hitGround = Physics.Raycast(ray, out var hit, 60f, UnityHost.Mask,
                         QueryTriggerInteraction.Ignore);
                     var aim = hitGround ? hit.point : ray.GetPoint(60f);
-                    var forward = new Vector3(ray.direction.x, 0f, ray.direction.z).normalized;
-                    float lead = 300f * UnityHost.Scale * Mathf.Max(0f, Plugin.ThrowReach.Value) * 0.35f;
-                    var offset = new Vector2(aim.x - feet.x, aim.z - feet.z);
-                    if (hitGround && hit.normal.y > 0.5f && offset.sqrMagnitude < lead * lead
-                        && forward.sqrMagnitude > 0.01f)
-                        aim = feet + forward * lead;
                     i.cursor = UnityHost.ToSim(aim);
                     i.use_cursor = 1;
                 }
