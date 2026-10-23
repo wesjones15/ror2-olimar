@@ -344,9 +344,9 @@ namespace OlimarTest
                 i.cycle = B(pad.Cycle);
                 i.jump = B(pad.Jump);
                 i.jump_blocked = B(pad.jumpBlocked);
-                // Aim at the camera crosshair's world point, including ground close to Olimar.
-                // The sim clamps only the maximum distance to ThrowReach and finds the ground
-                // height at the resulting XZ position; there is no minimum cursor distance.
+                // Follow the camera crosshair on the ground. Keep the free cursor about one
+                // foot from Olimar at minimum, so looking straight down can still aim close.
+                // The sim keeps the existing ThrowReach maximum and finds the ground height.
                 var sceneCam = camRig ? camRig.sceneCam : null;
                 if (sceneCam)
                 {
@@ -354,6 +354,21 @@ namespace OlimarTest
                     bool hitGround = Physics.Raycast(ray, out var hit, 60f, UnityHost.Mask,
                         QueryTriggerInteraction.Ignore);
                     var aim = hitGround ? hit.point : ray.GetPoint(60f);
+                    const float minRadius = 0.3048f; // One foot in Unity's metre units.
+                    var offset = new Vector2(aim.x - feet.x, aim.z - feet.z);
+                    if (offset.sqrMagnitude < minRadius * minRadius)
+                    {
+                        if (offset.sqrMagnitude < 0.000001f)
+                            offset = new Vector2(ray.direction.x, ray.direction.z);
+                        if (offset.sqrMagnitude < 0.000001f)
+                        {
+                            var forward = UnityHost.Forward(Yaw());
+                            offset = new Vector2(forward.x, forward.z);
+                        }
+                        offset = offset.normalized * minRadius;
+                        aim.x = feet.x + offset.x;
+                        aim.z = feet.z + offset.y;
+                    }
                     i.cursor = UnityHost.ToSim(aim);
                     i.use_cursor = 1;
                 }
