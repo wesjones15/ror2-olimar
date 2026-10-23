@@ -743,7 +743,7 @@ namespace OlimarTest
         }
 
         // Timings of the arrival, in seconds from the Dolphin's descent: the Onion starts down as the
-        // ship nears the ground and takes OnionLanding to land beside it, its light cone opens, and
+        // ship nears the ground and takes OnionLanding to land away from it, its light cone opens, and
         // Olimar beams in over BeamSeconds with the squad coming out of the Onion.
         const float DescentSeconds = 3.5f, OnionLandsAt = 1.6f, OnionLanding = 2f, BeamDelay = 0.5f,
             BeamSeconds = 0.9f, SquadOutAt = 0.3f;
@@ -771,7 +771,7 @@ namespace OlimarTest
                 if (!driverOf.TryGetValue(ship.captain, out var driver) || !driver) continue;
                 ship.elapsed += Time.fixedDeltaTime;
                 float t = Mathf.Clamp01(ship.elapsed / DescentSeconds);
-                // Decelerate into a short landing. The Onion releases Pikmin beside the
+                // Decelerate into a short landing. The Onion releases Pikmin away from the
                 // Dolphin; Olimar's materialization starts at the ship's hatch.
                 float eased = 1f - (1f - t) * (1f - t);
                 var at = Vector3.Lerp(ship.start, ship.landing, eased);
@@ -785,8 +785,7 @@ namespace OlimarTest
                     {
                         ship.onionDown = true;
                         onion.following = false;
-                        // Where Olimar stands (the Dolphin is behind him).
-                        onion.landing = OnionSpot(driver);
+                        onion.landing = OnionSpot(driver, ship.landing);
                         onion.transitionStart = onion.position;
                         onion.transitionElapsed = 0f;
                         onion.transitionDuration = OnionLanding;
@@ -821,16 +820,44 @@ namespace OlimarTest
             }
         }
 
-        /// Where the Onion lands for the arrival: to Olimar's right, on the ground, so he forms by the
-        /// Dolphin and the squad comes out of the Onion to him.
-        static Vector3 OnionSpot(OlimarDriver driver)
+        /// Find a clear, walkable arrival site well clear of Olimar and his Dolphin. Narrow maps
+        /// get progressively shorter options; a missing path never strands the starting squad.
+        static Vector3 OnionSpot(OlimarDriver driver, Vector3 dolphin)
         {
             var feet = driver.Body.footPosition;
-            var right = Vector3.Cross(Vector3.up, Vector3.ProjectOnPlane(driver.Body.transform.forward, Vector3.up)).normalized;
-            if (right.sqrMagnitude < 0.5f) return feet;
-            var at = feet + right * 4.5f;
-            return Physics.Raycast(at + Vector3.up * 3f, Vector3.down, out var floor, 12f, UnityHost.Mask,
-                QueryTriggerInteraction.Ignore) && floor.normal.y > 0.5f ? floor.point : feet;
+            var forward = Vector3.ProjectOnPlane(driver.Body.transform.forward, Vector3.up).normalized;
+            if (forward.sqrMagnitude < 0.5f) forward = Vector3.forward;
+            var right = Vector3.Cross(Vector3.up, forward).normalized;
+            var directions = new[] {
+                (right + forward * 0.35f).normalized, right, (right - forward * 0.35f).normalized,
+                (forward + right * 0.5f).normalized, (-forward + right * 0.5f).normalized,
+                (-right + forward * 0.35f).normalized, -right,
+            };
+            var route = new List<Vector3>();
+            foreach (float radius in new[] { 13f, 11f, 9f, 7f })
+                foreach (var direction in directions)
+                {
+                    var probe = feet + direction * radius;
+                    if (!Physics.Raycast(probe + Vector3.up * 12f, Vector3.down, out var floor, 24f,
+                        UnityHost.Mask, QueryTriggerInteraction.Ignore) || floor.normal.y < 0.7f) continue;
+                    var point = floor.point;
+                    if (Vector3.ProjectOnPlane(point - dolphin, Vector3.up).sqrMagnitude < 7f * 7f
+                        || Mathf.Abs(point.y - feet.y) > 3f) continue;
+                    if (Physics.CheckCapsule(point + Vector3.up * 2.2f, point + Vector3.up * 6f,
+                        1.5f, UnityHost.Mask, QueryTriggerInteraction.Ignore)) continue;
+                    bool supported = true;
+                    foreach (var edge in new[] { right, -right, forward, -forward })
+                        if (!Physics.Raycast(point + edge * 1.8f + Vector3.up * 3f, Vector3.down,
+                            out var rim, 6f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
+                            || rim.normal.y < 0.65f || Mathf.Abs(rim.point.y - point.y) > 1.5f)
+                        { supported = false; break; }
+                    if (!supported || !ShipPartNavigation.TryPath(feet, point, route)) continue;
+                    return point;
+                }
+            Plugin.Log.LogWarning("No clear reachable Onion arrival site away from the Dolphin; using the nearby landing spot.");
+            var nearby = feet + right * 4.5f;
+            return Physics.Raycast(nearby + Vector3.up * 3f, Vector3.down, out var fallback, 12f,
+                UnityHost.Mask, QueryTriggerInteraction.Ignore) && fallback.normal.y > 0.5f ? fallback.point : feet;
         }
 
         /// Olimar's beam-in progress, 0..1 while it lasts, else -1 (the presenter draws him as a column of
