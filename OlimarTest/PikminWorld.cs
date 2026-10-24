@@ -76,6 +76,13 @@ namespace OlimarTest
         readonly PikminAffixes affixes = new PikminAffixes();
         // Keep stepping until then after an Olimar goes down, so his knockdown plays.
         float stepUntil;
+        // Keep the knockdown drawn until then (past game over), like Mario's death fall, so the
+        // player's Olimar lies where he fell instead of a Commando ragdoll.
+        float corpseUntil;
+        /// How long the downed Olimar stays on screen (the run is already over).
+        const float CorpseSeconds = 6f;
+        /// An Olimar's knockdown corpse is still on screen (his body died, the run may be over).
+        public bool CorpseActive => corpseUntil > Time.fixedTime;
         // Healing wards about (Bustling Fungus and the like), refreshed now and then.
         HealingWard[] wards = new HealingWard[0];
         float wardsFoundAt = -10f;
@@ -400,6 +407,8 @@ namespace OlimarTest
 
         public void StopPresentation()
         {
+            // A downed Olimar's knockdown is still playing out (past game over); keep its models.
+            if (corpseUntil > Time.fixedTime) return;
             if (view) view.StopModels();
         }
 
@@ -1562,6 +1571,12 @@ namespace OlimarTest
                 return;
             }
             if (sim == IntPtr.Zero) return;
+            if (corpseUntil > 0f && Time.fixedTime >= corpseUntil)
+            {
+                // The downed Olimar's knockdown has played out; drop the models (the run is over).
+                corpseUntil = 0f;
+                if (view) view.StopModels();
+            }
             if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal)
             {
                 ReadBack();
@@ -2594,9 +2609,11 @@ namespace OlimarTest
             {
                 olimar.PlayDeathSound();
                 // His knockdown (ODead) in place of RoR2's ragdoll, which is on his hidden
-                // Commando model; RoR2's own death state still runs.
+                // Commando model (its RagdollController is removed at content load, so no
+                // corpse spawns). Keep it drawn past game over for a moment, like Mario's fall.
                 Native.pik_sim_down_captain(sim, (uint)olimar.Captain, 1);
                 stepUntil = Time.fixedTime + 3f;
+                corpseUntil = Time.fixedTime + CorpseSeconds;
                 OnOlimarDied(olimar);
                 return;
             }

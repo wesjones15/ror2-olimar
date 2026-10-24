@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -569,6 +569,11 @@ namespace OlimarTest
             }
 
             var body = Prefabs.Clone(commando, "OlimarTestBody", Plugin.Guid);
+            // The clone inherits Commando's RagdollController, so vanilla's death state would drop
+            // a Commando ragdoll corpse. Olimar's knockdown (ODead) is drawn by the native view in
+            // its place, so remove the controller and leave no vanilla corpse.
+            foreach (var ragdoll in body.GetComponentsInChildren<RagdollController>(true))
+                UnityEngine.Object.DestroyImmediate(ragdoll);
             Size(body);
             var cb = body.GetComponent<CharacterBody>();
             cb.baseNameToken = "OLIMARTEST_BODY_NAME";

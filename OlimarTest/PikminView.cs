@@ -142,7 +142,8 @@ namespace OlimarTest
 
         void LateUpdate()
         {
-            if (Ror2Common.RunAudio.Ended) return;
+            // Game over stops the view, except a downed Olimar's knockdown corpse still plays out.
+            if (Ror2Common.RunAudio.Ended && (!world || !world.CorpseActive)) return;
             if (!world || !world.Running) return;
             using var timing = OlimarPerformance.Measure(OlimarPerformance.Part.Draw);
             if (models != null && world.Healthy)
