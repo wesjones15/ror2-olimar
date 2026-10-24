@@ -111,11 +111,11 @@ namespace OlimarTest
             }
             scene.Step(20, d => d.kind == Native.KindCaptain || d.kind == Native.KindPiki
                 || d.kind == Native.KindHappa || d.kind == Native.KindCursor || d.kind == Native.KindMarker);
-            card.Center = new Vector3(0f, 2.35f, 0f);
-            card.Radius = 2.15f;
+            card.Center = new Vector3(0f, 210f * scene.Scale + 0.4f, 0f);
+            card.Radius = 2.8f;
             card.Yaw = 0.40f;
-            card.Pitch = 0.10f;
-            card.Distance = 1.55f;
+            card.Pitch = 0.08f;
+            card.Distance = 1.70f;
             card.Disposing = scene.Dispose;
             return card;
         }
@@ -152,6 +152,7 @@ namespace OlimarTest
             readonly List<Material> materials = new List<Material>();
 
             public IntPtr Sim => sim;
+            public float Scale => scale;
 
             public Scene(SkillCardStage card, string name)
             {
