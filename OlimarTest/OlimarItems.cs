@@ -497,14 +497,6 @@ namespace OlimarTest
                 SetPluckers = sprite => loc.passiveSkill.icon = sprite;
             }
             OlimarSkillIcons.RequestAll();
-            // Vanilla icons that read as each move, swapped in once RoR2's skills have loaded
-            // (Commando's stay until then): Huntress's Strafe, Captain's DIABLO strike, Engineer's
-            // Spider Mines, Void Fiend's Flood and Captain's healing beacon.
-            VanillaIcons.Use(Throw, "HuntressBodyFireSeekingArrow");
-            VanillaIcons.Use(Whistle, "PrepAirstrikeAlt");
-            VanillaIcons.Use(Relocate, "EngiBodyPlaceSpiderMine");
-            VanillaIcons.Use(Strike, "ChargeMegaBlaster");
-            VanillaIcons.UsePassive(body, "CallSupplyDropHealing");
         }
 
         public static void Tokens(Language lang)
