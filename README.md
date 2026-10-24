@@ -3,7 +3,7 @@
 # ror2-olimar
 
 Olimar's five approved skill portraits render in Unity after first-run disc extraction
-and persist as 256x256 BMPs under the resolved `assets/skill-icons/approved-v2/` folder.
+and persist as 256x256 BMPs under the resolved `assets/skill-icons/approved-v3/` folder.
 Later starts reuse them; missing or corrupt cards regenerate. The sprout is buried in
 a shallow soil mound on purple, the original airborne throw is close on light blue,
 whistle effects use navy, the flying Onion uses blue, and the close dismiss pose has
@@ -14,6 +14,11 @@ Native scene/ABI checks: `dotnet run --project tests/PortraitCheck -c Release --
 leaf, airborne throw, whistle/Onion particles and charging squad. Generated images
 and extracted artwork stay outside Git and releases. Unity appearance still needs
 manual in-game review.
+
+Cache revision v3 regenerates cards affected by another plugin's render objects.
+The shared capture now excludes every renderer outside the active portrait hierarchy,
+including Mario's spray awaiting frame-end destruction; whistle's native effects are
+unchanged. The isolation regression passes; corrected in-game appearance is pending.
 
 Modern 0.2.4: native-control fall recovery now uses common Unstuck.FellEarly at
 Mario's TOO BAD onset: more than 20m below last safe ground with no floor within
