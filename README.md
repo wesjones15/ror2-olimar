@@ -2,6 +2,19 @@
 
 # ror2-olimar
 
+Olimar's five approved skill portraits render in Unity after first-run disc extraction
+and persist as 256x256 BMPs under the resolved `assets/skill-icons/approved-v2/` folder.
+Later starts reuse them; missing or corrupt cards regenerate. The sprout is buried in
+a shallow soil mound on purple, the original airborne throw is close on light blue,
+whistle effects use navy, the flying Onion uses blue, and the close dismiss pose has
+twelve charging Pikmin on grass green. All use the native game models and effects.
+
+Native scene/ABI checks: `dotnet run --project tests/PortraitCheck -c Release --
+../libpikmin/target/release/pikmin.dll ../libpikmin/assets`. These verify the sprout and
+leaf, airborne throw, whistle/Onion particles and charging squad. Generated images
+and extracted artwork stay outside Git and releases. Unity appearance still needs
+manual in-game review.
+
 Modern 0.2.4: native-control fall recovery now uses common Unstuck.FellEarly at
 Mario's TOO BAD onset: more than 20m below last safe ground with no floor within
 2000m, or a valid stage return zone. Lower platforms remain valid landing targets.

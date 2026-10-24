@@ -6,253 +6,206 @@ using UnityEngine;
 
 namespace OlimarTest
 {
-    // Olimar's skill portraits, from his own Pikmin 1 disc files on first run (the same
-    // contract as the Melee portraits). A throwaway sim is posed for each move; PikminModels
-    // draws the models and libpikmin's particles, and ror2-common's SkillCard frames it.
+    // Approved viewer compositions, rebuilt from the player's own disc cache by Unity.
+    // PikiHeadItem / RollJmp / NaviWhistle / GoalItem / Fue retain their native assets.
     internal static class OlimarSkillIcons
     {
         static readonly Native.GroundFn groundFn = Ground;
-        static Native.Host floor = new Native.Host
-        {
-            ground_height = Marshal.GetFunctionPointerForDelegate(groundFn),
-        };
-
-        static readonly Color Green = new Color(0.32f, 0.70f, 0.34f);
-        static readonly Color Red = new Color(0.90f, 0.26f, 0.20f);
-        static readonly Color Yellow = new Color(0.95f, 0.78f, 0.18f);
-        static readonly Color Blue = new Color(0.24f, 0.52f, 0.94f);
+        static Native.Host floor = new Native.Host { ground_height = Marshal.GetFunctionPointerForDelegate(groundFn) };
+        const float ViewerYaw = 3.65f;
 
         public static void RequestAll()
         {
-            SkillCard.Request(OlimarSkills.Throw, "OlimarThrow", () => Plugin.AssetsReady, Throw);
-            SkillCard.Request(OlimarSkills.Whistle, "OlimarWhistle", () => Plugin.AssetsReady, Whistle);
-            SkillCard.Request(OlimarSkills.Relocate, "OlimarRelocateOnion", () => Plugin.AssetsReady, Onion);
-            SkillCard.Request(OlimarSkills.Strike, "OlimarDismissStrike", () => Plugin.AssetsReady, Strike);
-            SkillCard.Request(OlimarSkills.SetPluckers, "OlimarPluckers", () => Plugin.AssetsReady, Pluckers);
+            SkillCard.Request(OlimarSkills.Throw, "OlimarThrow", () => Plugin.AssetsReady, Throw, () => Plugin.AssetsDir);
+            SkillCard.Request(OlimarSkills.Whistle, "OlimarWhistle", () => Plugin.AssetsReady, Whistle, () => Plugin.AssetsDir);
+            SkillCard.Request(OlimarSkills.Relocate, "OlimarRelocateOnion", () => Plugin.AssetsReady, Onion, () => Plugin.AssetsDir);
+            SkillCard.Request(OlimarSkills.Strike, "OlimarDismissStrike", () => Plugin.AssetsReady, Strike, () => Plugin.AssetsDir);
+            SkillCard.Request(OlimarSkills.SetPluckers, "OlimarPluckers", () => Plugin.AssetsReady, Pluckers, () => Plugin.AssetsDir);
         }
 
-        static byte Ground(IntPtr user, ref Native.Vec3 pos, out float height)
-        {
-            height = 0f;
-            return 1;
-        }
+        static byte Ground(IntPtr user, ref Native.Vec3 pos, out float height) { height = 0f; return 1; }
+        static bool HideCaptain(ViewDraw draw) => draw.kind == Native.KindCaptain;
 
-        // A red sprout in a mound of soil.
         static SkillCardStage Pluckers()
         {
-            var card = Card("Olimar Pluckers", Green);
-            var scene = new Scene(card, "Olimar pluckers portrait");
-            var at = new Native.Vec3(0f, 0f, 0f);
-            Native.pik_sim_plant_sprout(scene.Sim, Native.Red, ref at);
-            Native.pik_sim_set_sprout_stages(scene.Sim, 1f, 60f);
-            scene.Step(150, d => d.kind != Native.KindSprout && d.kind != Native.KindSproutHappa
-                && d.kind != Native.KindCaptain);
-            scene.AddDirt(Vector3.zero, 0.42f);
-            card.Center = new Vector3(0f, 0.28f, 0f);
-            card.Radius = 0.52f;
-            card.Yaw = 0.55f;
-            card.Pitch = 0.22f;
-            card.Distance = 1.55f;
-            card.Disposing = scene.Dispose;
+            var card = Card("Olimar Pluckers", new Color32(105, 57, 144, 255), 42f, 0.23f);
+            var scene = new Scene(card);
+            var origin = new Native.Vec3(0f, 0f, 0f);
+            Native.pik_sim_plant_sprout(scene.Sim, Native.Red, ref origin);
+            // itemAI.cpp PikiHeadAI::Wait: UGWAIT (3). No forced growth into a bud.
+            scene.Step(16, d => d.kind != Native.KindSprout && d.kind != Native.KindSproutHappa);
+            scene.AddDirt();
+            card.Center = scene.Metres(0f, 7f, 0f);
+            Finish(card, scene);
             return card;
         }
 
-        // A thrown Pikmin at the top of its arc, Olimar behind it.
         static SkillCardStage Throw()
         {
-            var card = Card("Olimar Throw", Red);
-            var scene = new Scene(card, "Olimar throw portrait");
-            scene.SpawnSquad(3);
-            var input = default(Native.Input);
-            input.cursor = new Native.Vec3(95f, 0f, 0f);
-            input.throw_ = 1;
-            Native.pik_sim_set_input(scene.Sim, 0, ref input);
-            scene.Step(7, null);
-            var at = scene.HighestFlyingPiki();
-            card.Center = at + new Vector3(0f, 0.25f, 0f);
-            card.Radius = 0.62f;
-            card.Yaw = 0.75f;
-            card.Pitch = 0.15f;
-            card.Distance = 1.65f;
-            card.Disposing = scene.Dispose;
+            var card = Card("Olimar Throw", new Color32(140, 207, 242, 255), 34f, 0.08f);
+            var scene = new Scene(card);
+            var at = new Native.Vec3(0f, 0f, 12f);
+            Native.pik_sim_spawn_piki(scene.Sim, Native.Red, ref at, 0);
+            // Same press/release and frame 13 as the approved native viewer capture.
+            scene.Step(13, HideCaptain, frame => scene.Input(new Native.Input
+                { cursor = new Native.Vec3(0f, 0f, 45f), use_cursor = 1, throw_ = (byte)(frame == 5 ? 1 : 0) }));
+            var flying = scene.FlyingPiki();
+            var right = new Vector3(-Mathf.Cos(ViewerYaw), 0f, Mathf.Sin(ViewerYaw));
+            card.Center = scene.Metres(flying.x, flying.y + 16f, flying.z) - right * (3f * scene.Scale);
+            Finish(card, scene);
             return card;
         }
 
-        // The whistle ring at Olimar's feet.
         static SkillCardStage Whistle()
         {
-            var card = Card("Olimar Whistle", Yellow);
-            var scene = new Scene(card, "Olimar whistle portrait");
-            scene.SpawnSquad(4);
-            var input = default(Native.Input);
-            input.whistle = 1;
-            Native.pik_sim_set_input(scene.Sim, 0, ref input);
-            scene.Step(8, null);
-            card.Center = scene.CaptainAt(0f, 0.30f, 0f);
-            card.Radius = 1.95f;
-            card.Yaw = 0.55f;
-            card.Pitch = 0.42f;
-            card.Distance = 1.60f;
-            card.Disposing = scene.Dispose;
+            var card = Card("Olimar Whistle", new Color32(20, 26, 43, 255), 300f, 0.65f);
+            var scene = new Scene(card);
+            // NaviWhistle.h: particles 9/10/11 and NaviFue's circle (20).
+            scene.Input(new Native.Input { whistle = 1, use_cursor = 1, cursor = new Native.Vec3(0f, 0f, 45f) });
+            scene.Step(16, null);
+            card.Center = scene.Metres(0f, 5f, 30f);
+            Finish(card, scene);
             return card;
         }
 
-        // The Onion in flight, with the beam and its own effects.
         static SkillCardStage Onion()
         {
-            var card = Card("Olimar Onion", Blue);
-            var scene = new Scene(card, "Olimar onion portrait");
-            var at = new Native.Vec3(0f, 210f, 0f);
-            int onion = Native.pik_sim_add_onion(scene.Sim, ref at, 0b111);
-            if (onion >= 0)
-            {
-                Native.pik_sim_set_onion_pose(scene.Sim, (uint)onion, ref at, 1);
-                Native.pik_sim_set_onion_flight_motion(scene.Sim, (uint)onion, 0, 0.5f);
-            }
-            scene.Step(20, d => d.kind == Native.KindCaptain || d.kind == Native.KindPiki
-                || d.kind == Native.KindHappa || d.kind == Native.KindCursor || d.kind == Native.KindMarker);
-            card.Center = new Vector3(0f, 210f * scene.Scale + 0.4f, 0f);
-            card.Radius = 2.8f;
-            card.Yaw = 0.40f;
-            card.Pitch = 0.08f;
-            card.Distance = 1.70f;
-            card.Disposing = scene.Dispose;
+            var card = Card("Olimar Onion", new Color32(31, 88, 150, 255), 190f, 0.12f);
+            var scene = new Scene(card);
+            var at = new Native.Vec3(0f, 100f, 0f);
+            int onion = Native.pik_sim_add_onion(scene.Sim, ref at, 1u << (int)Native.Red);
+            if (onion < 0) throw new InvalidOperationException("Portrait Onion didn't spawn");
+            Native.pik_sim_set_onion_pose(scene.Sim, (uint)onion, ref at, 1);
+            Native.pik_sim_set_onion_flight_motion(scene.Sim, (uint)onion, 0, 0f);
+            // Cross the real animation's effect keys instead of posing only its last frame.
+            scene.Step(30, HideCaptain, null, frame =>
+                Native.pik_sim_set_onion_flight_motion(scene.Sim, (uint)onion, 0, frame / 60f));
+            card.Center = scene.Metres(0f, 175f, 0f);
+            Finish(card, scene);
             return card;
         }
 
-        // Olimar's dismiss strike, mid-call, with the squad charging.
         static SkillCardStage Strike()
         {
-            var card = Card("Olimar Dismiss Strike", Red);
-            var scene = new Scene(card, "Olimar strike portrait");
-            scene.SpawnSquad(5);
-            Native.pik_sim_set_dismiss_strike(scene.Sim, 1f, 150f, 0f, 10f);
-            var input = default(Native.Input);
-            input.dismiss = 1;
-            Native.pik_sim_set_input(scene.Sim, 0, ref input);
-            scene.Step(5, null);
-            card.Center = scene.CaptainAt(0f, 0.70f, 0.20f);
-            card.Radius = 1.10f;
-            card.Yaw = 0.45f;
-            card.Pitch = 0.18f;
-            card.Distance = 1.60f;
-            card.Disposing = scene.Dispose;
+            var card = Card("Olimar Dismiss Strike", new Color32(58, 115, 30, 255), 36f, 0.12f);
+            var scene = new Scene(card);
+            for (int i = 0; i < 12; i++)
+            {
+                var at = new Native.Vec3((i % 4) * 10f - 15f, 0f, -38f - (i / 4) * 9f);
+                uint color = new[] { Native.Red, Native.Yellow, Native.Blue }[i % 3];
+                Native.pik_sim_spawn_piki(scene.Sim, color, ref at, 0);
+            }
+            Native.pik_sim_set_dismiss_strike(scene.Sim, 1f, 150f, 0f, 1f);
+            // Off-camera target: the real strike command selects StrikeRush on the
+            // pointing side. It is a sim query only; no enemy model enters the portrait.
+            var target = new Native.Vec3(150f, 0f, 150f);
+            var creatures = new[] { new Native.Creature { id = 1, pos = target, alive = 1, parts_len = 1 } };
+            var parts = new[] { new Native.Part { centre = target, radius = 20f, stickable = 1 } };
+            Native.pik_sim_set_creatures(scene.Sim, creatures, 1, parts, 1);
+            scene.Step(10, null, frame => scene.Input(new Native.Input
+                { cursor = new Native.Vec3(0f, 0f, 45f), use_cursor = 1, dismiss = (byte)(frame == 2 ? 1 : 0) }));
+            card.Center = scene.CaptainAt() + scene.Metres(0f, 12f, 0f);
+            Finish(card, scene);
             return card;
         }
 
-        static SkillCardStage Card(string name, Color tint) => new SkillCardStage(name) { Tint = tint };
+        static SkillCardStage Card(string name, Color color, float distance, float pitch)
+            => new SkillCardStage(name) { Tint = color, Yaw = Mathf.PI - ViewerYaw, Pitch = pitch,
+                CameraDistance = distance * UnityHost.Scale, FieldOfView = 40f, Radius = 1f };
+
+        static void Finish(SkillCardStage card, Scene scene)
+        {
+            card.BeforeRender = (camera, layer) => scene.Frame(0f, camera);
+            card.Disposing = scene.Dispose;
+        }
 
         sealed class Scene : IDisposable
         {
-            readonly IntPtr sim;
             readonly PikminModels view;
             readonly Transform root;
-            readonly float scale = UnityHost.Scale;
-            readonly List<GameObject> props = new List<GameObject>();
-            readonly List<Material> materials = new List<Material>();
+            readonly List<UnityEngine.Object> props = new List<UnityEngine.Object>();
+            Func<ViewDraw, bool> hidden;
+            public IntPtr Sim { get; }
+            public float Scale => UnityHost.Scale;
+            public Vector3 Metres(float x, float y, float z) => new Vector3(x, y, z) * Scale;
 
-            public IntPtr Sim => sim;
-            public float Scale => scale;
-
-            public Scene(SkillCardStage card, string name)
+            public Scene(SkillCardStage card)
             {
-                var dir = Native.CString(Plugin.AssetsDir);
-                sim = Native.pik_sim_new(dir, (ulong)DateTime.Now.Ticks);
-                if (sim == IntPtr.Zero) throw new InvalidOperationException("Olimar's portrait sim didn't load");
-                var origin = new Native.Vec3(0f, 0f, 0f);
-                if (Native.pik_sim_add_captain(sim, ref origin) < 0)
-                {
-                    Native.pik_sim_free(sim);
-                    throw new InvalidOperationException("Olimar's portrait captain didn't spawn");
-                }
-                view = PikminModels.Create(Plugin.AssetsDir, card.Root, false, name);
-                if (view == null)
-                {
-                    Native.pik_sim_free(sim);
-                    throw new InvalidOperationException("Olimar's portrait model didn't load");
-                }
-                view.ShowCursors(false);
                 root = card.Root;
+                Sim = Native.pik_sim_new(Native.CString(Plugin.AssetsDir), 0x5eed);
+                if (Sim == IntPtr.Zero) throw new InvalidOperationException("Olimar's portrait sim didn't load");
+                var origin = new Native.Vec3(0f, 0f, 0f);
+                if (Native.pik_sim_add_captain(Sim, ref origin) < 0)
+                { Native.pik_sim_free(Sim); throw new InvalidOperationException("Portrait captain didn't spawn"); }
+                view = PikminModels.Create(Plugin.AssetsDir, root, false, "Olimar skill portrait");
+                if (view == null) { Native.pik_sim_free(Sim); throw new InvalidOperationException("Portrait models didn't load"); }
+                view.ShowCursors(false);
             }
 
-            public void SpawnSquad(int count)
+            public void Input(Native.Input input) => Native.pik_sim_set_input(Sim, 0, ref input);
+            public void Step(int ticks, Func<ViewDraw, bool> hide, Action<int> before = null, Action<int> after = null)
             {
-                for (int i = 0; i < count; i++)
-                {
-                    var p = new Native.Vec3((i - count / 2) * 22f, 0f, 35f + (i % 2) * 18f);
-                    Native.pik_sim_spawn_piki(sim, i % 2 == 0 ? Native.Red : Native.Yellow, ref p, 0);
-                }
-            }
-
-            public void Step(int ticks, Func<ViewDraw, bool> hide)
-            {
+                hidden = hide;
                 for (int i = 0; i < ticks; i++)
                 {
-                    Native.pik_sim_advance(sim, ref floor, 1f / 30f);
-                    Frame(1f / 30f, hide);
+                    before?.Invoke(i);
+                    Native.pik_sim_advance(Sim, ref floor, 1f / 30f);
+                    after?.Invoke(i);
+                    Frame(1f / 30f);
                 }
             }
 
-            void Frame(float dt, Func<ViewDraw, bool> hide)
+            public void Frame(float dt, Camera camera = null)
             {
-                var frame = new Native.ViewFrame
-                {
-                    dt = dt,
-                    lag = 0f,
-                    forward = new Native.Vec3(0f, 0f, 1f),
-                    up = new Native.Vec3(0f, 1f, 0f),
-                    volume = 0f,
-                };
-                view.Update(sim, ref frame, scale,
-                    d => d.kind == Native.KindCursor || d.kind == Native.KindMarker || (hide != null && hide(d)));
+                var forward = camera ? camera.transform.forward : Vector3.forward;
+                var up = camera ? camera.transform.up : Vector3.up;
+                var frame = new Native.ViewFrame { dt = dt, lag = 0f, volume = 0f,
+                    forward = new Native.Vec3(forward.x, forward.y, forward.z),
+                    up = new Native.Vec3(up.x, up.y, up.z) };
+                view.Update(Sim, ref frame, Scale,
+                    d => d.kind == Native.KindCursor || d.kind == Native.KindMarker || (hidden != null && hidden(d)));
             }
 
-            public Vector3 CaptainAt(float right, float up, float forward)
+            public Vector3 CaptainAt()
             {
-                if (Native.pik_sim_captain(sim, 0, out var c) == 0) return Vector3.zero;
-                return new Vector3(c.pos.x, c.pos.y, c.pos.z) * scale + new Vector3(right, up, forward);
+                if (Native.pik_sim_captain(Sim, 0, out var captain) == 0) throw new InvalidOperationException("Portrait captain unavailable");
+                return Metres(captain.pos.x, captain.pos.y, captain.pos.z);
             }
 
-            public Vector3 HighestFlyingPiki()
+            public Native.Vec3 FlyingPiki()
             {
-                var pikis = new Native.Piki[64];
-                uint n = Native.pik_sim_pikis(sim, pikis, (uint)pikis.Length);
-                Vector3 best = CaptainAt(0f, 1.2f, 0.4f);
-                float top = float.MinValue;
-                for (uint i = 0; i < n; i++)
+                var pikis = new Native.Piki[16];
+                uint count = Native.pik_sim_pikis(Sim, pikis, (uint)pikis.Length);
+                for (uint i = 0; i < count; i++) if (pikis[i].state == Native.PikiState.Flying) return pikis[i].pos;
+                throw new InvalidOperationException("Throw portrait must contain an airborne Pikmin");
+            }
+
+            public void AddDirt()
+            {
+                // The approved shallow mound hides the underground half of PikiHeadItem.
+                var vertices = new Vector3[50]; vertices[0] = new Vector3(0f, 2.5f, 0f) * Scale;
+                var triangles = new int[48 * 3];
+                for (int i = 0; i <= 48; i++)
                 {
-                    var p = pikis[i];
-                    if (p.state != Native.PikiState.Flying && p.state != Native.PikiState.Idle) continue;
-                    if (p.pos.y <= top) continue;
-                    top = p.pos.y;
-                    best = new Vector3(p.pos.x, p.pos.y, p.pos.z) * scale;
+                    float angle = i * Mathf.PI * 2f / 48f;
+                    vertices[i + 1] = new Vector3(Mathf.Cos(angle) * 14f, -1f, Mathf.Sin(angle) * 14f) * Scale;
+                    if (i > 0) { int t = (i - 1) * 3; triangles[t] = 0; triangles[t + 1] = i + 1; triangles[t + 2] = i; }
                 }
-                return best;
-            }
-
-            public void AddDirt(Vector3 at, float radius)
-            {
-                var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                go.name = "portrait soil";
-                var collider = go.GetComponent<Collider>();
-                if (collider) UnityEngine.Object.Destroy(collider);
-                go.transform.SetParent(root, false);
-                go.transform.position = at + Vector3.up * 0.018f;
-                go.transform.localScale = new Vector3(radius, 0.018f, radius);
-                var mat = new Material(Shaders.HgStandard()) { name = "portrait soil" };
-                mat.SetColor("_Color", new Color(0.20f, 0.13f, 0.08f));
-                var r = go.GetComponent<Renderer>();
-                if (r) r.sharedMaterial = mat;
-                props.Add(go);
-                materials.Add(mat);
+                var mesh = new Mesh { name = "portrait soil", vertices = vertices, triangles = triangles };
+                mesh.RecalculateNormals(); mesh.RecalculateBounds();
+                var material = new Material(Shaders.HgStandard()) { name = "portrait soil" };
+                material.SetColor("_Color", new Color(0.25f, 0.16f, 0.09f));
+                var go = new GameObject("portrait soil"); go.transform.SetParent(root, false);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                go.AddComponent<MeshRenderer>().sharedMaterial = material;
+                props.Add(mesh); props.Add(material);
             }
 
             public void Dispose()
             {
                 view?.Dispose();
-                foreach (var p in props) if (p) UnityEngine.Object.Destroy(p);
-                foreach (var m in materials) if (m) UnityEngine.Object.Destroy(m);
-                if (sim != IntPtr.Zero) Native.pik_sim_free(sim);
+                foreach (var prop in props) if (prop) UnityEngine.Object.Destroy(prop);
+                if (Sim != IntPtr.Zero) Native.pik_sim_free(Sim);
             }
         }
     }
