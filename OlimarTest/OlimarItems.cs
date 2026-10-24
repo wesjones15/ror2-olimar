@@ -464,6 +464,8 @@ namespace OlimarTest
     internal static class OlimarSkills
     {
         public static NativeSkillDef Throw, Whistle, Relocate, Strike;
+        /// The Onion's pluckers: RoR2's passive slot, with no SkillDef of its own.
+        public static Action<Sprite> SetPluckers;
 
         public static void Add(GameObject body, RoR2.ContentManagement.ContentPack pack)
         {
@@ -492,7 +494,9 @@ namespace OlimarTest
                 loc.passiveSkill.skillDescriptionToken = "OLIMARTEST_PLUCKERS_DESC";
                 loc.passiveSkill.keywordToken = "";
                 loc.passiveSkill.icon = Icon(SkillSlot.Utility);
+                SetPluckers = sprite => loc.passiveSkill.icon = sprite;
             }
+            OlimarSkillIcons.RequestAll();
             // Vanilla icons that read as each move, swapped in once RoR2's skills have loaded
             // (Commando's stay until then): Huntress's Strafe, Captain's DIABLO strike, Engineer's
             // Spider Mines, Void Fiend's Flood and Captain's healing beacon.
@@ -505,48 +509,22 @@ namespace OlimarTest
 
         public static void Tokens(Language lang)
         {
-            // What each skill does for the player: controls, how long, how far, how often. Numbers
-            // come from the config. A Pikmin unit is 0.04 m at the default scale, and the game's whistle
-            // circle reaches 90 units.
-            float punch = Plugin.PunchDamage.Value > 0f ? Plugin.PunchDamage.Value * Plugin.DamageCoefficient.Value * 100f : 0f;
-            string strikeDamage = punch > 0f
-                ? $"<style=cIsDamage>{Plugin.StrikeDamage.Value * punch:0}% damage</style>"
-                : "<style=cIsDamage>several times his punch's damage</style>";
             lang.SetStringByToken("OLIMARTEST_THROW_NAME", "Pikmin Throw");
             lang.SetStringByToken("OLIMARTEST_THROW_DESC",
-                "<style=cIsUtility>Press A</style> to throw the nearest Pikmin at the cursor, up to " +
-                $"<style=cIsUtility>{300f * 0.04f * Plugin.ThrowReach.Value:0} m</style> away. It latches onto the enemy and fights until " +
-                "it is killed or you whistle it back. Each swing hits for " +
-                $"<style=cIsDamage>{15f * Plugin.DamageCoefficient.Value * 100f:0}% damage</style> from a Red Pikmin and " +
-                $"<style=cIsDamage>{10f * Plugin.DamageCoefficient.Value * 100f:0}%</style> from a Blue or Yellow. " +
-                "<style=cIsUtility>Hold RT</style> to lock onto an enemy up to " +
-                $"{Plugin.LockRange.Value:0} m away: thrown Pikmin home in on it (<style=cIsUtility>RB</style> cycles targets). " +
-                "Locked on, Pikmin reach his hand in one frame for rapid throws. " +
-                "<style=cIsUtility>D-pad left and right</style> pick Red, Yellow, Blue or Any (the nearest). With no Pikmin to throw, " +
-                "Olimar punches. Attack speed speeds up Pikmin attacks.");
+                "<style=cIsUtility>Press A</style> to throw a Pikmin at the cursor. <style=cIsUtility>Hold RT</style> to lock on; " +
+                "<style=cIsUtility>D-pad left/right</style> picks its colour.");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_NAME", "Whistle");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
-                "<style=cIsUtility>Hold LB and press B</style>. A circle at the cursor grows to about " +
-                "<style=cIsUtility>3.6 m</style> and calls every Pikmin inside back to the squad, even off an enemy or a corpse. " +
-                "Jumps at least as high as Commando, with the Pikmin matching his height. " +
-                "No cooldown. Olimar can't jump while LB is held.");
+                "<style=cIsUtility>Hold LB and press B</style> to call nearby Pikmin back.");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Raise / Lower Onion");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
-                "<style=cIsUtility>Press X</style> with no interact prompt up to lower the Onion where Olimar stands, or to raise it " +
-                $"so it follows him. Each takes a charge, and one returns every <style=cIsUtility>{Plugin.RelocationRecharge.Value:0.#} seconds</style>. " +
-                "Under the Onion, X opens its menu; X again releases all but one stored Pikmin. " +
-                "In the menu, Y returns the whole squad. D-pad up also opens it.");
+                "<style=cIsUtility>Press X</style> to raise or lower the Onion. Under it, X opens its menu.");
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
-                $"<style=cIsUtility>Press RB</style> to strike every enemy within <style=cIsUtility>{Plugin.StrikeReachMetres.Value:0.#} m</style> for " +
-                $"{strikeDamage} and stun them for 1 second (bosses resist). Pikmin charge enemies in that direction, " +
-                $"jump, and latch on. With no target, they swarm forward for <style=cIsUtility>{Plugin.StrikeChargeSeconds.Value:0.#} seconds</style>. A kill refunds the cooldown. " +
-                $"Cooldown: <style=cIsUtility>{Plugin.StrikeCooldown.Value:0.#} seconds</style>.");
+                "<style=cIsUtility>Press RB</style> to send your Pikmin charging at nearby enemies.");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_NAME", "Onion Pluckers");
             lang.SetStringByToken("OLIMARTEST_PLUCKERS_DESC",
-                "Passive. Sprouts left standing for " +
-                $"<style=cIsUtility>{Plugin.AutoPluckDelay.Value:0} seconds</style> are plucked by a Pikmin from the landed Onion, wherever they " +
-                "grew, and join the squad. Cooldown reduction shortens the wait.");
+                "Unplucked sprouts are eventually pulled by the Onion and join your squad.");
         }
     }
 }
