@@ -203,7 +203,8 @@ namespace OlimarTest
                     up = new Native.Vec3(0f, 1f, 0f),
                     volume = 0f,
                 };
-                view.Update(sim, ref frame, scale, hide);
+                view.Update(sim, ref frame, scale,
+                    d => d.kind == Native.KindCursor || d.kind == Native.KindMarker || (hide != null && hide(d)));
             }
 
             public Vector3 CaptainAt(float right, float up, float forward)
