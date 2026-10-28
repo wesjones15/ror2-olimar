@@ -377,6 +377,7 @@ namespace OlimarTest
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
             OlimarSkin.PrepareLouie(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
+            P2Enemies.Prepare(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
             ShipRepairSession.PrepareTreasures(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
             OlimarSkin.PreparePikachu(meleeCache.Value, meleeDisc.Value, here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
             PikminDamageNumbers.Install(gameObject, Config);

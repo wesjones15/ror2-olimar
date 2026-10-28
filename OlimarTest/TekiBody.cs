@@ -13,6 +13,8 @@ namespace OlimarTest
     // Its hurt boxes are the vanilla ones, so Pikmin latch to it and Mario stomps it like any monster.
     public sealed class TekiBody : MonoBehaviour
     {
+        /// The first of Pikmin 2's enemy kinds (libpikmin-teki p2::FIRST).
+        internal const byte P2FirstKind = 27;
         /// TekiCatalog.Dwarf or Spotty.
         public byte kind;
         /// A rare big enemy: always drops a corpse and a ship part for its killer.
@@ -186,8 +188,10 @@ namespace OlimarTest
                 motion = s.motion,
                 frame = s.frame,
                 flash = s.flash,
-                scale = 1f,
-                alpha = Mathf.Clamp01(s.fade),
+                // Pikmin 2's kinds report their size as the share of full (the Kogane family grows out of the ground);
+                // Pikmin 1's report how solid they are.
+                scale = kind >= P2FirstKind ? Mathf.Clamp01(s.fade) : 1f,
+                alpha = kind >= P2FirstKind ? 1f : Mathf.Clamp01(s.fade),
             };
             return true;
         }

@@ -75,6 +75,13 @@ namespace OlimarTest
             new TekiSpec(24, "CLAMCLAMP", "Pearly Clamclamp", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Golem) { Ported = true, NoCard = true, Hazard = true, NoCorpse = true },
             new TekiSpec(25, "PEARL", "Clamclamp Pearl", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Human) { Ported = true, NoCard = true, NoCorpse = true },
             new TekiSpec(26, "ROCPE", "Clamclamp Treasure", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Human) { Ported = true, NoCard = true, NoCorpse = true },
+            // Pikmin 2's enemies (libpikmin-teki p2, from the user's Pikmin 2 disc): kinds 27 on, in Ship Repair like the others.
+            // The Kogane family are loot bugs: harmless, they pop up near a player, scuttle about, drop something each time
+            // they are hit (up to three) and dive away. They cannot be killed (a hit flips them), so they keep endless health,
+            // and what they give comes from the strategy, so they leave no corpse.
+            new TekiSpec(27, "FLINT", "Iridescent Flint Beetle", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 10, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
+            new TekiSpec(28, "GLINT", "Iridescent Glint Beetle", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 1, 20, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
+            new TekiSpec(29, "DOODLEBUG", "Doodlebug", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 15, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;

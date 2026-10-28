@@ -370,6 +370,9 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_p2_complete(byte[] dir);
         /// Extracts Louie's files from the user's Pikmin 2 image into a folder; 0 on success.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_p2_extract(byte[] iso, byte[] outDir);
+        /// Whether the Pikmin 2 cache folder holds the enemies' files, and extracting them from the user's image; 0 on success.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_p2_enemies_complete(byte[] dir);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_p2_enemies_extract(byte[] iso, byte[] outDir);
         /// A Pikmin 2 image in a ';'-separated list of folders; 0 when none.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_p2_find_disc(byte[] dirs, byte[] found, uint foundLen);
         /// The Pianta's height to the top of his head, sim units.
