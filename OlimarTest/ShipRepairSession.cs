@@ -85,6 +85,8 @@ namespace OlimarTest
         {
             internal string Name;
             internal int Parts, Pikmin, Score;
+            /// Treasures the crew recovered and their worth in hundredths of a part (shared repair only).
+            internal int Treasures, TreasureHundredths;
             internal bool Winner;
         }
         static ResultLine[] resultLines = Array.Empty<ResultLine>();
@@ -110,7 +112,8 @@ namespace OlimarTest
                 .Select(p => new ResultLine { Name = p.Name, Parts = p.Order.Count, Pikmin = p.Pikmin,
                     Score = p.Score, Winner = p.User == Winner }).ToArray()
             : new[] { new ResultLine { Name = "CREW", Parts = Count, Pikmin = teamPikmin,
-                Score = Count + teamPikmin / 50, Winner = ResultWon } };
+                Treasures = treasureCount, TreasureHundredths = treasurePoints,
+                Score = Count + teamPikmin / 50 + TreasureScore, Winner = ResultWon } };
         string WinText => Competitive ? (race.Players.TryGetValue(Winner, out var winner) ? winner.Name : "A player") + " won Ship Repair!" : "The Dolphin is repaired!";
         double Seconds => NetworkServer.active ? Progress.Seconds : remoteSeconds;
         internal bool Terminal => NetworkServer.active ? Progress.State >= ShipRepairProgress.Phase.Winning : remotePhase >= ShipRepairProgress.Phase.Winning;
@@ -127,6 +130,7 @@ namespace OlimarTest
             enemyPartInterval = float.IsNaN(Plugin.EnemyPartIntervalSeconds.Value) || float.IsInfinity(Plugin.EnemyPartIntervalSeconds.Value)
                 ? 30f : Mathf.Clamp(Plugin.EnemyPartIntervalSeconds.Value, 0f, 600f);
             if (NetworkServer.active) EnrollPlayers();
+            TreasureAwake();
             lastResult = lastResultRun = ResultDetails = null;
             resultLines = Array.Empty<ResultLine>(); ResultWon = false;
             if (pendingPacket != null) { var packet = pendingPacket; pendingPacket = null; Receive(new ByteReader(packet)); }
@@ -179,6 +183,7 @@ namespace OlimarTest
                 ShipPartNavigation.Reset();
                 stage = Stage.instance; stageSim = world.SimHandle;
                 parts.Clear(); rewardedEnemies.Clear(); stageBossMasters.Clear(); arrivalAge = 0; placementsReady = false;
+                TreasureStage();
                 dropPacing.Reset();
                 Progress.EnterStage();
                 bonusRng = new System.Random(unchecked((int)run.seed ^ (int)Progress.Epoch * 104729));
@@ -203,7 +208,7 @@ namespace OlimarTest
                     Progress.Release(); Broadcast();
                 }
             }
-            if (Progress.State == ShipRepairProgress.Phase.Playing) TrackParts(world);
+            if (Progress.State == ShipRepairProgress.Phase.Playing) { TrackParts(world); TrackTreasures(world); }
             if (Winning) WinTick(world);
             sendAge += Time.fixedDeltaTime;
             if (sendAge > 0.5f) { sendAge = 0; Broadcast(); }
@@ -285,6 +290,7 @@ namespace OlimarTest
                 yield return null;
             }
             Plugin.Log.LogInfo($"Ship Repair: stage {Progress.Epoch}, {parts.Count} reachable parts, {Progress.Count}/30 recovered.");
+            yield return PlaceTreasures(world, epoch, rng, graph, nodes, goals, body);
             placementsReady = true;
         }
 
@@ -491,6 +497,7 @@ namespace OlimarTest
         internal void Receipt(PikminWorld world, Native.Event receipt)
         {
             if (!NetworkServer.active || stage != Stage.instance || stageSim != world.SimHandle) return;
+            if (receipt.c >= ShipRepairTreasures.PartBase) { TreasureReceipt(world, receipt); return; }
             var part = parts.FirstOrDefault(p => p.spawned && p.pellet == receipt.a && p.id == receipt.c && !p.delivered);
             if (part == null || !Progress.Accepting) return;
             bool receiver = false, onion = false;
@@ -603,12 +610,12 @@ namespace OlimarTest
             ResultWon = won;
             if (!Competitive && NetworkServer.active && PikminWorld.Instance)
                 teamPikmin = PikminWorld.Instance.ScorePikmin(0);
-            ResultDetails = FormatTime(Seconds) + "  |  " + Progress.Stages + " DAYS  |  SEED " + run.seed;
+            ResultDetails = FormatTime(Seconds) + "  |  " + Progress.Stages + " DAYS  |  SEED " + run.seed + TreasureDetail();
             resultLines = ScoreRows();
             lastResultRun = runId;
             lastResult = $"Ship Repair — {(won ? WinText : "Run ended")}\n{FormatTime(Seconds)} · {Progress.Stages} stages · Seed {run.seed} · {run.selectedDifficulty}\n" +
-                (Competitive ? Standings : Count + " parts · " + teamPikmin + " Pikmin · " +
-                    (Count + teamPikmin / 50) + " score");
+                (Competitive ? Standings : Count + " parts · " + teamPikmin + " Pikmin" + TreasureSummary() + " · " +
+                    (Count + teamPikmin / 50 + TreasureScore) + " score");
             try
             {
                 string directory = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "OlimarShipRepairReports");
@@ -631,6 +638,7 @@ namespace OlimarTest
                 RunId = runId, Epoch = Progress.Epoch, Mask = Progress.Mask, State = Progress.State,
                 Seconds = (float)Progress.Seconds, Stages = Progress.Stages, Order = Progress.Order.ToArray(),
                 Competitive = Competitive, Winner = Winner, TeamPikmin = teamPikmin,
+                TreasureCount = treasureCount, TreasurePoints = treasurePoints, Treasures = TreasuresPacket(),
                 Racers = Competitive ? race.Players.Values.ToArray() : Array.Empty<ShipRepairRacer>(),
                 Parts = parts.Select(p => new ShipRepairPacket.Part { Id = p.id, Slot = p.slot, Pellet = p.pellet, Name = p.name, Weight = p.weight,
                     X = p.pos.x, Y = p.pos.y, Z = p.pos.z, Discovered = p.discovered, Delivered = p.delivered, Stalled = p.stalled >= 30f,
@@ -657,6 +665,8 @@ namespace OlimarTest
             Competitive = packet.Competitive;
             race.Hydrate(packet.Racers, packet.Winner);
             teamPikmin = packet.TeamPikmin;
+            if (hydrated && packet.TreasureCount > treasureCount) ShowToast("Treasure recovered — " + packet.TreasureCount + " so far");
+            ReceiveTreasures(packet);
             if (hydrated && Competitive && Count > before) ShowToast("Your Dolphin — " + Count + "/30");
             if (hydrated && packet.Order.Length > receivedCount)
                 ShowToast($"Ship part recovered — {packet.Order.Length}/30");
@@ -671,12 +681,12 @@ namespace OlimarTest
             {
                 ResultWon = packet.State != ShipRepairProgress.Phase.Failed;
                 if (ResultWon) ShipRepairUnlocks.OnWin(runId);
-                ResultDetails = FormatTime(Seconds) + "  |  " + remoteStages + " DAYS  |  SEED " + run.seed;
+                ResultDetails = FormatTime(Seconds) + "  |  " + remoteStages + " DAYS  |  SEED " + run.seed + TreasureDetail();
                 resultLines = ScoreRows();
                 lastResultRun = runId;
                 lastResult = $"Ship Repair — {(remoteMask == ShipRepairProgress.AllParts ? WinText : "Run ended")}\n{FormatTime(Seconds)} · {remoteStages} stages · Seed {run.seed} · {run.selectedDifficulty}\n" +
-                    (Competitive ? Standings : Count + " parts · " + teamPikmin + " Pikmin · " +
-                        (Count + teamPikmin / 50) + " score");
+                    (Competitive ? Standings : Count + " parts · " + teamPikmin + " Pikmin" + TreasureSummary() + " · " +
+                        (Count + teamPikmin / 50 + TreasureScore) + " score");
             }
         }
 
@@ -695,7 +705,7 @@ namespace OlimarTest
                 siteUntil = Time.unscaledTime + 5f;
             }
             if (Event.current.type == EventType.Repaint)
-                ShipRepairUi.Hud(Count, ScoreRows(), Competitive,
+                ShipRepairUi.Hud(Count, ScoreRows(), Competitive, Competitive ? -1 : treasureCount, treasurePoints,
                     scene ? Language.GetString(scene.nameToken) : null,
                     scene && !string.IsNullOrEmpty(scene.subtitleToken) ? Language.GetString(scene.subtitleToken) : null,
                     siteUntil);
@@ -712,6 +722,7 @@ namespace OlimarTest
             }
             if (TeleporterInteraction.instance && TeleporterInteraction.instance.isCharged)
                 GUI.Label(new Rect(20, 175, 490, 30), $"Leaving {parts.Count(p => !p.delivered)} parts behind — they can return.");
+            TreasureLabels();
             int row = 0;
             foreach (var part in parts.Where(p => p.discovered && !p.delivered))
             {

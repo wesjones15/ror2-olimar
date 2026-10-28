@@ -69,7 +69,8 @@ namespace OlimarTest
         // The dismiss strike and Pikmin pace (see PikminWorld.StartSim).
         internal static ConfigEntry<float> StrikeDamage, StrikeReachMetres, StrikeCooldown, PaceLeaf, PaceBud, PaceFlower;
         internal static ConfigEntry<bool> CursorHoming, PikminJump, ShipParts, CompetitiveMode;
-        internal static ConfigEntry<float> EnemyPartIntervalSeconds;
+        internal static ConfigEntry<float> EnemyPartIntervalSeconds, TreasureScoreWeight;
+        internal static ConfigEntry<int> TreasuresPerStage, TreasureMaxCarriers;
         internal static ConfigEntry<bool> StageMusic, AdaptiveStageMusic;
         internal static ConfigEntry<float> StageMusicVolume;
         internal static ConfigEntry<float> PunchDamage, StrikeChargeSeconds;
@@ -186,6 +187,12 @@ namespace OlimarTest
                 "Host rule, locked at run start. True: each player repairs their own Dolphin; first to 30 unique parts wins. False: shared cooperative repair.");
             EnemyPartIntervalSeconds = Config.Bind("ShipRepair", "EnemyPartIntervalSeconds", 30f,
                 "Host rule, locked at run start. Minimum seconds between each player's successful ordinary enemy part drops. Independent per player; stage-boss reward bypasses this gate. Range 0-600.");
+            TreasuresPerStage = Config.Bind("ShipRepair", "TreasuresPerStage", 5,
+                "Host rule, locked at run start, shared repair only. Pikmin 2 treasures lying in each stage as bonus objectives (needs the Pikmin 2 files); Pikmin carry them to the Dolphin and each scores in a separate treasure category. 0-16, 0 turns them off.");
+            TreasureScoreWeight = Config.Bind("ShipRepair", "TreasureScoreWeight", ShipRepairTreasures.DefaultWeight,
+                "Host rule. What a plain treasure adds to the final score as a fraction of one Dolphin part (1.0): 0.1 by default, richer treasures 1.5x, 2.5x and 4x that. Capped at 0.2, so no treasure is ever worth a whole part. 0 turns the category off.");
+            TreasureMaxCarriers = Config.Bind("ShipRepair", "TreasureMaxCarriers", 25,
+                "Host rule. Treasures that need more Pikmin than this to lift never lie in a stage (the Pikmin 2 table goes up to 101). 1-100.");
             StageMusic = Config.Bind("ShipRepair", "StageMusic", true, "Local audio: Pikmin jungle music in the lobby, Impact Site on stage one, seeded Pikmin music on later stages, and space-themed world-map music on results. Retains RoR2 boss music.");
             AdaptiveStageMusic = Config.Bind("ShipRepair", "AdaptiveStageMusic", true, "Local audio: nearby RoR2 enemies activate the original Pikmin enemy-proximity musical layers.");
             StageMusicVolume = Config.Bind("ShipRepair", "StageMusicVolume", 1f, "Local Pikmin stage music gain, multiplied by RoR2 music/master volume (0-2).");

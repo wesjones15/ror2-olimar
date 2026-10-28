@@ -31,6 +31,13 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_ship_part_weight(IntPtr sim, uint part);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_ship_part_name(IntPtr sim, uint part, byte[] output, uint cap);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_ship_part(IntPtr sim, uint part, ref Vec3 pos, float yaw);
+        /// Pikmin 2's treasures (the Pikmin 2 cache beside the assets): how many, each one's carriers, Pokos and English name,
+        /// and one spawned as a pellet a ship receives like a part (its receipt's part id is 1000 + the index).
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_treasure_count(IntPtr sim);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_treasure_weight(IntPtr sim, uint index);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_treasure_value(IntPtr sim, uint index);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_treasure_name(IntPtr sim, uint index, byte[] output, uint cap);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_treasure(IntPtr sim, uint index, ref Vec3 pos, float yaw);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_recover_pellet(IntPtr sim, uint pellet, ref Vec3 pos);
         // A guest character's (Mario's) hands: hold or move a part, put it down, put it into a ship's receiver.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_hold_pellet(IntPtr sim, uint pellet, ref Vec3 pos, float yaw);

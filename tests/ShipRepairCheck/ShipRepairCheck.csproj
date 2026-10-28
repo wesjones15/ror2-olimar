@@ -13,6 +13,7 @@
     <Compile Include="../../OlimarTest/ShipRepairDropPacing.cs" Link="ShipRepairDropPacing.cs" />
     <Compile Include="../../OlimarTest/ShipRepairMusicPolicy.cs" Link="ShipRepairMusicPolicy.cs" />
     <Compile Include="../../OlimarTest/ShipRepairPacket.cs" Link="ShipRepairPacket.cs" />
+    <Compile Include="../../OlimarTest/ShipRepairTreasures.cs" Link="ShipRepairTreasures.cs" />
     <Compile Include="../../OlimarTest/SurvivorOrder.cs" Link="SurvivorOrder.cs" />
     <Compile Include="../../../ror2-common/src/ByteIO.cs" Link="ByteIO.cs" />
   </ItemGroup>

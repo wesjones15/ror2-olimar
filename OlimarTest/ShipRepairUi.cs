@@ -188,7 +188,7 @@ namespace OlimarTest
         }
 
         internal static void Hud(int score, IEnumerable<ShipRepairSession.ResultLine> players,
-            bool competitive, string site, string subtitle, float siteUntil)
+            bool competitive, int treasures, int treasureHundredths, string site, string subtitle, float siteUntil)
         {
             if (Event.current.type != EventType.Repaint) return;
             var old = GUI.matrix; float width = Begin();
@@ -196,6 +196,9 @@ namespace OlimarTest
             Icon(19, new Rect(center - 159f, 26f, 73f, 73f));
             Icon(7, new Rect(center - 145f, 31f, 47f, 61f));
             BubbleFraction(score, 30, new Rect(center - 83f, 30f, 245f, 65f));
+            // The treasure category, below the parts: Pikmin 2 treasures the crew has brought to the Dolphin (shared repair).
+            if (treasures >= 0)
+                Text("TREASURES " + treasures + "  +" + ShipRepairTreasures.Format(treasureHundredths), center + 40f, 98f, 20f, new Color(.62f, .9f, 1f), true);
             Leaderboard(players, width - 328f, Mathf.Max(138f, ObjectivesBottom(Screen.height / 1080f)), 305f, 34f, competitive);
             if (!string.IsNullOrEmpty(site) && Time.unscaledTime < siteUntil)
             {

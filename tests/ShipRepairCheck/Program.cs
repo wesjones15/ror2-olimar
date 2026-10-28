@@ -206,8 +206,63 @@ static class Program
         Check(TekiRules.SoulEffect(2) == 66 && TekiRules.SoulEffect(1) == 65 && TekiRules.SoulEffect(0) == 64 && TekiRules.SoulEffect(3) == -1, "soul by size");
         Console.WriteLine("PASS: Pikmin enemy part rewards, beneficiary masks and corpse sizes.");
         Console.WriteLine("PASS: sampling, receipts, epoch boundaries, clocks, failure, victory, restart, and objective packet validation.");
+        TreasureCheck();
         SurvivorOrderCheck();
         return 0;
+    }
+
+    // Pikmin 2 treasures: tiers, worth (always under a part), seeded stage picks, and the state message's treasure section.
+    static void TreasureCheck()
+    {
+        Check(ShipRepairTreasures.TierOf(10) == ShipRepairTreasures.Tier.Common && ShipRepairTreasures.TierOf(59) == ShipRepairTreasures.Tier.Common
+            && ShipRepairTreasures.TierOf(60) == ShipRepairTreasures.Tier.Fine && ShipRepairTreasures.TierOf(129) == ShipRepairTreasures.Tier.Fine
+            && ShipRepairTreasures.TierOf(130) == ShipRepairTreasures.Tier.Rare && ShipRepairTreasures.TierOf(299) == ShipRepairTreasures.Tier.Rare
+            && ShipRepairTreasures.TierOf(300) == ShipRepairTreasures.Tier.Legendary && ShipRepairTreasures.TierOf(3000) == ShipRepairTreasures.Tier.Legendary, "tiers by Pokos");
+        // Whatever the setting, the richest treasure is worth less than one Dolphin part (100 hundredths).
+        foreach (float weight in new[] { 0f, 0.05f, ShipRepairTreasures.DefaultWeight, 0.2f, 1f, 100f, float.NaN, float.PositiveInfinity, -3f })
+            foreach (uint pokos in new uint[] { 10, 100, 250, 1000, 3000 })
+                Check(ShipRepairTreasures.Points(pokos, weight) >= 0 && ShipRepairTreasures.Points(pokos, weight) < 100, "a treasure is worth less than a part at weight " + weight);
+        Check(ShipRepairTreasures.Points(40, 0.1f) == 10 && ShipRepairTreasures.Points(100, 0.1f) == 15 && ShipRepairTreasures.Points(200, 0.1f) == 25 && ShipRepairTreasures.Points(1000, 0.1f) == 40,
+            "default worth: 0.10, 0.15, 0.25 and 0.40 of a part by tier");
+        Check(ShipRepairTreasures.Points(40, 0f) == 0 && ShipRepairTreasures.Points(1000, 5f) == 80, "weight 0 turns the category off, and the weight is capped at 0.2");
+        Check(ShipRepairTreasures.Whole(99) == 0 && ShipRepairTreasures.Whole(100) == 1 && ShipRepairTreasures.Whole(-5) == 0 && ShipRepairTreasures.Format(125) == "1.25" && ShipRepairTreasures.Format(10) == "0.1", "whole parts' worth and display");
+
+        // A table like the disc's: carriers 1..60 and Pokos spread over the tiers.
+        var table = Enumerable.Range(0, ShipRepairTreasures.TableSize).Select(i => new ShipRepairTreasures.Info { Index = i, Carriers = (uint)(1 + i % 60), Pokos = (uint)(10 + i * 13 % 1000) }).ToArray();
+        var a = ShipRepairTreasures.Pick(77, 3, 5, table, null, 25);
+        Check(a.Length == 5 && a.Distinct().Count() == 5, "five distinct treasures");
+        Check(a.SequenceEqual(ShipRepairTreasures.Pick(77, 3, 5, table, null, 25)), "seeded, so the same every time");
+        Check(!a.SequenceEqual(ShipRepairTreasures.Pick(77, 4, 5, table, null, 25)), "another stage, other treasures");
+        Check(a.All(i => table[i].Carriers <= 25), "none needs more Pikmin than the limit");
+        var taken = new System.Collections.Generic.HashSet<int>(a);
+        Check(ShipRepairTreasures.Pick(77, 3, 5, table, taken, 25).All(i => !taken.Contains(i)), "a collected treasure does not come again");
+        Check(ShipRepairTreasures.Pick(1, 1, 500, table, null, 25).Length == table.Count(t => t.Carriers <= 25), "asking for more than exist gives all that qualify");
+        Check(ShipRepairTreasures.Pick(1, 1, 5, table, null, 0).Length == 0 && ShipRepairTreasures.Pick(1, 1, 0, table, null, 25).Length == 0, "nothing to pick");
+        int[] tiers = new int[4];
+        for (uint epoch = 1; epoch <= 400; epoch++)
+            foreach (int i in ShipRepairTreasures.Pick(9, epoch, 5, table, null, 60)) tiers[(int)ShipRepairTreasures.TierOf(table[i].Pokos)]++;
+        Check(tiers[0] > tiers[1] || tiers[1] > tiers[2], "common treasures are commoner than rare ones: " + string.Join("/", tiers));
+
+        // The state message carries the crew's treasure tally and the treasures lying in the stage.
+        var p = new ShipRepairPacket { RunId = Guid.NewGuid().ToString(), Epoch = 2, Mask = 0, State = ShipRepairProgress.Phase.Playing, Seconds = 9f, Stages = 1,
+            Order = new int[0], Parts = new ShipRepairPacket.Part[0], TreasureCount = 3, TreasurePoints = 40,
+            Treasures = new[] { new ShipRepairPacket.Treasure { Index = 5, Pellet = 40 }, new ShipRepairPacket.Treasure { Index = 187, Pellet = 41 } } };
+        Check(ShipRepairPacket.Read(new ByteReader(p.Write()), out var d) && d.TreasureCount == 3 && d.TreasurePoints == 40 && d.Treasures.Length == 2
+            && d.Treasures[1].Index == 187 && d.Treasures[1].Pellet == 41, "treasure section round trip");
+        p.Treasures = new[] { new ShipRepairPacket.Treasure { Index = 5, Pellet = 40 }, new ShipRepairPacket.Treasure { Index = 5, Pellet = 41 } };
+        Check(!ShipRepairPacket.Read(new ByteReader(p.Write()), out _), "the same treasure cannot lie twice");
+        p.Treasures = new[] { new ShipRepairPacket.Treasure { Index = ShipRepairTreasures.TableSize, Pellet = 40 } };
+        Check(!ShipRepairPacket.Read(new ByteReader(p.Write()), out _), "treasure index is bounded by the table");
+        p.Treasures = new ShipRepairPacket.Treasure[0]; p.TreasurePoints = 3 * 99 + 1;
+        Check(!ShipRepairPacket.Read(new ByteReader(p.Write()), out _), "points are bounded by the count (under a part each)");
+        p.TreasurePoints = 0; p.Competitive = true; p.Racers = new[] { new ShipRepairRacer { User = 1, Name = "A" } };
+        Check(!ShipRepairPacket.Read(new ByteReader(p.Write()), out _), "a competitive race has no treasures");
+        p.TreasureCount = 0; Check(ShipRepairPacket.Read(new ByteReader(p.Write()), out _), "and reads fine without them");
+        var many = new ShipRepairPacket { RunId = Guid.NewGuid().ToString(), Epoch = 2, Mask = 0, State = ShipRepairProgress.Phase.Playing, Seconds = 9f, Stages = 1,
+            Order = new int[0], Parts = Enumerable.Range(0, 400).Select(i => new ShipRepairPacket.Part { Id = i % 30, Slot = i, Pellet = (uint)(100 + i), Weight = 20, Spawned = true }).ToArray(),
+            Treasures = Enumerable.Range(0, ShipRepairPacket.MaxTreasures).Select(i => new ShipRepairPacket.Treasure { Index = i, Pellet = (uint)(900 + i) }).ToArray() };
+        Check(many.WriteFitting().Length <= ShipRepairPacket.MaxBytes, "treasures and a long part list still fit the message limit");
+        Console.WriteLine("PASS: treasure tiers, worth under a part, seeded stage picks and the state message's treasure section.");
     }
 
     sealed class Def { public string Name; public float Pos; }

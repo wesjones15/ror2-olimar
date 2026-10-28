@@ -9,11 +9,13 @@ namespace OlimarTest
     // makes malformed/truncated messages testable without loading Unity or the game.
     internal sealed class ShipRepairPacket
     {
-        public const byte Protocol = 5, Abi = 51;
+        public const byte Protocol = 6, Abi = 51;
         // A reliable UNET message may carry at most 1100 bytes; the 0.3.8 packet with 17 named parts was 1103
         // and never reached the clients. Names are looked up from the disc on the receiver and delivered
         // parts are left out, so a state message stays far under that.
         public const int MaxBytes = 1000;
+        /// <summary>Most treasures a state message lists (the setting is capped to it).</summary>
+        public const int MaxTreasures = 16;
         public bool Competitive;
         public uint Winner;
         public int TeamPikmin;
@@ -25,6 +27,15 @@ namespace OlimarTest
         public int Stages;
         public int[] Order;
         public Part[] Parts;
+        /// <summary>Treasures delivered this run and their worth in hundredths of a part (the crew's, not the race's), and the
+        /// treasures lying in the stage now (index into the disc's table, and the pellet).</summary>
+        public int TreasureCount, TreasurePoints;
+        public Treasure[] Treasures = Array.Empty<Treasure>();
+        internal sealed class Treasure
+        {
+            public int Index;
+            public uint Pellet;
+        }
         internal sealed class Part
         {
             public int Id, Slot;
@@ -71,6 +82,8 @@ namespace OlimarTest
                 if (!p.Spawned) continue;
                 w.U32(p.Pellet); w.F32(p.X); w.F32(p.Y); w.F32(p.Z);
             }
+            w.U16((ushort)TreasureCount); w.I32(TreasurePoints); w.U8((byte)Treasures.Length);
+            foreach (var t in Treasures) { w.U8((byte)t.Index); w.U32(t.Pellet); }
             return w.ToArray();
         }
         public static bool Read(ByteReader r, out ShipRepairPacket packet)
@@ -130,8 +143,18 @@ namespace OlimarTest
                     parts.Any(other => other.Slot == part.Slot || (!p.Competitive && other.Id == part.Id) || other.Pellet == part.Pellet)) return false;
                 parts.Add(part);
             }
+            p.TreasureCount = r.U16(); p.TreasurePoints = r.I32(); count = r.U8();
+            if (r.Failed || count > MaxTreasures || p.TreasurePoints < 0 || p.TreasurePoints > p.TreasureCount * 99 ||
+                (p.Competitive && (count != 0 || p.TreasureCount != 0))) return false;
+            var treasures = new List<Treasure>();
+            for (int i = 0; i < count; i++)
+            {
+                var t = new Treasure { Index = r.U8(), Pellet = r.U32() };
+                if (r.Failed || t.Index >= ShipRepairTreasures.TableSize || treasures.Any(other => other.Index == t.Index || other.Pellet == t.Pellet)) return false;
+                treasures.Add(t);
+            }
             if (r.Failed || !r.Done) return false;
-            p.Parts = parts.ToArray(); packet = p; return true;
+            p.Parts = parts.ToArray(); p.Treasures = treasures.ToArray(); packet = p; return true;
         }
         static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
     }
