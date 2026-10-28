@@ -52,12 +52,24 @@ colours; the HUD, carry gauge, corpse colours and Onion stock count five. Not pl
 Purple/White rules (wind, gas and astonish immunities, digging), Candypop Buds, and the Onion menu icons for the two (the
 panel shows the generic icon).
 
+## Voice and sounds (built)
+
+Pikmin 2's audio is the same JAudio (JAI/JAS) system as Sunshine's: `PSound.aaf` has the same init data layout, `Seqs/Seq.arc` is
+a RARC of `.bms` files with `se.bms` as the sequence that plays every sound effect, `Banks/wScene_N.aw` the waves. So
+`libsms-audio` plays them unchanged: `SoundData::load_pikmin2`, `Pikmin2Audio` (its own output). The extraction (version 2)
+copies `AudioRes` (about 25 MB) with the rest, once at startup. Louie's lines are the `PSSE_PL_*_LUI` / `_LUGI` ids of
+`SoundID.h`, checked against the disc's `PSound.asn`: hurt `0x891`, down `0x871`, whistle call `0x89F`, dismiss `0x8A1`,
+punch `0x88E`, plus the throw sound `0x806`. His throw and hurt cries replace Olimar's once that output runs. The other
+sounds (whistle, pluck, Pikmin) stay Pikmin 1's. Which line goes with which moment was chosen by name, not heard.
+
 ## Asked for, not built yet (what each needs)
 
-- **His own voice and effects.** Pikmin 2 sound is JAudio 2 (`AudioRes/PSound.aaf`, `Banks/wScene_*.aw`,
-  `Seqs/Seq.arc`, `Conductor.arc`), not the JAudio 1 that `libpikmin-audio` and `libsms-audio` port; effects are
-  `user/Kando/effect/game.jpc` and `Ebisawa/effect/game.jpc` (JPA2 containers; `libsms-assets::jpa` reads Sunshine's
-  JPA1). Each is a new reader plus player. Louie keeps Olimar's sounds and effects until then.
+- **His own particle effects (JPA2).** Not built, and in Pikmin 2 there is only one to build: `TNaviEffect::setNaviType`
+  (efxPikmin.cpp) gives Louie `mLight.mNaviType = 1`, a different **navi light**; his whistle ring is Olimar's (the
+  Louie/President/Fuebug cursors are marked unused in vanilla). Effects are `user/Kando/effect/game.jpc` and
+  `user/Ebisawa/effect/game.jpc`, JPA2 containers (`JPAResourceLoader::load_jpc`, magic `JPAC2-10`: `BEM1`/`FLD1`/`KFA1`/`BSP1`/
+  `ESP1`/`SSP1`/`ETX1`/`TDB1` blocks with a different field layout from the Sunshine `.jpa` files `libsms-assets::jpa` reads),
+  so it needs a new reader and emitter engine, or a hand-made glow in his colour as a stand-in.
 - **His own spaceship.** The Hocotate Ship is `user/Kando/ufo/arc.szs` (J3D, `ufo.bmd`, `ufo.bck`, `ufo.brk`, plus
   `ufoAnimMgr.txt`, `ufoColl.txt`; `ufo_gold` the gold one). It would replace the Dolphin for his arrival, healing and
   Ship Repair; libpikmin's ship model and its 30 parts are Pikmin 1's `.mod`, so it is a second ship path.
