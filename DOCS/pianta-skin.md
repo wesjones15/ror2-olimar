@@ -7,10 +7,9 @@ a Pianta on Mario's motion in the libsms viewer only.
 
 ## Skin numbering
 
-Native ids (`libpikmin_present::pianta`, `OlimarSkin`): **0 Olimar, 1 reserved for Louie, 2 Pianta**.
-The loadout index is the position in the registered list, so until Louie exists the Pianta is the
-second entry (index 1); his native id will not change when Louie arrives, but a saved loadout index
-may shift. Commando's placeholder skins (inherited from the cloned body) are gone: `OlimarSkin.Register`
+Native ids (`OlimarSkin`): **0 Olimar, 1 Louie (`louie-skin.md`), 2 Pianta, 3 Captain Pikachu (`pikachu-skin.md`)**.
+The loadout lists the ones that are available, so the Pianta's loadout index depends on whether Louie is offered; his
+native id does not. Commando's placeholder skins (inherited from the cloned body) are gone: `OlimarSkin.Register`
 replaces the `ModelSkinController`'s list.
 
 ## Availability and the unlock
