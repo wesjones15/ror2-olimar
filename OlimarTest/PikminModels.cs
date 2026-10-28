@@ -15,6 +15,8 @@ namespace OlimarTest
     internal sealed class PikminModels : IDisposable
     {
         IntPtr view;
+        bool hasPianta;
+        float piantaUnits = -1f;
         static bool victoryLoaded;
         readonly Particles particles;
 
@@ -68,6 +70,8 @@ namespace OlimarTest
                         ? GameSettings.SfxVolume() * Mathf.Clamp(Plugin.SoundVolume.Value, 0f, 2f) : 0f);
                 else Plugin.Log.LogWarning("Sundown death bell could not be prepared from the disc audio.");
             }
+            // The Pianta skin joins the model table before the meshes are built from it.
+            bool pianta = OlimarSkin.LoadInto(v);
             var models = ModelView.Create(new PikViewSource(v), name, parent);
             if (models == null)
             {
@@ -87,7 +91,14 @@ namespace OlimarTest
                     }
                 }
             }
-            return new PikminModels(v, models, parent);
+            return new PikminModels(v, models, parent) { hasPianta = pianta };
+        }
+
+        /// Who wears which body this frame: a captain's skin from OlimarSkin (0 Olimar, 2 the Pianta). Ignored when
+        /// the Pianta did not load.
+        public void SetCaptainSkin(uint captain, uint skin)
+        {
+            if (view != IntPtr.Zero && hasPianta) Native.pik_view_set_captain_skin(view, captain, (byte)skin);
         }
 
         /// Plays EffectMgr's effect `id` once at `at` (sim units): an enemy's death smoke or soul.
@@ -153,6 +164,11 @@ namespace OlimarTest
             if (view == IntPtr.Zero) return;
             // RoR2's pause menu stops the Pikmin's sounds where they are.
             Native.pik_view_set_paused(view, (byte)(PauseManager.isPaused ? 1 : 0));
+            if (hasPianta)
+            {
+                float units = OlimarSkin.PiantaUnits();
+                if (units != piantaUnits) { piantaUnits = units; Native.pik_view_set_pianta_height(view, units); }
+            }
             Native.pik_view_update(view, sim, ref frame);
         }
 

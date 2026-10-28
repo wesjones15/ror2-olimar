@@ -32,6 +32,9 @@ namespace OlimarTest
         readonly PikminModels view;
         IntPtr sim;
         float time;
+        // Follows the loadout's skin (the lobby), or stays on one (a skin's portrait).
+        uint skin;
+        bool follow;
 
         public ModelView Models => view.Models;
         public float Scale => UnityHost.Scale;
@@ -43,8 +46,14 @@ namespace OlimarTest
 
         /// A display Olimar starting his intro, or null (the prefab keeps Commando) if the
         /// disc's files aren't there yet or won't load.
-        public static IDisplayActor Get()
+        public static IDisplayActor Get() => Create(OlimarSkin.Selected(), true);
+
+        /// A display of one skin, for its portrait.
+        public static IDisplayActor Get(uint skin) => Create(skin, false);
+
+        static IDisplayActor Create(uint skin, bool follow)
         {
+            if (skin != OlimarSkin.Olimar && !OlimarSkin.Spec(skin).Registered) return null;
             OlimarDisplay d;
             if (spare.Count > 0) d = spare.Pop();
             else
@@ -59,6 +68,8 @@ namespace OlimarTest
                 view.ShowCursors(false);
                 d = new OlimarDisplay(view);
             }
+            d.skin = skin;
+            d.follow = follow;
             if (!d.Begin())
             {
                 d.Models.HideAll();
@@ -93,6 +104,9 @@ namespace OlimarTest
         {
             if (sim == IntPtr.Zero) return;
             time += dt;
+            if (follow) skin = OlimarSkin.Selected();
+            // The display's one captain is number 0.
+            view.SetCaptainSkin(0, skin);
             var input = new Native.Input();
             bool whistling = time >= WhistleFrom && time < WhistleUntil;
             Buttons(ref input, whistling);

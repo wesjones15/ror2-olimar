@@ -194,6 +194,7 @@ namespace OlimarTest
                 if (d.ViewCaptain >= 0)
                 {
                     uint captain = (uint)d.ViewCaptain;
+                    models.SetCaptainSkin(captain, OlimarSkin.Selected(d.Body));
                     models.Materialize(captain, world.BeamProgress(captain));
                     float progress = world.HealingProgress(captain);
                     uint ghosts = world.HealingCount(captain);

@@ -77,6 +77,8 @@ namespace OlimarTest
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
         internal static ConfigEntry<bool> Sound;
+        internal static ConfigEntry<bool> PiantaUnlocked;
+        internal static ConfigEntry<float> PiantaHeight;
         internal static ConfigEntry<float> SoundVolume, TrumpetGain;
 
         /// Extraction has finished (or wasn't needed). The sim waits for this so it starts on
@@ -289,6 +291,18 @@ namespace OlimarTest
                 "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
             GummyClones = Config.Bind("Look", "GummyClones", true,
                 "Goobo Jr.'s Olimar is drawn in RoR2's gummy clone material.");
+            var sunshine = Config.Bind("Skins", "SunshineAssets", "",
+                "The Super Mario Sunshine cache the Pianta skin is drawn from (the Mario plugin's extracted assets folder). " +
+                "Empty: $SMS_ASSETS, then beside this plugin or the Mario plugin's assets_dir.txt. Without it the skin is not offered.");
+            PiantaUnlocked = Config.Bind("Skins", "PiantaUnlocked", true,
+                "Offer the Pianta skin without earning it. Open while it is being tested; it will become a reward for " +
+                "defeating Mithrix and escaping the planet, and turning this off locks it until then.");
+            PiantaHeight = Config.Bind("Skins", "PiantaHeight", 1.75f,
+                new ConfigDescription("The Pianta's height to the top of his head, in metres. Olimar himself is OlimarHeight tall; " +
+                    "Commando, and Mario by default, are 1.82.", new AcceptableValueRange<float>(0.5f, 3f)));
+            OlimarSkin.Discover(sunshine.Value, here);
+            Log.LogInfo(OlimarSkin.PiantaAvailable ? $"Pianta skin: Sunshine assets at {OlimarSkin.SunshineDir}"
+                : "Pianta skin: no Sunshine assets found, so it is not offered");
             SnapshotHz = Config.Bind("Net", "SnapshotHz", 10f,
                 new ConfigDescription("How often, with other players in the game, the host sends them its Pikmin world " +
                     "(positions are blended between snapshots, so 10 looks smooth). More is smoother and uses more bandwidth.",
@@ -457,6 +471,7 @@ namespace OlimarTest
             var lang = Language.currentLanguage;
             if (lang == null) return;
             lang.SetStringByToken("OLIMARTEST_BODY_NAME", "Olimar");
+            OlimarSkin.Tokens(lang);
             lang.SetStringByToken("OLIMARTEST_BODY_SUBTITLE", "Captain of the S.S. Dolphin");
             lang.SetStringByToken("OLIMARTEST_BODY_DESCRIPTION",
                 "Captain Olimar's ship has crashed on a strange planet, and his only help is a swarm of Pikmin: loyal little " +
@@ -632,6 +647,9 @@ namespace OlimarTest
             survivor.primaryColor = cb.bodyColor;
             // Second behind Mario everywhere except Ship Repair, where ShipRepairMode.ApplySelectOrder puts him first.
             survivor.desiredSortPosition = SurvivorOrder.OlimarPosition(false);
+
+            // Olimar's own skins in place of the Commando body's.
+            OlimarSkin.Register(body);
 
             pack.bodyPrefabs.Add(new[] { body });
             pack.survivorDefs.Add(new[] { survivor });
