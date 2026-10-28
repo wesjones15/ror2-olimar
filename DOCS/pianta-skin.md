@@ -26,8 +26,12 @@ replaces the `ModelSkinController`'s list.
 | Captain is | Clip |
 |---|---|
 | standing | the Pianta's own idle (`mom_wait`) |
-| walking, running, fleeing | Mario's `ma_walk` / `ma_run2`, phase taken from Olimar's walk loop |
-| jumping | Mario's `ma_jump`; a jump restarted in the air plays `ma_2jmp1/2` then, the next time, `ma_tjmp1/2` |
+| walking, running, fleeing | the Pianta's own `mom_walk` / `mom_run`, phase taken from Olimar's walk loop |
+| jumping | Mario's `ma_jump`; a jump started at 75% of top speed or more plays `ma_broad_jump` (the long jump); a jump restarted in the air plays `ma_2jmp1/2` then, the next time, `ma_tjmp1/2` |
+| ground pound (stomp) | Mario's `hipsr` (wind-up) then `hipat` (fall) |
+| dismiss strike | Mario's `sldct` (the dive) |
+| landing after more than 0.25 s in the air, when not running on | `jmped`, `2jmed` after a double jump, `hiped` after a pound |
+| off a ledge | the end of `ma_jump` held |
 | throw, pluck, whistle, dismiss, punch, damage, knockdown | Olimar's own clip, retargeted (`OLIMAR_ALIASES`) |
 
 The palm (`yashi_jnt`), its leaves and the nose always play the Pianta's own clip (idle, or his walk and
@@ -35,14 +39,22 @@ run while moving), since Olimar and Mario have nothing for them. No FLUDD. His l
 on the ground each frame. Olimar's rig is 12 unnamed joints with no elbows or knees, so the forearms,
 hands, shins and feet follow their upper limb rigidly in Olimar-clip poses.
 
-The straw skirt (`mino_null`) is not animated by any Pianta clip, and nothing in the decomp moves it; it
-follows the hips and stays stiff, as in the game.
+The straw skirt (`mino_null`) is one joint under the hips and none of the Pianta's clips moves it (checked across idle,
+walk, run, throw, happy, mad, step and talk), so in the game it follows the hips stiffly. The host adds a small trail as he
+runs and a slow sway.
 
-## Height
+## Sounds he makes by himself
 
-`Skins.PiantaHeight` (metres to the top of the head, default 1.75; Mario and Commando are 1.82, Olimar is
-`OlimarHeight` x that). The host converts to sim units and calls `pik_view_set_pianta_height`. His hitbox is
-still Olimar's.
+His walk and run clips carry sound keys (`bas/mom_walk.bas`, `mom_run.bas`: `MSD_SE_NPC_MONTE_M_WALK`, the footstep, twice a
+cycle); they play as the stride passes them (`PiantaSkin::cues`, `pik_view_update` plays them on his Sunshine sound output).
+Standing still he has no sound keys, so there is no idle chatter; his other clips' keys (happy, mad, throw...) are unused.
+
+## Height and colour
+
+`Skins.PiantaHeightRatio` (default 1.25): his height to the top of the palm as a multiple of Olimar's 25.1 sim units; the host
+calls `pik_view_set_pianta_height`. (It replaces `Skins.PiantaHeight` in metres, whose default left a stale value in older
+config files.) `Skins.PiantaColour` (default 1): the male body colour table index; 1 bakes blue (periwinkle), 0 teal, 8 pale
+blue, 7 the game's usual first Pianta, -1 also picks that. His hitbox is still Olimar's.
 
 ## Voice
 

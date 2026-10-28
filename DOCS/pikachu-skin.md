@@ -14,6 +14,12 @@ still behave, carry and fight as Pikmin.
   `libssbm_assets::disc::extract_ice_climbers` (`ICE_CLIMBER_ASSETS`: those costumes, `PlPk.dat`, `PlCo.dat`) adds
   them to the Melee cache. The plugin does it once at startup when the cache lacks them (`Skins.MeleeDisc`, or a Melee
   image beside the plugin or the Pikmin assets). Manual: `cargo run -p libssbm-assets --example extract_ice_climbers -- <image> <cache>`.
+- **Pikachu's own walk**: Pikachu stands, walks and runs in his own Melee clips from `PlPkAJ.dat` (`Wait`, `WalkMiddle`,
+  `Run`, through `libssbm_assets::animation::Animations`; the walk and run follow Olimar's stride phase), and everything else
+  (pluck, throw, whistle, dismiss, punch, damage, knockdown, jumps) is Olimar's clip through the retarget below. The climbers
+  keep the Pikmin's motions.
+- **Why he was missing in the first deployed build**: the disc search only looked beside the OlimarTest folder and the Pikmin
+  assets; the Melee disc sits in `plugins/Melee/`, which is now searched too (and its cache folder).
 - **Motion**: the Pikmin share Olimar's 12-joint skeleton (one motion table plays on both in Pikmin 1), so one retarget
   serves Pikachu and the squad (`libpikmin-present/src/pikachu.rs`). Mapped joints hand over their world rotation change
   from the bind pose; the bones are found the way the game finds them in any fighter, through PlCo.dat's

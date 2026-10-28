@@ -120,7 +120,7 @@ namespace OlimarTest
         public static bool LoadInto(IntPtr view)
         {
             if (!ready) return false;
-            int model = Native.pik_view_load_pianta(view, Native.CString(sunshineDir), 0, uint.MaxValue);
+            int model = Native.pik_view_load_pianta(view, Native.CString(sunshineDir), 0, Plugin.PiantaColour.Value < 0 ? uint.MaxValue : (uint)Plugin.PiantaColour.Value);
             if (model < 0)
             {
                 Plugin.Log.LogWarning($"The Pianta skin did not load from {sunshineDir}");
@@ -134,7 +134,7 @@ namespace OlimarTest
 
         /// Finds the Melee cache the Melee plugin keeps (`configured`, $SSBM_ASSETS, `../Melee/assets`, its
         /// `assets_dir.txt`) and, if it lacks Pikachu's and the Ice Climbers' models, extracts them once from the
-        /// user's Melee disc (`configuredDisc`, or one beside the plugin or the Pikmin assets). Without either
+        /// user's Melee disc (`configuredDisc`, or one beside this plugin, the Melee plugin, its cache or the Pikmin assets). Without either
         /// the skin is not offered.
         public static void PreparePikachu(string configured, string configuredDisc, string here, string assetsParent)
         {
@@ -152,7 +152,9 @@ namespace OlimarTest
                     if (string.IsNullOrEmpty(disc) || !File.Exists(disc))
                     {
                         var found = new byte[1024];
-                        disc = Native.pik_ssbm_find_disc(Native.CString(here + ";" + assetsParent), found, (uint)found.Length) != 0
+                        // Beside this plugin, beside the Melee plugin (where its disc usually is) and its cache, and the Pikmin assets.
+                        string where = string.Join(";", new[] { here, Path.GetFullPath(Path.Combine(here, "../Melee")), meleeDir, assetsParent });
+                        disc = Native.pik_ssbm_find_disc(Native.CString(where), found, (uint)found.Length) != 0
                             ? Native.Utf8(found) : null;
                     }
                     if (string.IsNullOrEmpty(disc))
@@ -272,7 +274,10 @@ namespace OlimarTest
         }
 
         /// The Pianta's height to the top of his head, in sim units.
-        public static float PiantaUnits() => Mathf.Max(0.2f, Plugin.PiantaHeight.Value) / Mathf.Max(1e-4f, UnityHost.Scale);
+        public static float PiantaUnits() => OlimarSimHeight * Mathf.Max(0.2f, Plugin.PiantaHeightRatio.Value);
+
+        /// Olimar's height in sim units (his disc model), which the ratios are measured against.
+        const float OlimarSimHeight = 25.1f;
 
         /// Registers Olimar's skins on the body in place of Commando's (Olimar default, then the Pianta
         /// when his files are found) and starts the first-run Portrait jobs that render their icons.
