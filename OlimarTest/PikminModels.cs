@@ -15,8 +15,8 @@ namespace OlimarTest
     internal sealed class PikminModels : IDisposable
     {
         IntPtr view;
-        bool hasPianta, hasLouie;
-        float piantaUnits = -1f, louieRatio = -1f;
+        bool hasPianta, hasLouie, hasPikachu;
+        float piantaUnits = -1f, louieRatio = -1f, pikachuRatio = -1f, climberRatio = -1f;
         static bool victoryLoaded;
         readonly Particles particles;
 
@@ -73,6 +73,7 @@ namespace OlimarTest
             // The Pianta skin joins the model table before the meshes are built from it.
             bool pianta = OlimarSkin.LoadInto(v);
             bool louie = OlimarSkin.LoadLouieInto(v);
+            bool pikachu = OlimarSkin.LoadPikachuInto(v);
             var models = ModelView.Create(new PikViewSource(v), name, parent);
             if (models == null)
             {
@@ -92,14 +93,14 @@ namespace OlimarTest
                     }
                 }
             }
-            return new PikminModels(v, models, parent) { hasPianta = pianta, hasLouie = louie };
+            return new PikminModels(v, models, parent) { hasPianta = pianta, hasLouie = louie, hasPikachu = pikachu };
         }
 
         /// Who wears which body this frame: a captain's skin from OlimarSkin (0 Olimar, 2 the Pianta). Ignored when
         /// the Pianta did not load.
         public void SetCaptainSkin(uint captain, uint skin)
         {
-            if (view != IntPtr.Zero && (hasPianta || hasLouie)) Native.pik_view_set_captain_skin(view, captain, (byte)skin);
+            if (view != IntPtr.Zero && (hasPianta || hasLouie || hasPikachu)) Native.pik_view_set_captain_skin(view, captain, (byte)skin);
         }
 
         /// Plays EffectMgr's effect `id` once at `at` (sim units): an enemy's death smoke or soul.
@@ -169,6 +170,16 @@ namespace OlimarTest
             {
                 float units = OlimarSkin.PiantaUnits();
                 if (units != piantaUnits) { piantaUnits = units; Native.pik_view_set_pianta_height(view, units); }
+            }
+            if (hasPikachu)
+            {
+                float captain = Mathf.Max(0.2f, Plugin.PikachuHeight.Value), climber = Mathf.Max(0.1f, Plugin.IceClimberHeight.Value);
+                if (captain != pikachuRatio || climber != climberRatio)
+                {
+                    pikachuRatio = captain;
+                    climberRatio = climber;
+                    Native.pik_view_set_pikachu_ratios(view, captain, climber);
+                }
             }
             if (hasLouie)
             {

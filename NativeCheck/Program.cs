@@ -648,6 +648,42 @@ static class Program
             }
             else Console.WriteLine("SKIP Louie skin: no Pikmin 2 cache at " + p2);
 
+            // Captain Pikachu and his Ice Climbers (need the Melee cache with their models).
+            string melee = Environment.GetEnvironmentVariable("SSBM_ASSETS")
+                ?? Path.GetFullPath(Path.Combine(args[1], "..", "..", "libssbm", "assets"));
+            if (Native.pik_ssbm_ice_climbers_complete(Native.CString(melee)) != 0)
+            {
+                IntPtr kv = Native.pik_view_new(Native.CString(args[1]), 0);
+                int pikachu = Native.pik_view_load_pikachu(kv, Native.CString(melee));
+                Check(pikachu >= 0 && Native.pik_view_model_count(kv) == (uint)pikachu + 4, "Pikachu and three Ice Climbers joined the model table");
+                IntPtr ksim = Native.pik_sim_new(Native.CString(args[1]), 7);
+                var korigin = new Native.Vec3();
+                Check(Native.pik_sim_add_captain(ksim, ref korigin) == 0, "pikachu: captain");
+                var kat = new Native.Vec3(-20f, 0f, 0f);
+                Native.pik_sim_spawn_piki(ksim, Native.Red, ref kat, 0);
+                Native.pik_view_set_captain_skin(kv, 0, 3);
+                var kframe = new Native.ViewFrame { dt = 1f / 60f, listener = -1, volume = 0f,
+                    forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0) };
+                var kidle = new Native.Input();
+                Native.pik_sim_set_input(ksim, 0, ref kidle);
+                Native.pik_sim_advance(ksim, ref host, 1f / 30f);
+                Native.pik_view_update(kv, ksim, ref kframe);
+                var kdraws = new ViewDraw[64];
+                uint kCount = Native.pik_view_draws(kv, kdraws, (uint)kdraws.Length);
+                bool captainOk = false, climberOk = false;
+                for (int i = 0; i < kCount; i++)
+                {
+                    if (kdraws[i].kind == Native.KindCaptain) captainOk = kdraws[i].model == (uint)pikachu;
+                    if (kdraws[i].kind == Native.KindPiki) climberOk = kdraws[i].model > (uint)pikachu && kdraws[i].model <= (uint)pikachu + 3;
+                }
+                Check(captainOk, "the captain is drawn as Pikachu");
+                Check(climberOk, "his Pikmin are drawn as Ice Climbers");
+                Native.pik_sim_free(ksim);
+                Native.pik_view_free(kv);
+                Console.WriteLine("ok   Pikachu skin: model " + pikachu + " worn by the captain, climbers after it");
+            }
+            else Console.WriteLine("SKIP Pikachu skin: no Ice Climbers models in the Melee cache at " + melee);
+
             // The view: models through the same structs the plugin builds meshes from, then a
             // frame posed (no sound: nothing should play from a check).
             IntPtr view = Native.pik_view_new(Native.CString(args[1]), 0);

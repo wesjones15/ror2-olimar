@@ -25,18 +25,19 @@ namespace OlimarTest
     // Register replaces them with these, the way ror2-mario's MarioSkin does for Mario.
     internal static class OlimarSkin
     {
-        public const uint Olimar = 0, Louie = 1, Pianta = 2;
+        public const uint Olimar = 0, Louie = 1, Pianta = 2, Pikachu = 3;
 
         public static readonly OlimarSkinSpec[] Specs =
         {
             new OlimarSkinSpec { Id = Olimar, Name = "OlimarSkinDefault", Token = "OLIMARTEST_SKIN_DEFAULT", Text = "Olimar" },
             new OlimarSkinSpec { Id = Louie, Name = "OlimarSkinLouie", Token = "OLIMARTEST_SKIN_LOUIE", Text = "Louie" },
             new OlimarSkinSpec { Id = Pianta, Name = "OlimarSkinPianta", Token = "OLIMARTEST_SKIN_PIANTA", Text = "Pianta" },
+            new OlimarSkinSpec { Id = Pikachu, Name = "OlimarSkinPikachu", Token = "OLIMARTEST_SKIN_PIKACHU", Text = "Captain Pikachu" },
         };
 
         static readonly List<OlimarSkinSpec> loadout = new List<OlimarSkinSpec>();
-        static string sunshineDir, louieDir;
-        static bool ready, louieReady;
+        static string sunshineDir, louieDir, meleeDir;
+        static bool ready, louieReady, pikachuReady;
 
         /// Where the Sunshine cache the Pianta comes from is, when its files are all there.
         public static string SunshineDir => ready ? sunshineDir : null;
@@ -128,6 +129,83 @@ namespace OlimarTest
             return true;
         }
 
+        /// Whether Captain Pikachu can be drawn (Melee's Pikachu and Ice Climbers models are in the Melee cache).
+        public static bool PikachuAvailable => pikachuReady;
+
+        /// Finds the Melee cache the Melee plugin keeps (`configured`, $SSBM_ASSETS, `../Melee/assets`, its
+        /// `assets_dir.txt`) and, if it lacks Pikachu's and the Ice Climbers' models, extracts them once from the
+        /// user's Melee disc (`configuredDisc`, or one beside the plugin or the Pikmin assets). Without either
+        /// the skin is not offered.
+        public static void PreparePikachu(string configured, string configuredDisc, string here, string assetsParent)
+        {
+            try
+            {
+                meleeDir = ResolveMelee(configured, here);
+                if (meleeDir == null)
+                {
+                    Plugin.Log.LogInfo("Captain Pikachu: no Melee cache found (set Skins.MeleeAssets), so he is not offered");
+                    return;
+                }
+                if (Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) == 0)
+                {
+                    string disc = configuredDisc?.Trim();
+                    if (string.IsNullOrEmpty(disc) || !File.Exists(disc))
+                    {
+                        var found = new byte[1024];
+                        disc = Native.pik_ssbm_find_disc(Native.CString(here + ";" + assetsParent), found, (uint)found.Length) != 0
+                            ? Native.Utf8(found) : null;
+                    }
+                    if (string.IsNullOrEmpty(disc))
+                    {
+                        Plugin.Log.LogInfo("Captain Pikachu: the Ice Climbers models are not extracted and no Melee disc was found (set Skins.MeleeDisc), so he is not offered");
+                        return;
+                    }
+                    Plugin.Log.LogInfo($"Captain Pikachu: extracting the Ice Climbers models from {disc} into {meleeDir}...");
+                    if (Native.pik_ssbm_extract_ice_climbers(Native.CString(disc), Native.CString(meleeDir)) != 0)
+                    {
+                        Plugin.Log.LogWarning("Captain Pikachu: extraction from the Melee disc failed (it must be GALE01 revision 2), so he is not offered");
+                        return;
+                    }
+                }
+                pikachuReady = Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) != 0;
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Captain Pikachu: {e.Message}");
+            }
+        }
+
+        static string ResolveMelee(string configured, string here)
+        {
+            if (!string.IsNullOrWhiteSpace(configured)) return configured.Trim();
+            string env = Environment.GetEnvironmentVariable("SSBM_ASSETS");
+            if (!string.IsNullOrWhiteSpace(env) && Directory.Exists(env.Trim())) return env.Trim();
+            foreach (var rel in new[] { "../Melee/assets", "assets", "Melee/assets" })
+            {
+                var p = Path.GetFullPath(Path.Combine(here, rel));
+                if (File.Exists(Path.Combine(p, "PlCo.dat"))) return p;
+            }
+            var pointer = Path.GetFullPath(Path.Combine(here, "../Melee/assets_dir.txt"));
+            if (File.Exists(pointer))
+            {
+                var target = File.ReadAllText(pointer).Trim();
+                if (!string.IsNullOrWhiteSpace(target) && Directory.Exists(target)) return target;
+            }
+            return null;
+        }
+
+        /// Loads Pikachu and the Ice Climbers into a new view (before the model table is read); false when unavailable.
+        public static bool LoadPikachuInto(IntPtr view)
+        {
+            if (!pikachuReady) return false;
+            if (Native.pik_view_load_pikachu(view, Native.CString(meleeDir)) < 0)
+            {
+                Plugin.Log.LogWarning($"Captain Pikachu did not load from {meleeDir}");
+                return false;
+            }
+            return true;
+        }
+
         /// Whether Louie can be drawn (Pikmin 2's player files are extracted).
         public static bool LouieAvailable => louieReady;
 
@@ -196,10 +274,10 @@ namespace OlimarTest
             foreach (var spec in Specs)
             {
                 if (spec == null) continue;
-                spec.Registered = spec.Id == Olimar || (spec.Id == Pianta && ready) || (spec.Id == Louie && louieReady);
+                spec.Registered = spec.Id == Olimar || (spec.Id == Pianta && ready) || (spec.Id == Louie && louieReady) || (spec.Id == Pikachu && pikachuReady);
                 if (!spec.Registered) continue;
                 spec.Def = Def(spec.Name, spec.Token, model, character,
-                    Icon(spec.Id == Olimar ? new Color(0.95f, 0.75f, 0.2f) : spec.Id == Louie ? new Color(0.2f, 0.7f, 0.3f) : new Color(0.3f, 0.7f, 0.3f)));
+                    Icon(spec.Id == Olimar ? new Color(0.95f, 0.75f, 0.2f) : spec.Id == Louie ? new Color(0.2f, 0.7f, 0.3f) : spec.Id == Pikachu ? new Color(1f, 0.85f, 0.1f) : new Color(0.3f, 0.7f, 0.3f)));
                 if (spec.Id == Pianta && !Plugin.PiantaUnlocked.Value)
                 {
                     // Held back until earned (the plan: Mithrix's defeat, escaping the planet). Nothing grants it yet.

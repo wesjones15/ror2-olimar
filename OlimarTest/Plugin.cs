@@ -78,7 +78,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<bool> PiantaUnlocked;
-        internal static ConfigEntry<float> PiantaHeight, LouieHeight;
+        internal static ConfigEntry<float> PiantaHeight, LouieHeight, PikachuHeight, IceClimberHeight;
         internal static ConfigEntry<float> SoundVolume, TrumpetGain;
 
         /// Extraction has finished (or wasn't needed). The sim waits for this so it starts on
@@ -305,6 +305,14 @@ namespace OlimarTest
             var p2disc = Config.Bind("Skins", "Pikmin2Disc", "",
                 "Your Pikmin 2 disc image (.iso/.gcm/.ciso), used once to extract Louie's models and motions. Empty: look in " +
                 "the plugin folder and next to AssetsDir. Without it Louie is not offered.");
+            PikachuHeight = Config.Bind("Skins", "PikachuHeight", 1f,
+                new ConfigDescription("Captain Pikachu's height as a multiple of Olimar's.", new AcceptableValueRange<float>(0.5f, 2f)));
+            IceClimberHeight = Config.Bind("Skins", "IceClimberHeight", 0.42f,
+                new ConfigDescription("An Ice Climber's height as a multiple of Olimar's (Captain Pikachu's squad).", new AcceptableValueRange<float>(0.2f, 1f)));
+            var meleeCache = Config.Bind("Skins", "MeleeAssets", "",
+                "The Melee plugin's extracted cache, where Captain Pikachu's models live. Empty: $SSBM_ASSETS, then beside this plugin or the Melee plugin's assets_dir.txt.");
+            var meleeDisc = Config.Bind("Skins", "MeleeDisc", "",
+                "Your Melee disc image (GALE01 revision 2, .iso/.gcm/.ciso), used once to add the Ice Climbers models to the Melee cache. Empty: look in the plugin folder and next to AssetsDir.");
             OlimarSkin.Discover(sunshine.Value, here);
             Log.LogInfo(OlimarSkin.PiantaAvailable ? $"Pianta skin: Sunshine assets at {OlimarSkin.SunshineDir}"
                 : "Pianta skin: no Sunshine assets found, so it is not offered");
@@ -347,6 +355,7 @@ namespace OlimarTest
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
             OlimarSkin.PrepareLouie(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
+            OlimarSkin.PreparePikachu(meleeCache.Value, meleeDisc.Value, here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
             PikminDamageNumbers.Install(gameObject, Config);
             PikminHealthGauges.Install(gameObject, Config);
             ItemHooks.Install();

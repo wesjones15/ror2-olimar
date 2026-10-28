@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 48;
+        public const uint AbiVersion = 49;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
@@ -330,6 +330,17 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_pianta(IntPtr view, byte[] sunshineDir, byte female, uint colour);
         /// Which body a captain wears: 0 Olimar, 2 the Pianta.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_captain_skin(IntPtr view, uint captain, byte skin);
+        /// Pikachu and the Ice Climbers (skin 3) from the Melee cache, four models appended to the table; Pikachu's
+        /// model index or -1.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_pikachu(IntPtr view, byte[] meleeDir);
+        /// Pikachu's height and an Ice Climber's, as multiples of Olimar's.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_pikachu_ratios(IntPtr view, float captain, float climber);
+        /// Whether the Melee cache holds the Ice Climbers' and Pikachu's models.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_ssbm_ice_climbers_complete(byte[] dir);
+        /// Extracts those models from the user's Melee image into the Melee cache; 0 on success.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_ssbm_extract_ice_climbers(byte[] iso, byte[] outDir);
+        /// A Melee image in a ';'-separated list of folders; 0 when none.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_ssbm_find_disc(byte[] dirs, byte[] found, uint foundLen);
         /// Louie (skin 1) from the Pikmin 2 cache, appended to the model table; his model index or -1.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_louie(IntPtr view, byte[] pikmin2Dir);
         /// Louie's height as a multiple of Olimar's.
