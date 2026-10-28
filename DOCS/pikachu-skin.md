@@ -6,9 +6,11 @@ still behave, carry and fight as Pikmin.
 
 ## What is built
 
-- **Models** from the user's own Melee disc (GALE01 Rev 2): `PlPkNr.dat` (Pikachu), `PlPpNr/Re.dat` (Popo, blue and
-  red) and `PlNnYe.dat` (Nana, yellow), loaded with `libssbm_assets::model::Model::load_costume`. Pikmin colours map
-  Blue to Popo, Red to Popo's red, Yellow to Nana's yellow. The Ice Climbers are not in libssbm's roster, so
+- **Models** from the user's own Melee disc (GALE01 Rev 2): `PlPkNr.dat` (Pikachu) and **all eight Ice Climber
+  costumes** (Popo Nr/Re/Or/Gr, Nana Nr/Ye/Aq/Wh), loaded with `libssbm_assets::model::Model::load_costume`. Each Pikmin
+  colour has a family and a hash of the Pikmin's id picks one, so the army is mixed but a colour still reads: Blue is Popo's
+  blue, Nana's aqua and white; Red is Popo's red, Nana's pink and Popo's orange; Yellow is Nana's yellow and Popo's green
+  (`pikachu::FAMILIES`). The Ice Climbers are not in libssbm's roster, so
   `libssbm_assets::disc::extract_ice_climbers` (`ICE_CLIMBER_ASSETS`: those costumes, `PlPk.dat`, `PlCo.dat`) adds
   them to the Melee cache. The plugin does it once at startup when the cache lacks them (`Skins.MeleeDisc`, or a Melee
   image beside the plugin or the Pikmin assets). Manual: `cargo run -p libssbm-assets --example extract_ice_climbers -- <image> <cache>`.
@@ -33,5 +35,4 @@ still behave, carry and fight as Pikmin.
   climbers' hoods follow their parent.
 - Melee's lighting is lifted 1.5x like the Luigi and Melee hosts; no colour tint when frozen.
 - No Pikachu or Ice Climber voices or effects: the sounds stay Olimar's and the Pikmin's.
-- Colours beyond Blue, Red and Yellow (Popo's green and orange, Nana's other costumes) are not used.
 - 100 climbers' frame cost has not been measured in game.

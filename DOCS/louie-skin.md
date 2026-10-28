@@ -22,6 +22,36 @@ the plugin has Pikmin 2's player files, which it extracts once from the user's o
   Tested: libsms-present `body::louie_tests`, `libpikmin-ffi` `the_louie_skin_draws_through_the_abi`, and `NativeCheck`
   against the built DLL. Never seen in game.
 
+## Purple and White Pikmin in his squad (ABI 50)
+
+`PikiColor` has five colours (Blue 0, Red 1, Yellow 2, Purple 3, White 4); `PikiColor::ALL` is still Pikmin 1's three and
+`from_index` still cycles them, `EVERY` and `from_id` take all five. Tuning is `Params::p2` (`Pikmin2Params`), read from
+`<assets>/p2/parms/pikiParms.txt` by `pik_sim_new` when the Pikmin 2 files are there (code defaults otherwise):
+
+| | Purple | White |
+|---|---|---|
+| attack (`P003`/`P004`) | 20 | 10 |
+| run speed x (`P002`/`P001`) | 0.8 | 1.2 |
+| carry power (`P005`/`P006`) | 0.6 | 3.0 |
+| lifts as | ten carriers (`getColorTransportScale`) | one |
+
+A bud adds `P020` (0.5) and a flower `P021` (1.0) to a carrier's power. Purple: a thrown one **pounds** where it comes
+down, on a creature's part or the ground (`PikiHipDropState`): `P022` damage to what it touched (20) and every flying
+creature within `P017` (60) is **brought down** (`Event::Grounded`; the host stuns it and pushes it to the floor for
+`Pikmin.PoundGroundSeconds`). The throw itself is Olimar's: Pikmin 2 shortens a Purple's arc and stops it at the peak,
+which would break far throws and lock-ons, so it is not done. White: an eaten one poisons its eater
+(`Event::PoisonedEater`; the host hits the eater for `Pikmin.WhitePoisonDamage`, 300 as in Pikmin 2). Snapshot events
+47-49; `PikOnion.stored` and `pik_sim_attackers` are five wide.
+
+Bodies: `piki_p2_black.bmd` / `piki_p2_white.bmd` on Pikmin 2's own motions (`wait`, `walk`, `run2`, `nuku`...: the Pikmin 1
+motion the animator picked names the clip, its progress picks the frame; `libpikmin-present/src/pikmin2.rs`), the leaf on
+`happajnt3`, sized to a blue Pikmin times `P000`. `pik_view_load_pikmin2`; without the files they draw as tinted Pikmin 1 bodies.
+
+Host: only a Louie captain starts with them (`Pikmin.StartPurple` 3, `Pikmin.StartWhite` 5) and his Onion takes all five
+colours; the HUD, carry gauge, corpse colours and Onion stock count five. Not played in game. Not done: Pikmin 2's other
+Purple/White rules (wind, gas and astonish immunities, digging), Candypop Buds, and the Onion menu icons for the two (the
+panel shows the generic icon).
+
 ## Asked for, not built yet (what each needs)
 
 - **His own voice and effects.** Pikmin 2 sound is JAudio 2 (`AudioRes/PSound.aaf`, `Banks/wScene_*.aw`,
@@ -31,7 +61,3 @@ the plugin has Pikmin 2's player files, which it extracts once from the user's o
 - **His own spaceship.** The Hocotate Ship is `user/Kando/ufo/arc.szs` (J3D, `ufo.bmd`, `ufo.bck`, `ufo.brk`, plus
   `ufoAnimMgr.txt`, `ufoColl.txt`; `ufo_gold` the gold one). It would replace the Dolphin for his arrival, healing and
   Ship Repair; libpikmin's ship model and its 30 parts are Pikmin 1's `.mod`, so it is a second ship path.
-- **Purple and White Pikmin in his squad.** libpikmin's `PikiColor` is Blue, Red, Yellow only. Purple is `piki_p2_black.bmd`
-  and White `piki_p2_white.bmd` in `pikis.szs` (already extracted). Adding the two colours touches the core (carry
-  weights, damage, poison, the vanilla values in `pikiParms.txt`), the snapshot format, Onions and seeds, the FFI
-  structs, and the host's colours, HUD and items. Louie's squad would draw from five colours.

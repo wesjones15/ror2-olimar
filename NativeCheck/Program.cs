@@ -701,7 +701,7 @@ static class Program
             {
                 IntPtr kv = Native.pik_view_new(Native.CString(args[1]), 0);
                 int pikachu = Native.pik_view_load_pikachu(kv, Native.CString(melee));
-                Check(pikachu >= 0 && Native.pik_view_model_count(kv) == (uint)pikachu + 4, "Pikachu and three Ice Climbers joined the model table");
+                Check(pikachu >= 0 && Native.pik_view_model_count(kv) == (uint)pikachu + 9, "Pikachu and eight Ice Climber costumes joined the model table");
                 IntPtr ksim = Native.pik_sim_new(Native.CString(args[1]), 7);
                 var korigin = new Native.Vec3();
                 Check(Native.pik_sim_add_captain(ksim, ref korigin) == 0, "pikachu: captain");
@@ -720,7 +720,7 @@ static class Program
                 for (int i = 0; i < kCount; i++)
                 {
                     if (kdraws[i].kind == Native.KindCaptain) captainOk = kdraws[i].model == (uint)pikachu;
-                    if (kdraws[i].kind == Native.KindPiki) climberOk = kdraws[i].model > (uint)pikachu && kdraws[i].model <= (uint)pikachu + 3;
+                    if (kdraws[i].kind == Native.KindPiki) climberOk = kdraws[i].model > (uint)pikachu && kdraws[i].model <= (uint)pikachu + 8;
                 }
                 Check(captainOk, "the captain is drawn as Pikachu");
                 Check(climberOk, "his Pikmin are drawn as Ice Climbers");
