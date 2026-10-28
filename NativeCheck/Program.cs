@@ -589,6 +589,37 @@ static class Program
 
         if (args.Length > 1)
         {
+            // The Pianta skin (needs the Sunshine cache the Mario plugin extracts): it joins the model table,
+            // a captain can wear it and the view draws the captain with that model.
+            string sunshine = Environment.GetEnvironmentVariable("SMS_ASSETS")
+                ?? Path.GetFullPath(Path.Combine(args[1], "..", "..", "libsms", "assets"));
+            if (File.Exists(Path.Combine(sunshine, "npc", "montem", "mom_model.bmd")))
+            {
+                IntPtr pv = Native.pik_view_new(Native.CString(args[1]), 0);
+                int pianta = Native.pik_view_load_pianta(pv, Native.CString(sunshine), 0, uint.MaxValue);
+                Check(pianta >= 0 && Native.pik_view_model_count(pv) == (uint)pianta + 1, "the Pianta joined the model table");
+                Native.pik_view_set_pianta_height(pv, 30f);
+                IntPtr psim = Native.pik_sim_new(Native.CString(args[1]), 7);
+                var pOrigin = new Native.Vec3();
+                Check(Native.pik_sim_add_captain(psim, ref pOrigin) == 0, "pianta: captain");
+                Native.pik_view_set_captain_skin(pv, 0, 2);
+                var pframe = new Native.ViewFrame { dt = 1f / 60f, listener = -1, volume = 0f,
+                    forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0) };
+                var pidle = new Native.Input();
+                Native.pik_sim_set_input(psim, 0, ref pidle);
+                Native.pik_sim_advance(psim, ref host, 1f / 30f);
+                Native.pik_view_update(pv, psim, ref pframe);
+                var pdraws = new ViewDraw[64];
+                uint pCount = Native.pik_view_draws(pv, pdraws, (uint)pdraws.Length);
+                bool worn = false;
+                for (int i = 0; i < pCount; i++) if (pdraws[i].kind == Native.KindCaptain) worn = pdraws[i].model == (uint)pianta;
+                Check(worn, "the captain is drawn as the Pianta");
+                Native.pik_sim_free(psim);
+                Native.pik_view_free(pv);
+                Console.WriteLine("ok   Pianta skin: model " + pianta + " worn by the captain");
+            }
+            else Console.WriteLine("SKIP Pianta skin: no Sunshine cache at " + sunshine);
+
             // The view: models through the same structs the plugin builds meshes from, then a
             // frame posed (no sound: nothing should play from a check).
             IntPtr view = Native.pik_view_new(Native.CString(args[1]), 0);
