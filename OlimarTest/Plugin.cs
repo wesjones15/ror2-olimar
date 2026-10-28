@@ -80,7 +80,8 @@ namespace OlimarTest
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<bool> PiantaUnlocked;
-        internal static ConfigEntry<float> PiantaHeight, LouieHeight, PikachuHeight, IceClimberHeight;
+        internal static ConfigEntry<float> PiantaHeightRatio, LouieHeight, PikachuHeight, IceClimberHeight;
+        internal static ConfigEntry<int> PiantaColour;
         internal static ConfigEntry<float> SoundVolume, TrumpetGain;
 
         /// Extraction has finished (or wasn't needed). The sim waits for this so it starts on
@@ -315,9 +316,12 @@ namespace OlimarTest
             PiantaUnlocked = Config.Bind("Skins", "PiantaUnlocked", true,
                 "Offer the Pianta skin without earning it. Open while it is being tested; it will become a reward for " +
                 "defeating Mithrix and escaping the planet, and turning this off locks it until then.");
-            PiantaHeight = Config.Bind("Skins", "PiantaHeight", 1.75f,
-                new ConfigDescription("The Pianta's height to the top of his head, in metres. Olimar himself is OlimarHeight tall; " +
-                    "Commando, and Mario by default, are 1.82.", new AcceptableValueRange<float>(0.5f, 3f)));
+            PiantaHeightRatio = Config.Bind("Skins", "PiantaHeightRatio", 1.25f,
+                new ConfigDescription("The Pianta's height to the top of his palm, as a multiple of Olimar's. 1.25 keeps him a little " +
+                    "taller than Olimar.", new AcceptableValueRange<float>(0.5f, 3f)));
+            PiantaColour = Config.Bind("Skins", "PiantaColour", 1,
+                new ConfigDescription("The Pianta's body colour: an index into the game's male Pianta colour table (sMonteM_BodyColorBuf). " +
+                    "1 is blue; 7 is the game's usual first Pianta; -1 also picks that one.", new AcceptableValueRange<int>(-1, 9)));
             LouieHeight = Config.Bind("Skins", "LouieHeight", 1f,
                 new ConfigDescription("Louie's height as a multiple of Olimar's.", new AcceptableValueRange<float>(0.5f, 2f)));
             var p2disc = Config.Bind("Skins", "Pikmin2Disc", "",
@@ -373,6 +377,7 @@ namespace OlimarTest
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
             OlimarSkin.PrepareLouie(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
+            ShipRepairSession.PrepareTreasures(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
             OlimarSkin.PreparePikachu(meleeCache.Value, meleeDisc.Value, here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
             PikminDamageNumbers.Install(gameObject, Config);
             PikminHealthGauges.Install(gameObject, Config);

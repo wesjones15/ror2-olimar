@@ -33,6 +33,9 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_spawn_ship_part(IntPtr sim, uint part, ref Vec3 pos, float yaw);
         /// Pikmin 2's treasures (the Pikmin 2 cache beside the assets): how many, each one's carriers, Pokos and English name,
         /// and one spawned as a pellet a ship receives like a part (its receipt's part id is 1000 + the index).
+        /// Whether the Pikmin 2 cache folder holds the treasure files, and extracting them from the user's Pikmin 2 image (0 on success).
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_p2_treasures_complete(byte[] dir);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_p2_extract_treasures(byte[] iso, byte[] outDir);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_treasure_count(IntPtr sim);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_treasure_weight(IntPtr sim, uint index);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_treasure_value(IntPtr sim, uint index);
