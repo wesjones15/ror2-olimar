@@ -63,14 +63,14 @@ namespace OlimarTest
 
         /// <summary>
         /// The treasures that lie in a stage: <paramref name="count"/> distinct ones, none of <paramref name="taken"/> (collected
-        /// earlier in the run), none that need more than <paramref name="maxCarriers"/> Pikmin. Seeded, so the host and a
+        /// earlier in the run), none that need more than <paramref name="maxCarriers"/> Pikmin (0: no limit, the mod has none). Seeded, so the host and a
         /// replay agree. Tiers are drawn first (55/28/14/3 percent), then a treasure of the tier; an empty tier falls
         /// to the nearest common one.
         /// </summary>
         public static int[] Pick(ulong seed, uint epoch, int count, IReadOnlyList<Info> table, ISet<int> taken, uint maxCarriers)
         {
             var rng = new Random(unchecked((int)(seed ^ (seed >> 32)) ^ (int)epoch * 7907 ^ 0x2F2));
-            var left = table.Where(t => t.Carriers > 0 && t.Carriers <= maxCarriers && t.Pokos > 0 && (taken == null || !taken.Contains(t.Index))).ToList();
+            var left = table.Where(t => t.Carriers > 0 && (maxCarriers == 0 || t.Carriers <= maxCarriers) && t.Pokos > 0 && (taken == null || !taken.Contains(t.Index))).ToList();
             var chosen = new List<int>();
             for (int i = 0; i < count && left.Count > 0; i++)
             {

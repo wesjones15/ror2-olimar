@@ -237,7 +237,8 @@ static class Program
         var taken = new System.Collections.Generic.HashSet<int>(a);
         Check(ShipRepairTreasures.Pick(77, 3, 5, table, taken, 25).All(i => !taken.Contains(i)), "a collected treasure does not come again");
         Check(ShipRepairTreasures.Pick(1, 1, 500, table, null, 25).Length == table.Count(t => t.Carriers <= 25), "asking for more than exist gives all that qualify");
-        Check(ShipRepairTreasures.Pick(1, 1, 5, table, null, 0).Length == 0 && ShipRepairTreasures.Pick(1, 1, 0, table, null, 25).Length == 0, "nothing to pick");
+        Check(ShipRepairTreasures.Pick(1, 1, 5, table, null, 25).Length == 5 && ShipRepairTreasures.Pick(1, 1, 0, table, null, 25).Length == 0, "nothing to pick");
+        Check(ShipRepairTreasures.Pick(1, 1, 500, table, null, 0).Length == table.Length && ShipRepairTreasures.Pick(1, 1, 500, table, null, 5).Length == table.Count(t => t.Carriers <= 5), "a limit of 0 is no limit");
         int[] tiers = new int[4];
         for (uint epoch = 1; epoch <= 400; epoch++)
             foreach (int i in ShipRepairTreasures.Pick(9, epoch, 5, table, null, 60)) tiers[(int)ShipRepairTreasures.TierOf(table[i].Pokos)]++;

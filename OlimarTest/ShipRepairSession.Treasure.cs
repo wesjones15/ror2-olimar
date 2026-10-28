@@ -31,7 +31,7 @@ namespace OlimarTest
         int treasureCount, treasurePoints;
         int treasuresPerStage;
         float treasureWeight = ShipRepairTreasures.DefaultWeight;
-        uint treasureMaxCarriers = 25;
+        uint treasureMaxCarriers;
         const float TreasureSpacing = 14f;
 
         internal int TreasureCount => treasureCount;
@@ -67,7 +67,7 @@ namespace OlimarTest
         {
             treasuresPerStage = Mathf.Clamp(Plugin.TreasuresPerStage.Value, 0, ShipRepairPacket.MaxTreasures);
             treasureWeight = ShipRepairTreasures.ClampWeight(Plugin.TreasureScoreWeight.Value);
-            treasureMaxCarriers = (uint)Mathf.Clamp(Plugin.TreasureMaxCarriers.Value, 1, 100);
+            treasureMaxCarriers = (uint)Mathf.Clamp(Plugin.TreasureMaxCarriers.Value, 0, 200);
         }
 
         static string TreasureName(int index)

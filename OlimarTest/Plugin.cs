@@ -192,8 +192,8 @@ namespace OlimarTest
                 "Host rule, locked at run start, shared repair only. Pikmin 2 treasures lying in each stage as bonus objectives (needs the Pikmin 2 files); Pikmin carry them to the Dolphin and each scores in a separate treasure category. 0-16, 0 turns them off.");
             TreasureScoreWeight = Config.Bind("ShipRepair", "TreasureScoreWeight", ShipRepairTreasures.DefaultWeight,
                 "Host rule. What a plain treasure adds to the final score as a fraction of one Dolphin part (1.0): 0.1 by default, richer treasures 1.5x, 2.5x and 4x that. Capped at 0.2, so no treasure is ever worth a whole part. 0 turns the category off.");
-            TreasureMaxCarriers = Config.Bind("ShipRepair", "TreasureMaxCarriers", 25,
-                "Host rule. Treasures that need more Pikmin than this to lift never lie in a stage (the Pikmin 2 table goes up to 101). 1-100.");
+            TreasureMaxCarriers = Config.Bind("ShipRepair", "TreasureMaxCarriers", 0,
+                "Host rule. Treasures that need more Pikmin than this to lift never lie in a stage. 0 (the default) is no limit: the Pikmin 2 table goes up to 101 carriers, and the Doomsday Apparatus needs 128. 0-200.");
             StageMusic = Config.Bind("ShipRepair", "StageMusic", true, "Local audio: Pikmin jungle music in the lobby, Impact Site on stage one, seeded Pikmin music on later stages, and space-themed world-map music on results. Retains RoR2 boss music.");
             AdaptiveStageMusic = Config.Bind("ShipRepair", "AdaptiveStageMusic", true, "Local audio: nearby RoR2 enemies activate the original Pikmin enemy-proximity musical layers.");
             StageMusicVolume = Config.Bind("ShipRepair", "StageMusicVolume", 1f, "Local Pikmin stage music gain, multiplied by RoR2 music/master volume (0-2).");
