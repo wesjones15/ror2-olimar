@@ -62,14 +62,25 @@ copies `AudioRes` (about 25 MB) with the rest, once at startup. Louie's lines ar
 punch `0x88E`, plus the throw sound `0x806`. His throw and hurt cries replace Olimar's once that output runs. The other
 sounds (whistle, pluck, Pikmin) stay Pikmin 1's. Which line goes with which moment was chosen by name, not heard.
 
+## Navi light and ship (ABI 51)
+
+- **Navi light (a stand-in).** `libsms_assets::jpa2::Jpc` reads Pikmin 2's `game.jpc` (`effects/game.jpc` in the cache):
+  each resource's `BSP1` base shape (colours, size, blend, texture index) and the textures. `libpikmin-present/src/navilight.rs`
+  draws Louie's two resources (the star, `IP2_orilight3_i`, pale blue over a blue `IP2_glow1_i` base) as camera-facing
+  additive layers over his head, breathing about every 1.4 s, with the particle's colour mixing (`env` to `prm` by the
+  texture). The real light is an emitter with a trail; this is one glow per resource, sized by eye.
+- **Hocotate Ship.** `user/Kando/ufo/arc.szs` is extracted to `ufo/` (`ufo.bmd`, 25 joints, 137 units tall; `pmotion1-3.bck`,
+  `suction.bck`, `ufo.brk`). `pik_view_set_ship_hocotate(onion, on)` draws it instead of the Dolphin's body for a ship:
+  sized to the upright Dolphin, on the Dolphin's ground contact, its `goal` joint turned to the goal spot, the `suction` clip
+  while a part is being taken in. The host asks for it for ships whose owner wears Louie (`PikminView`, server side:
+  `PikminWorld.ShipOfCaptain`; a client does not know whose ship is whose and keeps the Dolphin). Everything else about the
+  ship is the Dolphin's: landing, takeoff, the receiver, sounds, effects. Not shown on the Hocotate Ship: the wreck, the 30
+  parts and the level lights. `ufo.bck` did not fit the rig (joint count) and is unused. Pikmin 2's ship sounds are not used.
+
 ## Asked for, not built yet (what each needs)
 
-- **His own particle effects (JPA2).** Not built, and in Pikmin 2 there is only one to build: `TNaviEffect::setNaviType`
-  (efxPikmin.cpp) gives Louie `mLight.mNaviType = 1`, a different **navi light**; his whistle ring is Olimar's (the
-  Louie/President/Fuebug cursors are marked unused in vanilla). Effects are `user/Kando/effect/game.jpc` and
-  `user/Ebisawa/effect/game.jpc`, JPA2 containers (`JPAResourceLoader::load_jpc`, magic `JPAC2-10`: `BEM1`/`FLD1`/`KFA1`/`BSP1`/
-  `ESP1`/`SSP1`/`ETX1`/`TDB1` blocks with a different field layout from the Sunshine `.jpa` files `libsms-assets::jpa` reads),
-  so it needs a new reader and emitter engine, or a hand-made glow in his colour as a stand-in.
-- **His own spaceship.** The Hocotate Ship is `user/Kando/ufo/arc.szs` (J3D, `ufo.bmd`, `ufo.bck`, `ufo.brk`, plus
-  `ufoAnimMgr.txt`, `ufoColl.txt`; `ufo_gold` the gold one). It would replace the Dolphin for his arrival, healing and
-  Ship Repair; libpikmin's ship model and its 30 parts are Pikmin 1's `.mod`, so it is a second ship path.
+- **His own particle effects (JPA2).** The one effect Pikmin 2 gives Louie is his navi light (`TNaviEffect::setNaviType`:
+  `PID_OrimaLight_Loozy_1/_2`, 0xDE and 0xE1; Olimar's are 0x123 and 0x126; his whistle ring is Olimar's). It is a JPA2
+  emitter and there is no JPA2 emitter engine; see "Navi light and ship" for the stand-in. A real port needs the emitter,
+  field and key blocks of `game.jpc` (`JPAC2-10`).
+

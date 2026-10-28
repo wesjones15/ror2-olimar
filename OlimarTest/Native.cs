@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 50;
+        public const uint AbiVersion = 51;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
@@ -353,6 +353,7 @@ namespace OlimarTest
         /// Louie (skin 1) from the Pikmin 2 cache, appended to the model table; his model index or -1.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_louie(IntPtr view, byte[] pikmin2Dir);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_pikmin2(IntPtr view, byte[] pikmin2Dir);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_ship_hocotate(IntPtr view, uint onion, byte on);
         /// Louie's height as a multiple of Olimar's.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_louie_height(IntPtr view, float ratio);
         /// Whether the Pikmin 2 cache folder is complete.

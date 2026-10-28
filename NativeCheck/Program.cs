@@ -626,7 +626,7 @@ static class Program
             {
                 IntPtr lv = Native.pik_view_new(Native.CString(args[1]), 0);
                 int louie = Native.pik_view_load_louie(lv, Native.CString(p2));
-                Check(louie >= 0 && Native.pik_view_model_count(lv) == (uint)louie + 1, "Louie joined the model table");
+                Check(louie >= 0 && Native.pik_view_model_count(lv) == (uint)louie + 2, "Louie and his ship joined the model table");
                 IntPtr lsim = Native.pik_sim_new(Native.CString(args[1]), 7);
                 var lorigin = new Native.Vec3();
                 Check(Native.pik_sim_add_captain(lsim, ref lorigin) == 0, "louie: captain");

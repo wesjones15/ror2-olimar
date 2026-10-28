@@ -197,6 +197,9 @@ namespace OlimarTest
                 {
                     uint captain = (uint)d.ViewCaptain;
                     models.SetCaptainSkin(captain, OlimarSkin.Selected(d.Body));
+                    // His ship is Louie's when he is.
+                    int ship = world.ShipOfCaptain(d.ViewCaptain);
+                    if (ship >= 0) models.SetShipHocotate((uint)ship, OlimarSkin.Selected(d.Body) == OlimarSkin.Louie);
                     models.Materialize(captain, world.BeamProgress(captain));
                     float progress = world.HealingProgress(captain);
                     uint ghosts = world.HealingCount(captain);

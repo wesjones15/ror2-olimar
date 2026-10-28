@@ -104,6 +104,12 @@ namespace OlimarTest
             if (view != IntPtr.Zero && (hasPianta || hasLouie || hasPikachu)) Native.pik_view_set_captain_skin(view, captain, (byte)skin);
         }
 
+        /// The ship of Onion `onion` is Louie's Hocotate Ship (`on`) or the Dolphin. Louie's files load with him.
+        public void SetShipHocotate(uint onion, bool on)
+        {
+            if (view != IntPtr.Zero && hasLouie) Native.pik_view_set_ship_hocotate(view, onion, (byte)(on ? 1 : 0));
+        }
+
         /// Plays EffectMgr's effect `id` once at `at` (sim units): an enemy's death smoke or soul.
         public void SpawnEffect(int id, Native.Vec3 at)
         {

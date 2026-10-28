@@ -8,6 +8,9 @@ namespace OlimarTest
     // poisons what ate it (EnemyBase::eatWhitePikminCallBack).
     internal partial class PikminWorld
     {
+        /// The sim id of `captain`'s Dolphin, or -1 (the server's: clients do not know whose ship is whose).
+        internal int ShipOfCaptain(int captain) => dolphins.TryGetValue(captain, out var d) ? d.id : -1;
+
         /// `Grounded`: a thrown Purple's pound reached a flying creature (the sim's `earthquake` reaches the flying
         /// too); it is stunned and pulled down for Combat/Pikmin.PoundGroundSeconds.
         void GroundCreature(in Native.Event e)
