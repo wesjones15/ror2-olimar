@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 47;
+        public const uint AbiVersion = 48;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
@@ -330,6 +330,16 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_pianta(IntPtr view, byte[] sunshineDir, byte female, uint colour);
         /// Which body a captain wears: 0 Olimar, 2 the Pianta.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_captain_skin(IntPtr view, uint captain, byte skin);
+        /// Louie (skin 1) from the Pikmin 2 cache, appended to the model table; his model index or -1.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_louie(IntPtr view, byte[] pikmin2Dir);
+        /// Louie's height as a multiple of Olimar's.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_louie_height(IntPtr view, float ratio);
+        /// Whether the Pikmin 2 cache folder is complete.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_p2_complete(byte[] dir);
+        /// Extracts Louie's files from the user's Pikmin 2 image into a folder; 0 on success.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_p2_extract(byte[] iso, byte[] outDir);
+        /// A Pikmin 2 image in a ';'-separated list of folders; 0 when none.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_p2_find_disc(byte[] dirs, byte[] found, uint foundLen);
         /// The Pianta's height to the top of his head, sim units.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_pianta_height(IntPtr view, float units);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_trumpet_gain(IntPtr view, float gain);

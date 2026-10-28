@@ -620,6 +620,34 @@ static class Program
             }
             else Console.WriteLine("SKIP Pianta skin: no Sunshine cache at " + sunshine);
 
+            // Louie (needs the Pikmin 2 cache extracted into <assets>/p2).
+            string p2 = Path.Combine(args[1], "p2");
+            if (Native.pik_p2_complete(Native.CString(p2)) != 0)
+            {
+                IntPtr lv = Native.pik_view_new(Native.CString(args[1]), 0);
+                int louie = Native.pik_view_load_louie(lv, Native.CString(p2));
+                Check(louie >= 0 && Native.pik_view_model_count(lv) == (uint)louie + 1, "Louie joined the model table");
+                IntPtr lsim = Native.pik_sim_new(Native.CString(args[1]), 7);
+                var lorigin = new Native.Vec3();
+                Check(Native.pik_sim_add_captain(lsim, ref lorigin) == 0, "louie: captain");
+                Native.pik_view_set_captain_skin(lv, 0, 1);
+                var lframe = new Native.ViewFrame { dt = 1f / 60f, listener = -1, volume = 0f,
+                    forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0) };
+                var lidle = new Native.Input();
+                Native.pik_sim_set_input(lsim, 0, ref lidle);
+                Native.pik_sim_advance(lsim, ref host, 1f / 30f);
+                Native.pik_view_update(lv, lsim, ref lframe);
+                var ldraws = new ViewDraw[64];
+                uint lCount = Native.pik_view_draws(lv, ldraws, (uint)ldraws.Length);
+                bool wearing = false;
+                for (int i = 0; i < lCount; i++) if (ldraws[i].kind == Native.KindCaptain) wearing = ldraws[i].model == (uint)louie;
+                Check(wearing, "the captain is drawn as Louie");
+                Native.pik_sim_free(lsim);
+                Native.pik_view_free(lv);
+                Console.WriteLine("ok   Louie skin: model " + louie + " worn by the captain");
+            }
+            else Console.WriteLine("SKIP Louie skin: no Pikmin 2 cache at " + p2);
+
             // The view: models through the same structs the plugin builds meshes from, then a
             // frame posed (no sound: nothing should play from a check).
             IntPtr view = Native.pik_view_new(Native.CString(args[1]), 0);

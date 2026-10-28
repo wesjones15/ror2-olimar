@@ -12,7 +12,7 @@ namespace OlimarTest
     /// controls stay Olimar's; libpikmin draws another model in his place (pik_view_set_captain_skin).
     internal sealed class OlimarSkinSpec
     {
-        /// The native skin id: 0 Olimar, 1 is kept for Louie, 2 the Pianta.
+        /// The native skin id: 0 Olimar, 1 Louie, 2 the Pianta.
         public uint Id;
         public string Name, Token, Text;
         /// The SkinDef, set at registration.
@@ -25,18 +25,18 @@ namespace OlimarTest
     // Register replaces them with these, the way ror2-mario's MarioSkin does for Mario.
     internal static class OlimarSkin
     {
-        public const uint Olimar = 0, Pianta = 2;
+        public const uint Olimar = 0, Louie = 1, Pianta = 2;
 
         public static readonly OlimarSkinSpec[] Specs =
         {
             new OlimarSkinSpec { Id = Olimar, Name = "OlimarSkinDefault", Token = "OLIMARTEST_SKIN_DEFAULT", Text = "Olimar" },
-            null, // Louie, later
+            new OlimarSkinSpec { Id = Louie, Name = "OlimarSkinLouie", Token = "OLIMARTEST_SKIN_LOUIE", Text = "Louie" },
             new OlimarSkinSpec { Id = Pianta, Name = "OlimarSkinPianta", Token = "OLIMARTEST_SKIN_PIANTA", Text = "Pianta" },
         };
 
         static readonly List<OlimarSkinSpec> loadout = new List<OlimarSkinSpec>();
-        static string sunshineDir;
-        static bool ready;
+        static string sunshineDir, louieDir;
+        static bool ready, louieReady;
 
         /// Where the Sunshine cache the Pianta comes from is, when its files are all there.
         public static string SunshineDir => ready ? sunshineDir : null;
@@ -128,6 +128,58 @@ namespace OlimarTest
             return true;
         }
 
+        /// Whether Louie can be drawn (Pikmin 2's player files are extracted).
+        public static bool LouieAvailable => louieReady;
+
+        /// Finds the Pikmin 2 disc and extracts Louie's files from it once, into `cacheDir` (a few small
+        /// archives, so on the calling thread). Without a disc Louie is simply not offered. `configuredDisc`
+        /// is the config's image path; empty looks beside this plugin and the Pikmin assets.
+        public static void PrepareLouie(string configuredDisc, string cacheDir, string here, string assetsParent)
+        {
+            louieDir = cacheDir;
+            try
+            {
+                if (Native.pik_p2_complete(Native.CString(cacheDir)) == 0)
+                {
+                    string disc = configuredDisc?.Trim();
+                    if (string.IsNullOrEmpty(disc) || !File.Exists(disc))
+                    {
+                        var found = new byte[1024];
+                        disc = Native.pik_p2_find_disc(Native.CString(here + ";" + assetsParent), found, (uint)found.Length) != 0
+                            ? Native.Utf8(found) : null;
+                    }
+                    if (string.IsNullOrEmpty(disc))
+                    {
+                        Plugin.Log.LogInfo("Louie: no Pikmin 2 disc found (set Skins.Pikmin2Disc), so he is not offered");
+                        return;
+                    }
+                    Plugin.Log.LogInfo($"Louie: extracting Pikmin 2's player files from {disc} into {cacheDir}...");
+                    if (Native.pik_p2_extract(Native.CString(disc), Native.CString(cacheDir)) != 0)
+                    {
+                        Plugin.Log.LogWarning("Louie: extraction from the Pikmin 2 disc failed, so he is not offered");
+                        return;
+                    }
+                }
+                louieReady = Native.pik_p2_complete(Native.CString(cacheDir)) != 0;
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Louie: {e.Message}");
+            }
+        }
+
+        /// Loads Louie into a new view (before the model table is read); false when he is not available.
+        public static bool LoadLouieInto(IntPtr view)
+        {
+            if (!louieReady) return false;
+            if (Native.pik_view_load_louie(view, Native.CString(louieDir)) < 0)
+            {
+                Plugin.Log.LogWarning($"Louie did not load from {louieDir}");
+                return false;
+            }
+            return true;
+        }
+
         /// The Pianta's height to the top of his head, in sim units.
         public static float PiantaUnits() => Mathf.Max(0.2f, Plugin.PiantaHeight.Value) / Mathf.Max(1e-4f, UnityHost.Scale);
 
@@ -144,9 +196,10 @@ namespace OlimarTest
             foreach (var spec in Specs)
             {
                 if (spec == null) continue;
-                spec.Registered = spec.Id == Olimar || (spec.Id == Pianta && ready);
+                spec.Registered = spec.Id == Olimar || (spec.Id == Pianta && ready) || (spec.Id == Louie && louieReady);
                 if (!spec.Registered) continue;
-                spec.Def = Def(spec.Name, spec.Token, model, character, Icon(spec.Id == Olimar ? new Color(0.95f, 0.75f, 0.2f) : new Color(0.3f, 0.7f, 0.3f)));
+                spec.Def = Def(spec.Name, spec.Token, model, character,
+                    Icon(spec.Id == Olimar ? new Color(0.95f, 0.75f, 0.2f) : spec.Id == Louie ? new Color(0.2f, 0.7f, 0.3f) : new Color(0.3f, 0.7f, 0.3f)));
                 if (spec.Id == Pianta && !Plugin.PiantaUnlocked.Value)
                 {
                     // Held back until earned (the plan: Mithrix's defeat, escaping the planet). Nothing grants it yet.

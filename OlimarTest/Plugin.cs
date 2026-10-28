@@ -78,7 +78,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<bool> PiantaUnlocked;
-        internal static ConfigEntry<float> PiantaHeight;
+        internal static ConfigEntry<float> PiantaHeight, LouieHeight;
         internal static ConfigEntry<float> SoundVolume, TrumpetGain;
 
         /// Extraction has finished (or wasn't needed). The sim waits for this so it starts on
@@ -300,6 +300,11 @@ namespace OlimarTest
             PiantaHeight = Config.Bind("Skins", "PiantaHeight", 1.75f,
                 new ConfigDescription("The Pianta's height to the top of his head, in metres. Olimar himself is OlimarHeight tall; " +
                     "Commando, and Mario by default, are 1.82.", new AcceptableValueRange<float>(0.5f, 3f)));
+            LouieHeight = Config.Bind("Skins", "LouieHeight", 1f,
+                new ConfigDescription("Louie's height as a multiple of Olimar's.", new AcceptableValueRange<float>(0.5f, 2f)));
+            var p2disc = Config.Bind("Skins", "Pikmin2Disc", "",
+                "Your Pikmin 2 disc image (.iso/.gcm/.ciso), used once to extract Louie's models and motions. Empty: look in " +
+                "the plugin folder and next to AssetsDir. Without it Louie is not offered.");
             OlimarSkin.Discover(sunshine.Value, here);
             Log.LogInfo(OlimarSkin.PiantaAvailable ? $"Pianta skin: Sunshine assets at {OlimarSkin.SunshineDir}"
                 : "Pianta skin: no Sunshine assets found, so it is not offered");
@@ -341,6 +346,7 @@ namespace OlimarTest
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets(disc.Value, here);
+            OlimarSkin.PrepareLouie(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
             PikminDamageNumbers.Install(gameObject, Config);
             PikminHealthGauges.Install(gameObject, Config);
             ItemHooks.Install();
