@@ -69,7 +69,7 @@ namespace OlimarTest
             MenuStyles();
             LoadBottomHud();
             int field = 0, free = world.SproutCount, squad = 0;
-            int[] colours = { 0, 0, 0 };
+            int[] colours = new int[Native.ColourCount];
             int heldColour = -1, heldStage = 0;
             int nearestColour = -1, nearestStage = 0, selectedStage = 0;
             float nearestDist = float.PositiveInfinity;
@@ -105,7 +105,7 @@ namespace OlimarTest
             {
                 var onion = world.Onions[i];
                 if (onion.is_ship == 0)
-                    stored += (int)(onion.stored0 + onion.stored1 + onion.stored2);
+                    stored += (int)onion.StoredTotal;
             }
             int total = field + world.SproutCount + stored;
             int next = heldColour >= 0 ? heldColour

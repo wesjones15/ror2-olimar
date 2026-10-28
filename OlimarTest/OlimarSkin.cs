@@ -258,6 +258,19 @@ namespace OlimarTest
             return true;
         }
 
+        /// Loads Purple and White Pikmin (Pikmin 2's bodies, for Louie's squad) into a new view, from the same
+        /// Pikmin 2 files; without them they are drawn as tinted Pikmin 1 bodies. False when Pikmin 2 is not available.
+        public static bool LoadPikmin2Into(IntPtr view)
+        {
+            if (!louieReady) return false;
+            if (Native.pik_view_load_pikmin2(view, Native.CString(louieDir)) < 0)
+            {
+                Plugin.Log.LogWarning($"Purple and White Pikmin did not load from {louieDir}");
+                return false;
+            }
+            return true;
+        }
+
         /// The Pianta's height to the top of his head, in sim units.
         public static float PiantaUnits() => Mathf.Max(0.2f, Plugin.PiantaHeight.Value) / Mathf.Max(1e-4f, UnityHost.Scale);
 

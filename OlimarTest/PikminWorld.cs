@@ -91,7 +91,7 @@ namespace OlimarTest
 
         sealed class Cargo
         {
-            public readonly int[] squad = new int[3], stored = new int[3];
+            public readonly int[] squad = new int[Native.ColourCount], stored = new int[Native.ColourCount];
             public readonly uint colour = (uint)UnityEngine.Random.Range(0, 3);
             public bool saved;
         }
@@ -566,11 +566,11 @@ namespace OlimarTest
             if (!Plugin.GooboSquad.Value) return;
             var owner = d.Body.master && d.Body.master.minionOwnership ? d.Body.master.minionOwnership.ownerMaster : null;
             if (!owner || !captainOf.TryGetValue(owner, out int ownerCaptain)) return;
-            var counts = new int[3];
+            var counts = new int[Native.ColourCount];
             SquadCounts(ownerCaptain, counts);
             var feet = d.Body.footPosition;
             int n = 0;
-            for (uint c = 0; c < 3; c++)
+            for (uint c = 0; c < Native.ColourCount; c++)
                 for (int i = 0; i < counts[c]; i++, n++)
                 {
                     var off = Quaternion.Euler(0f, n * 37f, 0f) * Vector3.forward * (1f + 0.25f * (n / 8));
@@ -615,7 +615,7 @@ namespace OlimarTest
             bool stocked = false;
             if (onionOf.TryGetValue(captain, out var f))
                 for (int i = 0; i < OnionCount; i++)
-                    if (Onions[i].id == f.id && Onions[i].Stored(0) + Onions[i].Stored(1) + Onions[i].Stored(2) > 0)
+                    if (Onions[i].id == f.id && Onions[i].StoredTotal > 0)
                         stocked = true;
             if (stocked || Native.pik_sim_captain_piki_count(sim, (uint)captain) > 0) return;
             var feet = UnityHost.ToSim(d.Body.footPosition);
@@ -667,13 +667,13 @@ namespace OlimarTest
                 for (int i = 0; i < PikiCount; i++)
                 {
                     var p = Pikis[i];
-                    if (p.alive != 0 && p.captain == pair.Value && p.color < 3 && InSquad(p.state))
+                    if (p.alive != 0 && p.captain == pair.Value && p.color < Native.ColourCount && InSquad(p.state))
                         saved.squad[p.color]++;
                 }
                 if (onionOf.TryGetValue(pair.Value, out var flight))
                     for (int i = 0; i < OnionCount; i++)
                         if (Onions[i].id == flight.id)
-                            for (uint c = 0; c < 3; c++) saved.stored[c] = (int)Onions[i].Stored(c);
+                            for (uint c = 0; c < Native.ColourCount; c++) saved.stored[c] = (int)Onions[i].Stored(c);
                 saved.saved = true;
             }
             FreeSim();
@@ -686,7 +686,8 @@ namespace OlimarTest
         {
             var owner = d.Body.master;
             if (!cargo.TryGetValue(owner, out var saved)) cargo[owner] = saved = new Cargo();
-            AddOnion(d.Body.footPosition + Vector3.up * 5f, 0b111, d.Body);
+            AddOnion(d.Body.footPosition + Vector3.up * 5f,
+                OlimarSkin.LouieAvailable && OlimarSkin.Selected(d.Body) == OlimarSkin.Louie ? 0b11111u : 0b111u, d.Body);
             int id = onionIds[onionIds.Count - 1];
             Native.pik_sim_set_onion_color(sim, (uint)id, saved.colour);
             Native.pik_sim_set_onion_owner(sim, (uint)id, captain);
@@ -1284,7 +1285,18 @@ namespace OlimarTest
         int[] StartingSquad(OlimarDriver d)
         {
             var saved = cargo[d.Body.master];
-            return saved.saved ? saved.squad : new[] { Plugin.StartBlue.Value, Plugin.StartRed.Value, Plugin.StartYellow.Value };
+            if (saved.saved) return saved.squad;
+            var start = new int[Native.ColourCount];
+            start[Native.Blue] = Plugin.StartBlue.Value;
+            start[Native.Red] = Plugin.StartRed.Value;
+            start[Native.Yellow] = Plugin.StartYellow.Value;
+            // Louie's squad also has Pikmin 2's Purple and White.
+            if (OlimarSkin.LouieAvailable && OlimarSkin.Selected(d.Body) == OlimarSkin.Louie)
+            {
+                start[Native.Purple] = Plugin.StartPurple.Value;
+                start[Native.White] = Plugin.StartWhite.Value;
+            }
+            return start;
         }
 
         /// Puts his squad, what his Onion held and its plucker's Pikmin into the landed Onion, for it to let
@@ -1295,13 +1307,13 @@ namespace OlimarTest
             int home = onionOf[captain].id;
             if (home < 0) return;
             var squad = StartingSquad(d);
-            for (uint c = 0; c < 3; c++)
+            for (uint c = 0; c < Native.ColourCount; c++)
                 if (squad[c] > 0) Native.pik_sim_store_in_onion(sim, (uint)home, c, 0, (uint)squad[c]);
             if (saved.saved)
-                for (uint c = 0; c < 3; c++)
+                for (uint c = 0; c < Native.ColourCount; c++)
                     if (saved.stored[c] > 0) Native.pik_sim_store_in_onion(sim, (uint)home, c, 0, (uint)saved.stored[c]);
             // An Onion never starts empty: its plucker (Items.AutoPluckDelay) is a Pikmin inside it.
-            int inside = saved.saved ? saved.stored[0] + saved.stored[1] + saved.stored[2] : 0;
+            int inside = saved.saved ? saved.stored.Sum() : 0;
             if (inside == 0) Native.pik_sim_store_in_onion(sim, (uint)home, Native.Red, 0, 1);
         }
 
@@ -1312,7 +1324,7 @@ namespace OlimarTest
             var feet = d.Body.footPosition;
             var back = -Vector3.ProjectOnPlane(d.Body.transform.forward, Vector3.up).normalized;
             int n = 0;
-            for (uint c = 0; c < 3; c++)
+            for (uint c = 0; c < Native.ColourCount; c++)
             {
                 int left = squad[c] - (int)CallOut(captain, onion.id, c, (uint)squad[c]);
                 for (; left > 0; left--, n++)
@@ -1327,13 +1339,11 @@ namespace OlimarTest
         void BringPikmin(int captain, OlimarDriver d)
         {
             var saved = cargo[d.Body.master];
-            int[] squad = saved.saved
-                ? saved.squad
-                : new[] { Plugin.StartBlue.Value, Plugin.StartRed.Value, Plugin.StartYellow.Value };
+            int[] squad = StartingSquad(d);
             var feet = d.Body.footPosition;
             var back = -Vector3.ProjectOnPlane(d.Body.transform.forward, Vector3.up).normalized;
             int n = 0;
-            for (uint c = 0; c < 3; c++)
+            for (uint c = 0; c < Native.ColourCount; c++)
                 for (int i = 0; i < squad[c]; i++, n++)
                 {
                     // A loose crowd behind him; the sim's formation sorts them out.
@@ -1343,7 +1353,7 @@ namespace OlimarTest
                     Native.pik_sim_spawn_piki(sim, c, ref p, captain);
                 }
             if (saved.saved)
-                for (uint c = 0; c < 3; c++)
+                for (uint c = 0; c < Native.ColourCount; c++)
                 {
                     int onion = onionOf[captain].id;
                     if (onion >= 0 && saved.stored[c] > 0)
@@ -1351,7 +1361,7 @@ namespace OlimarTest
                 }
             // An Onion never starts empty: its plucker (Items.AutoPluckDelay) is a Pikmin inside it.
             int home = onionOf[captain].id;
-            int inside = saved.saved ? saved.stored[0] + saved.stored[1] + saved.stored[2] : 0;
+            int inside = saved.saved ? saved.stored.Sum() : 0;
             if (home >= 0 && inside == 0)
                 Native.pik_sim_store_in_onion(sim, (uint)home, Native.Red, 0, 1);
         }
@@ -1416,7 +1426,7 @@ namespace OlimarTest
         public bool OnionTotals(int onion, int captain, out Native.OnionCounts total)
         {
             total = default;
-            for (uint colour = 0; colour < 3; colour++)
+            for (uint colour = 0; colour < Native.ColourCount; colour++)
             {
                 if (!OnionCounts(onion, captain, colour, out var n)) return false;
                 total.in_onion += n.in_onion;
@@ -1516,14 +1526,14 @@ namespace OlimarTest
             uint amount = kind == OnionCommandPacket.ReleaseAll ? OnionMenuPolicy.ReleaseCount(total.in_onion, room)
                 : kind == OnionCommandPacket.ReturnAll ? total.in_squad
                 : Math.Min(count, release ? Math.Min(total.in_onion, room) : total.in_squad);
-            var available = new uint[3];
-            for (uint colour = 0; colour < 3; colour++)
+            var available = new uint[Native.ColourCount];
+            for (uint colour = 0; colour < Native.ColourCount; colour++)
             {
                 OnionCounts(onion, captain, colour, out var n);
                 available[colour] = release ? n.in_onion : n.in_squad;
             }
-            var plan = OnionMenuPolicy.Distribute(amount, available[0], available[1], available[2]);
-            for (uint colour = 0; colour < 3; colour++)
+            var plan = OnionMenuPolicy.Distribute(amount, available);
+            for (uint colour = 0; colour < Native.ColourCount; colour++)
             {
                 if (plan[colour] == 0) continue;
                 if (release) CallOut(captain, onion, colour, plan[colour]);
@@ -2121,6 +2131,8 @@ namespace OlimarTest
                 {
                     var e = events[i];
                     if (e.kind == Native.EventKind.ShipPartCollected) ShipRepairSession.Instance?.Receipt(this, e);
+                    if (e.kind == Native.EventKind.Grounded) GroundCreature(e);
+                    if (e.kind == Native.EventKind.PoisonedEater) PoisonEater(e);
                     if (e.kind == Native.EventKind.PelletDelivered && onionMinions.TryGetValue(e.b, out var onion)
                         && onion.Alive && !OnionDisabled(e.b))
                     {
@@ -2137,9 +2149,9 @@ namespace OlimarTest
             } while (n == events.Length);
         }
 
-        static readonly string[] ColourNames = { "Blue", "Red", "Yellow" };
+        static readonly string[] ColourNames = { "Blue", "Red", "Yellow", "Purple", "White" };
 
-        static string Colour(int c) => c >= 0 && c < 3 ? ColourNames[c] : "?";
+        static string Colour(int c) => c >= 0 && c < ColourNames.Length ? ColourNames[c] : "?";
 
         // Where each thrown Pikmin was aimed (the captain's cursor when it left his hand), to log
         // throws that land well away from it.
@@ -2563,18 +2575,18 @@ namespace OlimarTest
         }
 
         // Pikmin colours in the sim's order, and the order that breaks a tie: red first.
-        static readonly int[] ColourTieOrder = { 1, 2, 0 };
+        static readonly int[] ColourTieOrder = { 1, 2, 0, 3, 4 };
 
         /// The colour of the pellet `v` leaves: the colour most of the Pikmin that fought it were (a tie goes
         /// to the colour there are fewer of); with none that fought it (Olimar's own kill), the colour there
         /// are fewest of among the Pikmin he has; with none at all, red.
         int CorpseColour(CharacterBody v)
         {
-            var fought = new uint[3];
+            var fought = new uint[Native.ColourCount];
             Native.pik_sim_attackers(sim, Id(v), fought);
-            var have = new int[3];
+            var have = new int[Native.ColourCount];
             for (int i = 0; i < PikiCount; i++)
-                if (Pikis[i].alive != 0 && Pikis[i].color < 3) have[Pikis[i].color]++;
+                if (Pikis[i].alive != 0 && Pikis[i].color < Native.ColourCount) have[Pikis[i].color]++;
             int best = -1;
             foreach (int c in ColourTieOrder)
                 if (fought[c] > 0 && (best < 0 || fought[c] > fought[best] || fought[c] == fought[best] && have[c] < have[best]))

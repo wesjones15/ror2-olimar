@@ -74,6 +74,7 @@ namespace OlimarTest
             bool pianta = OlimarSkin.LoadInto(v);
             bool louie = OlimarSkin.LoadLouieInto(v);
             bool pikachu = OlimarSkin.LoadPikachuInto(v);
+            OlimarSkin.LoadPikmin2Into(v);
             var models = ModelView.Create(new PikViewSource(v), name, parent);
             if (models == null)
             {

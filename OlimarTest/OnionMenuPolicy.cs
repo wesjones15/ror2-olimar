@@ -24,9 +24,9 @@ namespace OlimarTest
         internal static uint ReleaseCount(uint stock, uint room) =>
             Math.Min(stock > 0 ? stock - 1 : 0, room);
 
-        internal static uint[] Distribute(uint count, uint blue, uint red, uint yellow)
+        internal static uint[] Distribute(uint count, params uint[] available)
         {
-            var plan = new[] { blue, red, yellow };
+            var plan = (uint[])available.Clone();
             for (int i = 0; i < plan.Length; i++)
             {
                 plan[i] = Math.Min(plan[i], count);

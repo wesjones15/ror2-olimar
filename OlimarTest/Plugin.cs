@@ -45,7 +45,8 @@ namespace OlimarTest
 
         internal static ControlScheme Scheme;
         internal static ConfigEntry<CameraMode> Camera;
-        internal static ConfigEntry<int> StartRed, StartYellow, StartBlue;
+        internal static ConfigEntry<int> StartRed, StartYellow, StartBlue, StartPurple, StartWhite;
+        internal static ConfigEntry<float> PoundGroundSeconds, WhitePoisonDamage;
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> OnionHealth, OnionReviveSeconds, OnionPelletHeal;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
@@ -142,6 +143,16 @@ namespace OlimarTest
             StartRed = Config.Bind("Pikmin", "StartRed", 10, "Red Pikmin in the squad at the start of a run.");
             StartYellow = Config.Bind("Pikmin", "StartYellow", 5, "Yellow Pikmin at the start of a run.");
             StartBlue = Config.Bind("Pikmin", "StartBlue", 5, "Blue Pikmin at the start of a run.");
+            StartPurple = Config.Bind("Pikmin", "StartPurple", 3,
+                "Purple Pikmin in Louie's squad at the start of a run (Pikmin 2: heavy hitters that count as ten carriers). " +
+                "Only Louie starts with them, and only when Pikmin 2's files are there.");
+            StartWhite = Config.Bind("Pikmin", "StartWhite", 5,
+                "White Pikmin in Louie's squad at the start of a run (Pikmin 2: fast, poison their eaters).");
+            PoundGroundSeconds = Config.Bind("Pikmin", "PoundGroundSeconds", 4f,
+                "How long a flying enemy stays down after a Purple Pikmin lands next to it (seconds). 0 turns the effect off.");
+            WhitePoisonDamage = Config.Bind("Pikmin", "WhitePoisonDamage", 300f,
+                "Pikmin attack points an enemy takes (times Combat/DamageCoefficient) when it eats a White Pikmin; " +
+                "Pikmin 2 enemies take 300. 0 turns the poison off.");
             AutoRejoin = Config.Bind("Pikmin", "AutoRejoin", true,
                 "Pikmin that get separated (done carrying or fighting, thrown with nothing to " +
                 "do, left behind) run back to Olimar by themselves. Dismissed Pikmin still wait. " +

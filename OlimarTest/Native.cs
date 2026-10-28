@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 49;
+        public const uint AbiVersion = 50;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
@@ -85,7 +85,9 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_camera_pan(uint mode, ref Vec3 angles, float x, float y, float dt, float minPitch);
 
         // Colour indices (PikiColor::index, the decomp's order).
-        public const uint Blue = 0, Red = 1, Yellow = 2;
+        public const uint Blue = 0, Red = 1, Yellow = 2, Purple = 3, White = 4;
+        /// How many colours there are (Purple and White are Pikmin 2's, in Louie's squad).
+        public const int ColourCount = 5;
 
         [StructLayout(LayoutKind.Sequential)]
         public struct Vec3
@@ -196,11 +198,12 @@ namespace OlimarTest
         {
             public Vec3 pos;
             public uint id, colors;
-            public uint stored0, stored1, stored2;
+            public uint stored0, stored1, stored2, stored3, stored4;
             // 0 idle, 1 suction, 2 seeds, 3 takeoff, 4 away, 5 landing, 6 hover, 7 dormant, 8 reviving.
             public byte anim, is_ship, _p0, _p1;
 
-            public uint Stored(uint color) => color == 0 ? stored0 : color == 1 ? stored1 : stored2;
+            public uint Stored(uint color) => color == 0 ? stored0 : color == 1 ? stored1 : color == 2 ? stored2 : color == 3 ? stored3 : color == 4 ? stored4 : 0;
+            public uint StoredTotal => stored0 + stored1 + stored2 + stored3 + stored4;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -247,6 +250,12 @@ namespace OlimarTest
             StrikeStarted,
             // a the Pikmin, b its captain: it took off to repeat his jump-pad throw.
             PikiLaunched,
+            // a the Purple Pikmin, pos where it came down.
+            Pounded,
+            // a the Purple Pikmin that pounded, creature the flying creature it brought down.
+            Grounded,
+            // a the White Pikmin that was eaten, creature what ate it.
+            PoisonedEater,
         }
 
         // a: the Pikmin/pellet/sprout/captain it's about; b: a second id; c: a colour, leaf stage
@@ -343,6 +352,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_ssbm_find_disc(byte[] dirs, byte[] found, uint foundLen);
         /// Louie (skin 1) from the Pikmin 2 cache, appended to the model table; his model index or -1.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_louie(IntPtr view, byte[] pikmin2Dir);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_pikmin2(IntPtr view, byte[] pikmin2Dir);
         /// Louie's height as a multiple of Olimar's.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_louie_height(IntPtr view, float ratio);
         /// Whether the Pikmin 2 cache folder is complete.

@@ -648,6 +648,52 @@ static class Program
             }
             else Console.WriteLine("SKIP Louie skin: no Pikmin 2 cache at " + p2);
 
+            // Purple and White Pikmin (Pikmin 2): five colours through the structs, and their bodies in the view.
+            if (Native.pik_p2_complete(Native.CString(p2)) != 0)
+            {
+                IntPtr pv2 = Native.pik_view_new(Native.CString(args[1]), 0);
+                uint before = Native.pik_view_model_count(pv2);
+                int purpleModel = Native.pik_view_load_pikmin2(pv2, Native.CString(p2));
+                Check(purpleModel == (int)before && Native.pik_view_model_count(pv2) == before + 2, "Purple and White joined the model table");
+                IntPtr psim2 = Native.pik_sim_new(Native.CString(args[1]), 7);
+                var o2 = new Native.Vec3();
+                Check(Native.pik_sim_add_captain(psim2, ref o2) == 0, "purple: captain");
+                var at2 = new Native.Vec3(-20f, 0, 0);
+                Check(Native.pik_sim_spawn_piki(psim2, Native.Purple, ref at2, 0) >= 0, "a Purple spawned");
+                at2.x = -26f;
+                Check(Native.pik_sim_spawn_piki(psim2, Native.White, ref at2, 0) >= 0, "a White spawned");
+                var onionAt2 = new Native.Vec3(200f, 0, 0);
+                int onion2 = Native.pik_sim_add_onion(psim2, ref onionAt2, 0b11111);
+                Native.pik_sim_store_in_onion(psim2, (uint)onion2, Native.Purple, 0, 3);
+                Native.pik_sim_store_in_onion(psim2, (uint)onion2, Native.White, 0, 2);
+                var onions2 = new Native.Onion[1];
+                Check(Native.pik_sim_onions(psim2, onions2, 1) == 1 && onions2[0].colors == 0b11111
+                    && onions2[0].Stored(Native.Purple) == 3 && onions2[0].Stored(Native.White) == 2 && onions2[0].StoredTotal == 5,
+                    "an Onion holds Purple and White");
+                var fought = new uint[Native.ColourCount];
+                Native.pik_sim_attackers(psim2, 1, fought);
+                var pframe2 = new Native.ViewFrame { dt = 1f / 60f, listener = -1, volume = 0f,
+                    forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0) };
+                var idle2 = new Native.Input();
+                Native.pik_sim_set_input(psim2, 0, ref idle2);
+                Native.pik_sim_advance(psim2, ref host, 1f / 30f);
+                Native.pik_view_update(pv2, psim2, ref pframe2);
+                var pdraws2 = new ViewDraw[64];
+                uint n2 = Native.pik_view_draws(pv2, pdraws2, (uint)pdraws2.Length);
+                int purples = 0, whites = 0;
+                for (int i = 0; i < n2; i++)
+                {
+                    if (pdraws2[i].kind != Native.KindPiki) continue;
+                    if (pdraws2[i].model == (uint)purpleModel) purples++;
+                    if (pdraws2[i].model == (uint)purpleModel + 1) whites++;
+                }
+                Check(purples == 1 && whites == 1, $"a Purple and a White are drawn as Pikmin 2's bodies ({purples}/{whites})");
+                Native.pik_sim_free(psim2);
+                Native.pik_view_free(pv2);
+                Console.WriteLine("ok   Purple and White Pikmin: models " + purpleModel + " and " + (purpleModel + 1));
+            }
+            else Console.WriteLine("SKIP Purple and White Pikmin: no Pikmin 2 cache at " + p2);
+
             // Captain Pikachu and his Ice Climbers (need the Melee cache with their models).
             string melee = Environment.GetEnvironmentVariable("SSBM_ASSETS")
                 ?? Path.GetFullPath(Path.Combine(args[1], "..", "..", "libssbm", "assets"));

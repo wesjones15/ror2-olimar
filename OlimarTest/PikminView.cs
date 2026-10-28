@@ -36,6 +36,8 @@ namespace OlimarTest
             new Color(0.15f, 0.35f, 0.95f), // Blue
             new Color(0.95f, 0.15f, 0.1f),  // Red
             new Color(1f, 0.85f, 0.1f),     // Yellow
+            new Color(0.6f, 0.2f, 0.85f),   // Purple
+            new Color(0.95f, 0.95f, 0.95f), // White
         };
         static readonly Color[] HappaColours =
         {
@@ -284,7 +286,7 @@ namespace OlimarTest
                 s.root.transform.position = Vector3.Lerp(s.prev, s.cur, a);
                 s.root.transform.rotation = Quaternion.Euler(0f, p.face * Mathf.Rad2Deg, 0f);
                 s.root.transform.localScale = Vector3.one * size * Shrink(p.state);
-                s.body.sharedMaterial = Mat(PikiColours[Mathf.Min(p.color, (byte)2)]);
+                s.body.sharedMaterial = Mat(PikiColours[Mathf.Min(p.color, (byte)(PikiColours.Length - 1))]);
                 s.head.sharedMaterial = Mat(HappaColours[Mathf.Min(p.happa, (byte)2)]);
             }
         }
@@ -380,7 +382,7 @@ namespace OlimarTest
             var go = new GameObject("Onion");
             go.transform.SetParent(root, false);
             Color c = OnionWhite;
-            for (int k = 0; k < 3; k++)
+            for (int k = 0; k < PikiColours.Length; k++)
                 if (colours == 1u << k) c = PikiColours[k];
             var pod = Prim(PrimitiveType.Sphere, go.transform);
             pod.transform.localPosition = new Vector3(0f, 110f, 0f);
@@ -417,7 +419,7 @@ namespace OlimarTest
                 float r = (flying ? 4f : 5f) * UnityHost.Scale;
                 go.transform.position = UnityHost.ToUnity(s.pos) + Vector3.up * r;
                 go.transform.localScale = flying ? Vector3.one * r * 2f : new Vector3(r * 2.5f, r, r * 2.5f);
-                var colour = flying ? PikiColours[Mathf.Min(s.color, (byte)2)] : HappaColours[Mathf.Min(s.happa, (byte)2)];
+                var colour = flying ? PikiColours[Mathf.Min(s.color, (byte)(PikiColours.Length - 1))] : HappaColours[Mathf.Min(s.happa, (byte)2)];
                 go.GetComponent<Renderer>().sharedMaterial = Mat(colour);
             }
         }

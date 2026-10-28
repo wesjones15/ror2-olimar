@@ -7,7 +7,7 @@ namespace OlimarTest
     {
         Texture2D carryDigits;
         float nextCarryDigitLoad;
-        readonly int[] carrierColours = new int[3];
+        readonly int[] carrierColours = new int[Native.ColourCount];
 
         // The original LifeGaugeMgr loads intro/item_0_9.bti and GaugeInfo::refresh
         // stacks the required count, dash and current count above a lifted object
