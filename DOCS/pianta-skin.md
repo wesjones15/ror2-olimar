@@ -39,9 +39,18 @@ run while moving), since Olimar and Mario have nothing for them. No FLUDD. His l
 on the ground each frame. Olimar's rig is 12 unnamed joints with no elbows or knees, so the forearms,
 hands, shins and feet follow their upper limb rigidly in Olimar-clip poses.
 
-The straw skirt (`mino_null`) is one joint under the hips and none of the Pianta's clips moves it (checked across idle,
-walk, run, throw, happy, mad, step and talk), so in the game it follows the hips stiffly. The host adds a small trail as he
-runs and a slow sway.
+The straw skirt deforms through Sunshine's runtime `TMtxTimeLag` callback on
+`koshi_null`, the parent of `mino_null`. The earlier claim that it follows the
+hips stiffly in the game was incorrect: checking the BCK rotation alone missed
+this callback. Rust now reads the disc's `params_npc/montem/mtxeffect1.prm`,
+tracks the waist's world position and rotation independently per captain, and
+applies the correction before envelope skinning. The invented rigid sway is removed.
+
+While locked onto a live enemy, the palm and leaves blend into Sunshine's
+`mom_talk.bck` tracks, perking up as during conversation. The body keeps its
+current action. Unlocking or losing the enemy blends the plant back; pellet
+locks do not trigger it. The blend duration comes from `npcnormal.prm`.
+See `libsms/docs/pianta-waist.md` for source citations and the headless viewer proof.
 
 ## Sounds he makes by himself
 
