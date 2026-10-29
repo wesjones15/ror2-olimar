@@ -578,6 +578,11 @@ static class Program
         var bulbs = new Native.Bulb[2];
         Check(bulbId >= 0 && Native.pik_sim_bulbs(sim, bulbs, 2) == 1 && bulbs[0].colour == Native.Purple && bulbs[0].free == 5 && bulbs[0].pos.x == 400f,
             $"a Candypop Bud read back: colour {bulbs[0].colour}, {bulbs[0].free} slots free, at {bulbs[0].pos.x}");
+        Native.pik_sim_set_bulb_slots(sim, 30, 6);
+        Native.pik_sim_bulbs(sim, bulbs, 2);
+        Check(bulbs[0].free == 30, $"a bud given room for a bigger squad has {bulbs[0].free} slots free");
+        Native.pik_sim_set_lock_pellet(sim, (uint)c, Native.BulbLockBase + (uint)bulbId, 1);
+        Native.pik_sim_set_lock_pellet(sim, (uint)c, 0, 0);
         Native.pik_sim_remove_bulb(sim, (uint)bulbId);
         Check(Native.pik_sim_bulbs(sim, bulbs, 2) == 0, "the bud was taken away");
         Check(Native.pik_weigh_need(0) == 5 && Native.pik_weigh_need(1) == 15 && Native.pik_weigh_need(2) == 25 && Native.pik_weigh_need(3) == 1,

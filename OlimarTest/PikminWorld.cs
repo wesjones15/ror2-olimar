@@ -157,6 +157,9 @@ namespace OlimarTest
         public Native.Onion[] Onions = new Native.Onion[4];
         public Native.Sprout[] Sprouts = new Native.Sprout[32];
         public int PikiCount, PelletCount, OnionCount, SproutCount;
+        /// The Candypop Buds as the sim has them (read back each tick, for the lock-on).
+        public Native.Bulb[] Bulbs = new Native.Bulb[16];
+        public int BulbCount;
         readonly Native.Event[] events = new Native.Event[64];
 
         PikminView view;
@@ -403,6 +406,7 @@ namespace OlimarTest
                 if (Instance) Instance.OnDamageDealt(r);
             };
             HookBlasts();
+            HookShots();
         }
 
         public void StopPresentation()
@@ -485,7 +489,7 @@ namespace OlimarTest
                 if (d) d.SetRemoteCaptain(-1);
             affixes.Clear();
             Array.Clear(procReadyAt, 0, procReadyAt.Length);
-            PikiCount = PelletCount = OnionCount = SproutCount = 0;
+            PikiCount = PelletCount = OnionCount = SproutCount = BulbCount = 0;
             Corpses.Clear();
             if (view) view.Clear();
         }
@@ -637,6 +641,8 @@ namespace OlimarTest
             if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive) Native.pik_sim_set_ship_part_competitive_delivery(sim, 1);
             reportedPoison = false;
             epoch++;
+            sentNeeds.Clear();
+            Native.pik_sim_set_bulb_slots(sim, (uint)Mathf.Clamp(Plugin.BulbSlots.Value, 1, 200), (uint)Mathf.Clamp(Plugin.PopSlots.Value, 1, 200));
             StartCoroutine(ScatterBulbs(sim, epoch));
             loggedPellets.Clear();
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
@@ -1959,6 +1965,7 @@ namespace OlimarTest
             using var timing = OlimarPerformance.Measure(OlimarPerformance.Part.Gather);
             creatureCount = 0;
             PartCount = 0;
+            gatherStamp++;
             bodies.Clear();
             creatureIndex.Clear();
             if (lastCore.Count > 512) lastCore.Clear();
@@ -2086,6 +2093,7 @@ namespace OlimarTest
         Func<Native.Piki[], uint, uint> readPikis;
         Func<Native.Pellet[], uint, uint> readPellets;
         Func<Native.Sprout[], uint, uint> readSprouts;
+        Func<Native.Bulb[], uint, uint> readBulbs;
         Func<Native.Onion[], uint, uint> readOnions;
 
         void ReadBack()
@@ -2108,6 +2116,7 @@ namespace OlimarTest
                     Plugin.Log.LogInfo($"Pellet {Pellets[i].id} is {Colour(Pellets[i].color)} in the sim ({Pellets[i].min_carriers} Pikmin to lift)");
             ReadOnions();
             SproutCount = Read(ref Sprouts, readSprouts ??= (a, n) => Native.pik_sim_sprouts(sim, a, n));
+            BulbCount = Read(ref Bulbs, readBulbs ??= (a, n) => Native.pik_sim_bulbs(sim, a, n));
         }
 
         readonly HashSet<uint> loggedPellets = new HashSet<uint>();

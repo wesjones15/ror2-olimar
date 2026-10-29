@@ -48,7 +48,7 @@ namespace OlimarTest
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue, StartPurple, StartWhite;
         internal static ConfigEntry<float> PoundGroundSeconds, WhitePoisonDamage, WeighGroundSeconds, BulbMinSpacing;
         internal static ConfigEntry<bool> WeighDownFliers;
-        internal static ConfigEntry<int> BulbsShipRepair, BulbsOther;
+        internal static ConfigEntry<int> BulbsShipRepair, BulbsOther, BulbSlots, PopSlots;
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> OnionHealth, OnionReviveSeconds, OnionPelletHeal;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
@@ -165,6 +165,12 @@ namespace OlimarTest
             BulbsOther = Config.Bind("Candypop", "BulbsOther", 3,
                 new ConfigDescription("Candypop Buds scattered over each stage in the other modes (a fraction of Ship Repair's). 0 for none.",
                 new AcceptableValueRange<int>(0, 60)));
+            BulbSlots = Config.Bind("Candypop", "SlotsPerBulb", 25,
+                new ConfigDescription("How many Pikmin a Candypop Bud takes before it withers (Pikmin 2: 5). A Pikmin of the bud's own colour gives its slot back. " +
+                "Each Pikmin that goes in comes out as one sprout.", new AcceptableValueRange<int>(1, 200)));
+            PopSlots = Config.Bind("Candypop", "SlotsPerPop", 5,
+                new ConfigDescription("The same for the rainbow Candypop Pop (Pikmin 2: 1); each Pikmin it takes comes out as 5 sprouts.",
+                new AcceptableValueRange<int>(1, 200)));
             BulbMinSpacing = Config.Bind("Candypop", "BulbSpacingMetres", 25f,
                 new ConfigDescription("Least distance between two buds, and from where the player lands (metres).", new AcceptableValueRange<float>(5f, 120f)));
             WhitePoisonDamage = Config.Bind("Pikmin", "WhitePoisonDamage", 300f,

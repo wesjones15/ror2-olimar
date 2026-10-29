@@ -116,7 +116,35 @@ namespace OlimarTest
             if (!Plugin.WeighDownFliers.Value || !b.isFlying) return;
             weighNeeds ??= new[] { Native.pik_weigh_need(0), Native.pik_weigh_need(1), Native.pik_weigh_need(2), Native.pik_weigh_need(3) };
             int cls = b.isBoss || b.isChampion ? 2 : b.hullClassification == HullClassification.Human ? 0 : 1;
-            Native.pik_sim_set_ground_need(sim, id, weighNeeds[cls]);
+            SendNeed(id, weighNeeds[cls]);
+        }
+
+        // What the sim was last told for each creature, so the native call is made when a need is new or changed rather than
+        // every tick for every flier (the sim keeps the need until the creature leaves its frame).
+        // A creature missing from a gather is forgotten by the sim, so it is told again when it returns (the stamp is the
+        // gather it was last seen in).
+        readonly Dictionary<ulong, (uint need, uint stamp)> sentNeeds = new Dictionary<ulong, (uint need, uint stamp)>();
+        uint gatherStamp;
+
+        void SendNeed(ulong id, uint need)
+        {
+            if (sentNeeds.TryGetValue(id, out var old) && old.need == need && old.stamp + 1 >= gatherStamp)
+            {
+                sentNeeds[id] = (need, gatherStamp);
+                return;
+            }
+            sentNeeds[id] = (need, gatherStamp);
+            Native.pik_sim_set_ground_need(sim, id, need);
+        }
+
+        /// Forgets what was sent for creatures that are gone (checked now and then, not every tick).
+        void PruneNeeds()
+        {
+            if (sentNeeds.Count <= bodies.Count + shots.Count + 16) return;
+            var gone = new List<ulong>();
+            foreach (var id in sentNeeds.Keys)
+                if (!bodies.ContainsKey(id) && !shots.ContainsKey(id)) gone.Add(id);
+            foreach (var id in gone) sentNeeds.Remove(id);
         }
 
         /// `WeighedDown`: enough Pikmin hang on a flying creature; it is held to the ground for a moment longer.

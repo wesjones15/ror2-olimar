@@ -82,6 +82,9 @@ namespace OlimarTest
 
         /// What the lock can take besides enemies: the pellets, corpses and ship parts on the ground that can
         /// still take a carrier.
+        /// Where a Candypop Bud's mouth is above its foot, in sim units (libpikmin's bulb::HEIGHT times 0.6).
+        const float BulbMouthSim = 46f * 0.6f;
+
         static void CollectLockPoints(System.Collections.Generic.List<EnemyLock.LockPoint> into)
         {
             var world = PikminWorld.Instance;
@@ -91,6 +94,13 @@ namespace OlimarTest
                 var p = world.Pellets[n];
                 if (p.state > 1 || p.carriers >= p.max_carriers) continue;
                 into.Add(new EnemyLock.LockPoint { Id = p.id, Position = UnityHost.ToUnity(p.pos) + Vector3.up * .6f });
+            }
+            // Candypop Buds that can take a Pikmin: open, with room. Their ids sit above the pellets' (Native.BulbLockBase).
+            for (int n = 0; n < world.BulbCount; n++)
+            {
+                var b = world.Bulbs[n];
+                if (b.state != 1 || b.free == 0) continue;
+                into.Add(new EnemyLock.LockPoint { Id = Native.BulbLockBase + b.id, Position = UnityHost.ToUnity(b.pos) + Vector3.up * (BulbMouthSim * UnityHost.Scale) });
             }
         }
 

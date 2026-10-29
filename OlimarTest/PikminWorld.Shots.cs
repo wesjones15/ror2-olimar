@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using MonoMod.RuntimeDetour;
 using RoR2;
 using RoR2.Projectile;
 using UnityEngine;
@@ -24,14 +26,54 @@ namespace OlimarTest
 
         readonly Dictionary<ulong, ShotTarget> shots = new Dictionary<ulong, ShotTarget>();
         readonly List<ShotTarget> shotList = new List<ShotTarget>();
+
+        // Projectiles with a hurt box that have just started, queued by a hook on ProjectileController.Start (main thread
+        // only), so no scene is searched for them. If the hook could not be made, the scene is searched once a second instead.
+        static readonly List<ProjectileController> startedShots = new List<ProjectileController>();
+        static Hook shotHook;
+        static bool shotHookFailed;
         float shotSearchAt;
 
-        /// Looks for new targetable shots a few times a second (a scene search, so not every tick).
+        static void HookShots()
+        {
+            if (shotHook != null || shotHookFailed) return;
+            try
+            {
+                var start = typeof(ProjectileController).GetMethod("Start", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (start == null) throw new MissingMethodException("ProjectileController.Start");
+                shotHook = new Hook(start, (Action<Action<ProjectileController>, ProjectileController>)ShotStarted);
+            }
+            catch (Exception e)
+            {
+                shotHookFailed = true;
+                Plugin.Log.LogWarning($"Shootable projectiles: hook failed ({e.GetType().Name}: {e.Message}); searching the scene once a second instead");
+            }
+        }
+
+        static void ShotStarted(Action<ProjectileController> orig, ProjectileController self)
+        {
+            orig(self);
+            try
+            {
+                // Only a projectile with a hurt box of its own can be a target; most have none.
+                if (Instance && self && startedShots.Count < 256 && self.GetComponentInChildren<HurtBox>()) startedShots.Add(self);
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Shootable projectiles: {e.Message}");
+            }
+        }
+
+        /// Takes in the shots that started since the last tick (or, with no hook, searches the scene once a second).
         void FindShots()
         {
-            if (Time.fixedTime < shotSearchAt) return;
-            shotSearchAt = Time.fixedTime + 0.25f;
-            foreach (var pc in FindObjectsOfType<ProjectileController>())
+            if (shotHookFailed && Time.fixedTime >= shotSearchAt)
+            {
+                shotSearchAt = Time.fixedTime + 1f;
+                startedShots.AddRange(FindObjectsOfType<ProjectileController>());
+            }
+            if (startedShots.Count == 0) return;
+            foreach (var pc in startedShots)
             {
                 if (!pc) continue;
                 ulong id = ShotIdBase + (uint)pc.GetInstanceID();
@@ -44,6 +86,7 @@ namespace OlimarTest
                 shots[id] = target;
                 shotList.Add(target);
             }
+            startedShots.Clear();
         }
 
         /// Adds the live shots to the creatures the sim is shown this tick, and drops the ones that are gone.
@@ -78,8 +121,10 @@ namespace OlimarTest
                         parts_start = (uint)start,
                         parts_len = (uint)(PartCount - start),
                     };
-                    Native.pik_sim_set_ground_need(sim, s.id, Native.pik_weigh_need(3));
+                    weighNeeds ??= new[] { Native.pik_weigh_need(0), Native.pik_weigh_need(1), Native.pik_weigh_need(2), Native.pik_weigh_need(3) };
+                    SendNeed(s.id, weighNeeds[3]);
                 }
+                PruneNeeds();
             }
             catch (Exception e)
             {

@@ -490,6 +490,9 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onions(IntPtr sim, [Out] Onion[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onion_goal(IntPtr sim, uint id, out Vec3 goal);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_sprouts(IntPtr sim, [Out] Sprout[] outArr, uint max);
+        // A lock-on "thing" id at or above this is a Candypop Bud (its Bulb.id plus this); below it a pellet.
+        public const uint BulbLockBase = 0x40000000;
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_bulb_slots(IntPtr sim, uint normal, uint queen);
         // Candypop Buds: colour 0-4 (Blue, Red, Yellow, Purple, White); queen makes the rainbow Pop.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_add_bulb(IntPtr sim, uint colour, uint queen, ref Vec3 pos);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_remove_bulb(IntPtr sim, uint id);
