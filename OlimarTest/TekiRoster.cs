@@ -128,6 +128,11 @@ namespace OlimarTest
             // The Segmented Crawbster, a boss: waits out of sight until someone is near, crashes down, walks after them and rolls into a ball at them; a wall at speed
             // throws it on its back, then it rights itself and swings its arms. Always drops a ship part (big). Leaves the disc's corpse.
             new TekiSpec(51, "CRAWBSTER", "Segmented Crawbster", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1400, TekiHull.Golem) { Ported = true },
+            // The Burrowing Snagret: lives underground, comes up beside whoever is in its territory and strikes with its head, swallowing Pikmin; dives when nobody is in reach.
+            // Always drops a ship part (big). Leaves the disc's corpse.
+            new TekiSpec(52, "SNAGRET", "Burrowing Snagret", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 700, TekiHull.Golem) { Ported = true },
+            // The Pileated Snagret, a boss: the same bird with its body out of the ground; it hops after what it sees and back home, and strikes with its head. Always drops a ship part (big).
+            new TekiSpec(53, "PILEATEDSNAGRET", "Pileated Snagret", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1500, TekiHull.Golem) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
