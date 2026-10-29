@@ -84,6 +84,8 @@ namespace OlimarTest
             new TekiSpec(29, "DOODLEBUG", "Doodlebug", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 15, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
             // The Bulborb Larva: a chasing biter with almost no health that leaves no corpse.
             new TekiSpec(30, "LARVA", "Bulborb Larva", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 4, 12, TekiHull.Human) { Ported = true, NoCorpse = true },
+            // The Skitter Leaf: a bug under a leaf that skitters about and never attacks; it leaves the disc's corpse.
+            new TekiSpec(31, "SKITTER", "Skitter Leaf", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 3, 15, TekiHull.Human) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
