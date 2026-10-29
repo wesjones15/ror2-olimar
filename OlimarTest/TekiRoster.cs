@@ -125,6 +125,9 @@ namespace OlimarTest
             new TekiSpec(49, "MANATLEGS", "Man-at-Legs", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1200, TekiHull.Golem) { Ported = true, NoCorpse = true },
             // The Giant Breadbug: comes up from its mound, ambles, takes a pellet (never a ship part) home and eats it underground; a blow makes it let go and hurts it.
             new TekiSpec(50, "GIANTBREADBUG", "Giant Breadbug", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 300, TekiHull.Golem) { Ported = true },
+            // The Segmented Crawbster, a boss: waits out of sight until someone is near, crashes down, walks after them and rolls into a ball at them; a wall at speed
+            // throws it on its back, then it rights itself and swings its arms. Always drops a ship part (big). Leaves the disc's corpse.
+            new TekiSpec(51, "CRAWBSTER", "Segmented Crawbster", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1400, TekiHull.Golem) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
