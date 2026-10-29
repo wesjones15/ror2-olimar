@@ -255,6 +255,8 @@ namespace OlimarTest
                         if (o.vel.x != 0f || o.vel.y != 0f || o.vel.z != 0f) made.spawnVelocity = o.vel;
                         // The shell's pearl holds a ship part when the shell was made with one.
                         if (o.a == TekiCatalog.Rocpe) made.guaranteedPart = true;
+                        // A leader's Mitite fellows come up with it and do not call more.
+                        if (o.a == TekiCatalog.Mitite) made.count0 = 1;
                     }
                     break;
                 }

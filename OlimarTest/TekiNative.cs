@@ -57,7 +57,7 @@ namespace OlimarTest
     internal static class TekiCatalog
     {
         public const byte Dwarf = 0, Spotty = 1, SmokyProgg = 16, Honeywisp = 18, Breadbug = 19, RollingBoulder = 20, GiantEgg = 21, FireGeyser = 22,
-            PelletPosy = 23, Clamclamp = 24, Pearl = 25, Rocpe = 26;
+            PelletPosy = 23, Clamclamp = 24, Pearl = 25, Rocpe = 26, Mitite = 32;
         public static readonly byte Kinds = (byte)TekiRoster.All.Length;
         static readonly TekiNative.Info[] infos = new TekiNative.Info[TekiRoster.All.Length];
         static readonly bool[] have = new bool[TekiRoster.All.Length];
