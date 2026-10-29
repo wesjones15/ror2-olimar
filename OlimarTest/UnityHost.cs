@@ -18,7 +18,7 @@ namespace OlimarTest
 
         // Faces steeper than this (|normal.y| below it) are walls; the rest is ground the sim
         // snaps to.
-        const float WallNormalY = 0.5f;
+        internal const float WallNormalY = 0.5f;
         const int WallRays = 12;
         const float GroundReach = 200f;
 

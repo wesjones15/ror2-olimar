@@ -126,6 +126,16 @@ namespace OlimarTest
         const float TeleportMetres = 12f;
         // Where he last stood, for putting him back after a fall off the map.
         readonly Unstuck fallGuard = new Unstuck();
+        // Keeps him out of walls and slopes his sim let him into (ror2-common's WallGuard, as
+        // Mario's and the Melee fighters'): a jump or a knock-back into a log's side. libpikmin
+        // finds his floor from one collision radius up (15 units, 0.6 m), so lower lips are the
+        // sim's to step up, and the sweep starts above that on his 1 m body.
+        readonly WallGuard wallGuard = new WallGuard { StepHeight = 0.6f };
+        static readonly float[] SweepHeights = { 0.65f, 0.8f, 0.95f };
+        // A put-back for the sim: the next input places only the captain there (the core's host
+        // pose), never the squad, unlike pik_sim_teleport_squad.
+        Vector3? putBack;
+        float guardLogAt;
         Vector3 lastFeet;
         bool lastFeetSet;
 
@@ -389,6 +399,12 @@ namespace OlimarTest
                     if (native) native.ForgetVelocity();
                     Pose(ref i, feet, Vector3.zero, Yaw());
                     if (placed && HasState) Teleported(world, UnityHost.ToUnity(State.pos), feet);
+                    putBack = null;
+                }
+                else if (putBack.HasValue)
+                {
+                    Pose(ref i, putBack.Value, Vector3.zero, Yaw());
+                    putBack = null;
                 }
                 else if (native && native.TakeExternalVelocity(out var thrown, 2f))
                 {
@@ -658,6 +674,8 @@ namespace OlimarTest
                 smoother.Reset();
                 if (native) native.ForgetVelocity();
                 fallGuard.Reset();
+                wallGuard.Placed(back);
+                putBack = null;
                 Plugin.Log.LogInfo($"Olimar fell off the map at {feet}; back on the surface at {back} with his squad");
                 return;
             }
@@ -671,7 +689,27 @@ namespace OlimarTest
                 transform.position = unwedged + feetToOrigin;
                 smoother.Reset();
                 if (native) native.ForgetVelocity();
+                wallGuard.Placed(unwedged);
+                putBack = null;
                 Plugin.Log.LogInfo($"Olimar was wedged in geometry at {feet}; out at {unwedged} with his squad");
+                return;
+            }
+            // The step his sim just took went through a wall or into a slope (a jump, a knock-back),
+            // or sank him half his height under a floor: undo it before he falls in. Only he is put
+            // back; the pose reaches the sim with the next input. Knocked down is a throw, swept
+            // more closely.
+            if (wallGuard.Step(feet, height, SweepHeights, UnityHost.WallNormalY, c.down != 0, false,
+                out var guardBack, out var why))
+            {
+                putBack = guardBack;
+                transform.position = guardBack + feetToOrigin;
+                smoother.Reset();
+                if (native) native.ForgetVelocity();
+                if (Time.time >= guardLogAt)
+                {
+                    guardLogAt = Time.time + 1f;
+                    Plugin.Log.LogInfo($"Olimar put back at {guardBack}: {why}");
+                }
                 return;
             }
 
