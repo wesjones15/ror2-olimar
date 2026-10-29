@@ -90,6 +90,8 @@ namespace OlimarTest
             new TekiSpec(32, "MITITE", "Mitite", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 10, TekiHull.Human) { Ported = true },
             // The gas pipe: a fixture Ship Repair places, like the Fire Geyser. It vents gas that kills the Pikmin in it and cannot be killed.
             new TekiSpec(33, "GASPIPE", "Gas Pipe", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Golem) { Ported = true, NoCard = true, Hazard = true, NoCorpse = true },
+            // The Bomb-rock: sits until it is hit, then burns its fuse and blows up whoever is near. It is not killed, it goes off.
+            new TekiSpec(34, "BOMBROCK", "Bomb-rock", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 1, 12, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
