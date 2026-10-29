@@ -101,6 +101,8 @@ namespace OlimarTest
             new TekiSpec(38, "HAIRYBULBORB", "Hairy Bulborb", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 240, TekiHull.Golem) { Ported = true },
             new TekiSpec(39, "DWARFORANGEBULBORB", "Dwarf Orange Bulborb", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 4, 25, TekiHull.Human) { Ported = true },
             new TekiSpec(40, "SNOWBULBORB", "Snow Bulborb", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 3, 20, TekiHull.Human) { Ported = true },
+            // The Fiery Bulblax: a Bulborb whose body is alight (it burns what touches it) until water puts it out.
+            new TekiSpec(41, "FIERYBULBLAX", "Fiery Bulblax", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 350, TekiHull.Golem) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
