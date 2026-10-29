@@ -661,6 +661,19 @@ namespace OlimarTest
                 Plugin.Log.LogInfo($"Olimar fell off the map at {feet}; back on the surface at {back} with his squad");
                 return;
             }
+            // Standing or walking inside geometry (sunk into a log, jammed between rocks), which
+            // the fall checks never see: two seconds wedged and he is put on clear ground nearby
+            // with his squad (ror2-common's Unstuck.Wedged).
+            if (fallGuard.Wedged(feet, height, radius, false, Time.fixedDeltaTime, stand, out var unwedged))
+            {
+                var at = UnityHost.ToSim(unwedged);
+                Native.pik_sim_teleport_squad(PikminWorld.Instance.SimHandle, (uint)captain, ref at);
+                transform.position = unwedged + feetToOrigin;
+                smoother.Reset();
+                if (native) native.ForgetVelocity();
+                Plugin.Log.LogInfo($"Olimar was wedged in geometry at {feet}; out at {unwedged} with his squad");
+                return;
+            }
 
             // Leave the body at the start of the blend, never ahead of the drawn model.
             smoother.Stepped(UnityHost.ToUnity(c.pos) + feetToOrigin,
