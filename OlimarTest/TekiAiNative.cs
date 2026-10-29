@@ -41,6 +41,21 @@ namespace OlimarTest
             public bool Airborne => (flags & 32) != 0;
         }
 
+        // A Long Legs boss's legs (teki_ai.rs PikLegs, 100 bytes): the body is drawn at `trace` facing `face` with its legs folded onto `feet`.
+        // flags: bit 0 the legs stand on their own feet, 1 the clip is blended with them, 2 `gun` is where its gun points.
+        public const int LegsSize = 100;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Legs
+        {
+            public uint id, flags;
+            public Native.Vec3 trace;
+            public float face;
+            public Native.Vec3 foot0, foot1, foot2, foot3;
+            public float bend0, bend1, bend2, bend3;
+            public Native.Vec3 gun;
+        }
+
         // kind: 1 effect, 2 sound (text), 3 spawn, 4 hit a player (y < 0: a burn), 5 finished, 6 began dying, 7 shake,
         // 8 pellets (a = the number's index 0..3, b = how many, y = the color), 9 nectar, 10 an effect along vel.
         [StructLayout(LayoutKind.Sequential)]
@@ -82,5 +97,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_tekis_update(IntPtr tekis, IntPtr sim, Navi[] navis, uint count, uint ticks);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_tekis_outs(IntPtr tekis, [Out] Out[] outs, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_tekis_state(IntPtr tekis, uint id, out State state);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_legs_size();
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_tekis_legs(IntPtr tekis, uint id, out Legs legs);
     }
 }

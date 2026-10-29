@@ -224,6 +224,7 @@ namespace OlimarTest
             {
                 int tekis = TekiDraw.Collect(world, Time.deltaTime, out var list);
                 models.SetTekis(list, tekis);
+                models.SetTekiLegs(TekiDraw.Legs, TekiDraw.LegsCount);
             }
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.DataHandle, ref frame, UnityHost.Scale, d =>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Ror2Common;
 using RoR2;
 using UnityEngine;
@@ -89,6 +90,22 @@ namespace OlimarTest
             Remote.Clear();
             foreach (var b in TekiBody.All)
                 if (b) b.aiId = -1;
+        }
+
+        static bool legsChecked, legsOk;
+
+        /// A Long Legs boss's legs as the view draws them (server): false for any other enemy, or if the library's struct is not ours.
+        internal static bool TryLegs(TekiBody b, out TekiAiNative.Legs legs)
+        {
+            legs = default;
+            if (handle == IntPtr.Zero || b.aiId < 0 || !b.aiHave) return false;
+            if (!legsChecked)
+            {
+                legsChecked = true;
+                legsOk = TekiAiNative.pik_legs_size() == TekiAiNative.LegsSize && Marshal.SizeOf(typeof(TekiAiNative.Legs)) == TekiAiNative.LegsSize;
+                if (!legsOk) Plugin.Log.LogError("Pikmin enemies: TekiAiNative.Legs doesn't match pikmin.dll's struct; the Long Legs are drawn without their steps.");
+            }
+            return legsOk && TekiAiNative.pik_tekis_legs(handle, (uint)b.aiId, out legs) != 0;
         }
 
         /// A body is gone (it died, or was removed): its strategy stops.

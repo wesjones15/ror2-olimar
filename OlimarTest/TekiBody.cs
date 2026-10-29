@@ -391,6 +391,12 @@ namespace OlimarTest
     {
         static readonly List<TekiNative.Instance> list = new List<TekiNative.Instance>();
         static TekiNative.Instance[] array = new TekiNative.Instance[16];
+        static readonly List<TekiAiNative.Legs> legsList = new List<TekiAiNative.Legs>();
+        static TekiAiNative.Legs[] legsArray = new TekiAiNative.Legs[4];
+
+        /// The legs of the Long Legs among the enemies of the last [`Collect`] (their draw instances' ids), for the view.
+        public static TekiAiNative.Legs[] Legs => legsArray;
+        public static int LegsCount => legsList.Count;
 
         public static bool Any => TekiBody.All.Count > 0 || TekiCorpses.Count > 0;
 
@@ -427,12 +433,24 @@ namespace OlimarTest
 
         public static int Collect(PikminWorld world, float dt, out TekiNative.Instance[] instances)
         {
+            legsList.Clear();
             list.Clear();
             foreach (var t in TekiBody.All)
-                if (t && t.Sample(dt, out var inst)) list.Add(inst);
+            {
+                if (!t || !t.Sample(dt, out var inst)) continue;
+                list.Add(inst);
+                // A Long Legs boss stands on its feet: the view needs them (the server has them; a client draws it without).
+                if (t.Ai && TekiAi.TryLegs(t, out var legs))
+                {
+                    legs.id = inst.id;
+                    legsList.Add(legs);
+                }
+            }
             TekiCorpses.Collect(world, list);
             if (array.Length < list.Count) array = new TekiNative.Instance[Mathf.NextPowerOfTwo(list.Count)];
             list.CopyTo(array);
+            if (legsArray.Length < legsList.Count) legsArray = new TekiAiNative.Legs[Mathf.NextPowerOfTwo(legsList.Count)];
+            legsList.CopyTo(legsArray);
             instances = array;
             return list.Count;
         }

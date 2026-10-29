@@ -115,6 +115,16 @@ namespace OlimarTest
             new TekiSpec(45, "HERMITCRAWMAD", "Hermit Crawmad", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 2, 90, TekiHull.Human) { Ported = true },
             // The Unmarked Spectralid: a butterfly that hovers over its place and cannot be hurt (endless health here); a Pikmin landing on it brings it down for nectar and a small carcass.
             new TekiSpec(46, "SPECTRALID", "Unmarked Spectralid", false, true, Base + "Wisp/WispBody.prefab", Base + "Wisp/WispMaster.prefab", 2, 8, TekiHull.Human) { Ported = true, Hazard = true },
+            // The Long Legs, bosses on four stepping legs (libpikmin-teki legs/longlegs; the view folds the legs onto the feet it names): unseen above their place until
+            // someone comes near, they drop, then stand and walk after the nearest, their feet crushing what they come down on, and shake off what clings. Always drop a
+            // ship part (big). They leave no corpse (the disc gives them none): the body goes when it dies.
+            new TekiSpec(47, "BEADYLONGLEGS", "Beady Long Legs", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1000, TekiHull.Golem) { Ported = true, NoCorpse = true },
+            // Raging Long Legs: bigger and far tougher; once shaken it rages, stomping about wildly for a while.
+            new TekiSpec(48, "RAGINGLONGLEGS", "Raging Long Legs", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1500, TekiHull.Golem) { Ported = true, NoCorpse = true },
+            // Man-at-Legs: walks without stamping; shaken, or left alone a long while, it opens a cannon on its back and shells whoever is near.
+            new TekiSpec(49, "MANATLEGS", "Man-at-Legs", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1200, TekiHull.Golem) { Ported = true, NoCorpse = true },
+            // The Giant Breadbug: comes up from its mound, ambles, takes a pellet (never a ship part) home and eats it underground; a blow makes it let go and hurts it.
+            new TekiSpec(50, "GIANTBREADBUG", "Giant Breadbug", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 300, TekiHull.Golem) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;

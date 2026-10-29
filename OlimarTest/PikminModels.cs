@@ -135,6 +135,12 @@ namespace OlimarTest
             if (view != IntPtr.Zero) TekiNative.pik_view_set_tekis(view, list, (uint)count);
         }
 
+        /// The Long Legs' legs for those enemies (by the draw instance's id), which the view folds onto their feet.
+        public void SetTekiLegs(TekiAiNative.Legs[] list, int count)
+        {
+            if (view != IntPtr.Zero) TekiNative.pik_view_set_teki_legs(view, list, (uint)count);
+        }
+
         /// Draw each captain's cursor and marker (on by default).
         /// Captain `captain` appears in a beam, `progress` 0..1; anything else ends it.
         public void Materialize(uint captain, float progress)
