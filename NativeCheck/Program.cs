@@ -572,6 +572,16 @@ static class Program
         Check(Native.pik_sim_onions(sim, onions, 2) == 1 && onions[0].colors == 0b111, "Onion read back");
         var sprouts = new Native.Sprout[2];
         Native.pik_sim_sprouts(sim, sprouts, 2);
+        // Candypop Buds cross the boundary, and the weight a flier needs comes from the core.
+        var bulbAt = new Native.Vec3(400, 0, 400);
+        int bulbId = Native.pik_sim_add_bulb(sim, Native.Purple, 0, ref bulbAt);
+        var bulbs = new Native.Bulb[2];
+        Check(bulbId >= 0 && Native.pik_sim_bulbs(sim, bulbs, 2) == 1 && bulbs[0].colour == Native.Purple && bulbs[0].free == 5 && bulbs[0].pos.x == 400f,
+            $"a Candypop Bud read back: colour {bulbs[0].colour}, {bulbs[0].free} slots free, at {bulbs[0].pos.x}");
+        Native.pik_sim_remove_bulb(sim, (uint)bulbId);
+        Check(Native.pik_sim_bulbs(sim, bulbs, 2) == 0, "the bud was taken away");
+        Check(Native.pik_weigh_need(0) == 5 && Native.pik_weigh_need(1) == 15 && Native.pik_weigh_need(2) == 25 && Native.pik_weigh_need(3) == 1,
+            "5, 15, 25 and 1 Pikmin to weigh a small flier, a large one, a boss and a projectile down");
         var pelletAt = new Native.Vec3(-80, 0, 50);
         Check(Native.pik_sim_spawn_numbered_pellet(sim, 7, Native.Red, ref pelletAt, 0f) == 1, "numbered pellet");
         var pellets = new Native.Pellet[3];

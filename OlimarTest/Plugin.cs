@@ -46,7 +46,9 @@ namespace OlimarTest
         internal static ControlScheme Scheme;
         internal static ConfigEntry<CameraMode> Camera;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue, StartPurple, StartWhite;
-        internal static ConfigEntry<float> PoundGroundSeconds, WhitePoisonDamage;
+        internal static ConfigEntry<float> PoundGroundSeconds, WhitePoisonDamage, WeighGroundSeconds, BulbMinSpacing;
+        internal static ConfigEntry<bool> WeighDownFliers;
+        internal static ConfigEntry<int> BulbsShipRepair, BulbsOther;
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> OnionHealth, OnionReviveSeconds, OnionPelletHeal;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
@@ -152,6 +154,19 @@ namespace OlimarTest
                 "White Pikmin in Louie's squad at the start of a run (Pikmin 2: fast, poison their eaters).");
             PoundGroundSeconds = Config.Bind("Pikmin", "PoundGroundSeconds", 4f,
                 "How long a flying enemy stays down after a Purple Pikmin lands next to it (seconds). 0 turns the effect off.");
+            WeighDownFliers = Config.Bind("Pikmin", "WeighDownFliers", true,
+                "Pikmin hanging on a flying enemy weigh it to the ground: 5 Pikmin for a small flier, 15 for a large one, 25 for a boss " +
+                "(a Purple counts as 5, so 1, 3 and 5), and 1 for an enemy shot that can be shot down. Off: only a thrown Purple's pound does.");
+            WeighGroundSeconds = Config.Bind("Pikmin", "WeighGroundSeconds", 1.5f,
+                "How long a flying enemy is held down after the Pikmin on it last weighed enough (seconds).");
+            BulbsShipRepair = Config.Bind("Candypop", "BulbsShipRepair", 14,
+                new ConfigDescription("Candypop Buds scattered over each Ship Repair stage (throw a Pikmin in to turn it into the bud's colour; " +
+                "needs Pikmin 2's files). 0 for none.", new AcceptableValueRange<int>(0, 60)));
+            BulbsOther = Config.Bind("Candypop", "BulbsOther", 3,
+                new ConfigDescription("Candypop Buds scattered over each stage in the other modes (a fraction of Ship Repair's). 0 for none.",
+                new AcceptableValueRange<int>(0, 60)));
+            BulbMinSpacing = Config.Bind("Candypop", "BulbSpacingMetres", 25f,
+                new ConfigDescription("Least distance between two buds, and from where the player lands (metres).", new AcceptableValueRange<float>(5f, 120f)));
             WhitePoisonDamage = Config.Bind("Pikmin", "WhitePoisonDamage", 300f,
                 "Pikmin attack points an enemy takes (times Combat/DamageCoefficient) when it eats a White Pikmin; " +
                 "Pikmin 2 enemies take 300. 0 turns the poison off.");

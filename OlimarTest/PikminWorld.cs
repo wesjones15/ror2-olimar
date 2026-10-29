@@ -637,6 +637,7 @@ namespace OlimarTest
             if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive) Native.pik_sim_set_ship_part_competitive_delivery(sim, 1);
             reportedPoison = false;
             epoch++;
+            StartCoroutine(ScatterBulbs(sim, epoch));
             loggedPellets.Clear();
             Native.pik_sim_set_auto_rejoin(sim, Plugin.AutoRejoin.Value ? (byte)1 : (byte)0);
             Native.pik_sim_set_shake_protection(sim, Plugin.ShakeProtection.Value);
@@ -687,7 +688,9 @@ namespace OlimarTest
             var owner = d.Body.master;
             if (!cargo.TryGetValue(owner, out var saved)) cargo[owner] = saved = new Cargo();
             AddOnion(d.Body.footPosition + Vector3.up * 5f,
-                OlimarSkin.LouieAvailable && OlimarSkin.Selected(d.Body) == OlimarSkin.Louie ? 0b11111u : 0b111u, d.Body);
+                // Every skin's Onion takes all five colours (Pikmin 2's Purple and White come from Candypop Buds); without
+                // Pikmin 2's files only Pikmin 1's three.
+                OlimarSkin.LouieAvailable ? 0b11111u : 0b111u, d.Body);
             int id = onionIds[onionIds.Count - 1];
             Native.pik_sim_set_onion_color(sim, (uint)id, saved.colour);
             Native.pik_sim_set_onion_owner(sim, (uint)id, captain);
@@ -2001,7 +2004,9 @@ namespace OlimarTest
                     parts_start = (uint)start,
                     parts_len = (uint)(PartCount - start),
                 };
+                if (b.isFlying) SetGroundNeed(b, id);
             }
+            GatherShots();
         }
 
         // Keeps a Pikmin enemy's latch spheres inside the box of the body drawn on it (the disc's bounds for the kind,
@@ -2132,6 +2137,7 @@ namespace OlimarTest
                     var e = events[i];
                     if (e.kind == Native.EventKind.ShipPartCollected) ShipRepairSession.Instance?.Receipt(this, e);
                     if (e.kind == Native.EventKind.Grounded) GroundCreature(e);
+                    if (e.kind == Native.EventKind.WeighedDown) WeighCreature(e);
                     if (e.kind == Native.EventKind.PoisonedEater) PoisonEater(e);
                     if (e.kind == Native.EventKind.PelletDelivered && onionMinions.TryGetValue(e.b, out var onion)
                         && onion.Alive && !OnionDisabled(e.b))
@@ -2266,6 +2272,7 @@ namespace OlimarTest
         byte Hit(ulong creature, float amount, int part, uint source, uint sourceId)
         {
             if (!NetworkServer.active) return 0;
+            if (HitShot(creature, source, sourceId)) return 1;
             if (!bodies.TryGetValue(creature, out var victim) || !victim) return 0;
             var health = victim.healthComponent;
             if (!health || !health.alive) return 0;

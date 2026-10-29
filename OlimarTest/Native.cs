@@ -225,6 +225,16 @@ namespace OlimarTest
             public byte color, happa, state, _p0;
         }
 
+        // A Candypop Bud (libpikmin's PikBulb, 36 bytes). state: 0 opening, 1 open, 2 closing, 3 spitting, 4 withering.
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Bulb
+        {
+            public Vec3 pos;
+            public uint id, colour, queen, state;
+            public float t;
+            public uint free;
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct OnionCounts
         {
@@ -266,6 +276,12 @@ namespace OlimarTest
             Grounded,
             // a the White Pikmin that was eaten, creature what ate it.
             PoisonedEater,
+            // a the Pikmin that went into a Candypop Bud, b the bud, c its colour, pos the bud.
+            BulbSwallowed,
+            // a the bud, c the colour it spat, b how many sprouts, pos where they leave.
+            BulbShot,
+            // a the heaviest Pikmin on a flying creature, b the weight (a Purple counts five), creature the flier.
+            WeighedDown,
         }
 
         // a: the Pikmin/pellet/sprout/captain it's about; b: a second id; c: a colour, leaf stage
@@ -474,6 +490,15 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onions(IntPtr sim, [Out] Onion[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onion_goal(IntPtr sim, uint id, out Vec3 goal);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_sprouts(IntPtr sim, [Out] Sprout[] outArr, uint max);
+        // Candypop Buds: colour 0-4 (Blue, Red, Yellow, Purple, White); queen makes the rainbow Pop.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_add_bulb(IntPtr sim, uint colour, uint queen, ref Vec3 pos);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_remove_bulb(IntPtr sim, uint id);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_bulbs(IntPtr sim, [Out] Bulb[] outArr, uint max);
+        // How much weight of Pikmin brings a flying creature down (0 takes the rule away); see pik_weigh_need for the numbers.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_ground_need(IntPtr sim, ulong creature, uint need);
+        // The weight for a class: 0 small flier, 1 large, 2 boss, 3 projectile.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_weigh_need(uint kind);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_bulbs(IntPtr view, byte[] pikmin2Dir);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_events(IntPtr sim, [Out] Event[] outArr, uint max);
 
         /// Loads pikmin.dll from the plugin folder up front, so the [DllImport]s above bind to it
