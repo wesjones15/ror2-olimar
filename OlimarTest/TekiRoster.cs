@@ -94,6 +94,8 @@ namespace OlimarTest
             new TekiSpec(34, "BOMBROCK", "Bomb-rock", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 1, 12, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
             // The Watery Blowhog: patrols, turns on what it sees and blows a long stream of water (the Fiery Blowhog's flame cylinder here); leaves the disc's corpse.
             new TekiSpec(35, "WATERYBLOWHOG", "Watery Blowhog", true, false, Base + "LemurianBruiser/LemurianBruiserBody.prefab", Base + "LemurianBruiser/LemurianBruiserMaster.prefab", 2, 250, TekiHull.Golem) { Ported = true },
+            // The Armored Cannon Beetle Larva: wanders, turns on what it sees and spits a rolling boulder along a line; leaves the disc's corpse.
+            new TekiSpec(36, "CANNONLARVA", "Armored Cannon Beetle Larva", true, false, Dlc1 + "ClayGrenadier/ClayGrenadierBody.prefab", Dlc1 + "ClayGrenadier/ClayGrenadierMaster.prefab", 1, 260, TekiHull.Golem) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
