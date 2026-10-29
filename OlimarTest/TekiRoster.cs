@@ -111,6 +111,8 @@ namespace OlimarTest
             new TekiSpec(43, "EMPEROR", "Emperor Bulblax", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1000, TekiHull.Golem) { Ported = true },
             // The Cloaking Burrow-nit: buried until someone is in its sight, bursts out, hunts and bites, dives when it loses its prey; leaves the disc's corpse.
             new TekiSpec(44, "BURROWNIT", "Cloaking Burrow-nit", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 2, 60, TekiHull.Human) { Ported = true },
+            // The Hermit Crawmad: lives in a hole, lunges at whoever comes near, carries what it caught home tail first (open to blows only then); leaves the disc's corpse.
+            new TekiSpec(45, "HERMITCRAWMAD", "Hermit Crawmad", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 2, 90, TekiHull.Human) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
