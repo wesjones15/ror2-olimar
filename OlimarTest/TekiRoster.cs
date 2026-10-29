@@ -82,6 +82,8 @@ namespace OlimarTest
             new TekiSpec(27, "FLINT", "Iridescent Flint Beetle", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 10, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
             new TekiSpec(28, "GLINT", "Iridescent Glint Beetle", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 1, 20, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
             new TekiSpec(29, "DOODLEBUG", "Doodlebug", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 15, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
+            // The Bulborb Larva: a chasing biter with almost no health that leaves no corpse.
+            new TekiSpec(30, "LARVA", "Bulborb Larva", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 4, 12, TekiHull.Human) { Ported = true, NoCorpse = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
