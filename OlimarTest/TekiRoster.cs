@@ -106,6 +106,9 @@ namespace OlimarTest
             // The Empress Bulblax, a boss: sleeps in her place laying Bulborb Larvae, wakes when hurt and rolls across her territory crushing everything.
             // Always drops a ship part (big). She cannot walk off, so she is a fixture of the stage she is placed on.
             new TekiSpec(42, "EMPRESS", "Empress Bulblax", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 900, TekiHull.Golem) { Ported = true },
+            // The Emperor Bulblax, a boss: buried until someone comes near, bursts out, walks after the nearest and bites with a long tongue, stamps and shakes off
+            // what clings to it, goes home and buries itself again when it loses its prey. Always drops a ship part.
+            new TekiSpec(43, "EMPEROR", "Emperor Bulblax", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1000, TekiHull.Golem) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
