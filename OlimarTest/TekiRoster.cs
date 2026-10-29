@@ -96,6 +96,11 @@ namespace OlimarTest
             new TekiSpec(35, "WATERYBLOWHOG", "Watery Blowhog", true, false, Base + "LemurianBruiser/LemurianBruiserBody.prefab", Base + "LemurianBruiser/LemurianBruiserMaster.prefab", 2, 250, TekiHull.Golem) { Ported = true },
             // The Armored Cannon Beetle Larva: wanders, turns on what it sees and spits a rolling boulder along a line; leaves the disc's corpse.
             new TekiSpec(36, "CANNONLARVA", "Armored Cannon Beetle Larva", true, false, Dlc1 + "ClayGrenadier/ClayGrenadierBody.prefab", Dlc1 + "ClayGrenadier/ClayGrenadierMaster.prefab", 1, 260, TekiHull.Golem) { Ported = true },
+            // Pikmin 2's other Bulborbs, on the Red Bulborbs' model with their own textures and numbers; they sleep at home, chase and bite, and leave the disc's corpse.
+            new TekiSpec(37, "ORANGEBULBORB", "Orange Bulborb", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 2, 280, TekiHull.Golem) { Ported = true },
+            new TekiSpec(38, "HAIRYBULBORB", "Hairy Bulborb", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 240, TekiHull.Golem) { Ported = true },
+            new TekiSpec(39, "DWARFORANGEBULBORB", "Dwarf Orange Bulborb", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 4, 25, TekiHull.Human) { Ported = true },
+            new TekiSpec(40, "SNOWBULBORB", "Snow Bulborb", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 3, 20, TekiHull.Human) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
