@@ -65,6 +65,24 @@ namespace OlimarTest
             }
         }
 
+        /// Adds the treasures' models to a new view's table (before its meshes are built from it), when the Pikmin 2 files are
+        /// extracted; treasure pellets are drawn with them, sparkle and make Pikmin 2's sounds. Otherwise they are plain pellets.
+        internal static void LoadTreasuresInto(IntPtr view)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(Plugin.AssetsDir)) return;
+                var cache = Native.CString(System.IO.Path.Combine(Plugin.AssetsDir, "p2"));
+                if (Native.pik_p2_treasures_complete(cache) == 0) return;
+                int first = Native.pik_view_load_treasures(view, cache);
+                if (first < 0) Plugin.Log.LogWarning("Treasures: their models did not load; they are drawn as plain pellets");
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Treasures: {e.Message}");
+            }
+        }
+
         void TreasureAwake()
         {
             treasuresPerStage = Mathf.Clamp(Plugin.TreasuresPerStage.Value, 0, ShipRepairPacket.MaxTreasures);

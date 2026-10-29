@@ -363,6 +363,9 @@ namespace OlimarTest
         /// Louie (skin 1) from the Pikmin 2 cache, appended to the model table; his model index or -1.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_louie(IntPtr view, byte[] pikmin2Dir);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_pikmin2(IntPtr view, byte[] pikmin2Dir);
+        /// Pikmin 2's 188 treasures from the Pikmin 2 cache, appended to the model table (treasure pellets are then drawn with
+        /// them, sparkle and sound); the first model's index or -1.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_treasures(IntPtr view, byte[] pikmin2Dir);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_ship_hocotate(IntPtr view, uint onion, byte on);
         /// Louie's height as a multiple of Olimar's.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_louie_height(IntPtr view, float ratio);
