@@ -103,6 +103,9 @@ namespace OlimarTest
             new TekiSpec(40, "SNOWBULBORB", "Snow Bulborb", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 3, 20, TekiHull.Human) { Ported = true },
             // The Fiery Bulblax: a Bulborb whose body is alight (it burns what touches it) until water puts it out.
             new TekiSpec(41, "FIERYBULBLAX", "Fiery Bulblax", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 1, 350, TekiHull.Golem) { Ported = true },
+            // The Empress Bulblax, a boss: sleeps in her place laying Bulborb Larvae, wakes when hurt and rolls across her territory crushing everything.
+            // Always drops a ship part (big). She cannot walk off, so she is a fixture of the stage she is placed on.
+            new TekiSpec(42, "EMPRESS", "Empress Bulblax", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 900, TekiHull.Golem) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;
