@@ -11,7 +11,11 @@ namespace OlimarTest
         public uint Mask;
         public int Salvaged;
         public int Pikmin;
-        public int Score => Order.Count + Pikmin / 50;
+        /// Pikmin 2 treasures this racer's Dolphin received and their worth in hundredths of a part: a category
+        /// of its own, always worth less than a part (ShipRepairTreasures), counted in whole parts' worth in the score.
+        public int Treasures, TreasureHundredths;
+        public int Score => Order.Count + Pikmin / 50 + ShipRepairTreasures.Whole(TreasureHundredths);
+        public void ReceiveTreasure(int hundredths) { Treasures++; TreasureHundredths += Math.Max(0, Math.Min(99, hundredths)); }
         public readonly List<int> Order = new List<int>();
         public bool Receive(int part)
         {

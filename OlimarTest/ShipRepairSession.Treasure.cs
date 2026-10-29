@@ -34,6 +34,8 @@ namespace OlimarTest
         uint treasureMaxCarriers;
         const float TreasureSpacing = 14f;
 
+        /// Whether the results show the treasure column: treasures were on this run (the host's setting, or any were found).
+        bool TreasuresOn => treasuresPerStage > 0 || treasureCount > 0 || treasures.Count > 0 || race.Players.Values.Any(p => p.Treasures > 0);
         internal int TreasureCount => treasureCount;
         internal int TreasurePoints => treasurePoints;
         /// Treasure points rounded down to whole parts' worth, what the final score takes from the category.
@@ -98,10 +100,12 @@ namespace OlimarTest
         /// other, off the arrival point, and a carry distance from the receiver.
         IEnumerator PlaceTreasures(PikminWorld world, uint epoch, System.Random rng, NodeGraph graph, List<NodeGraph.NodeIndex> nodes, List<Vector3> goals, CharacterBody body)
         {
-            if (Competitive || treasuresPerStage <= 0 || nodes.Count == 0) yield break;
+            if (treasuresPerStage <= 0 || nodes.Count == 0) yield break;
             var table = TreasureTable(world);
             if (table.Count == 0) { Plugin.Log.LogInfo("Ship Repair: no Pikmin 2 treasures (the Pikmin 2 files are not extracted)."); yield break; }
-            var picks = ShipRepairTreasures.Pick(run.seed, epoch, treasuresPerStage, table, collectedTreasures, treasureMaxCarriers);
+            // The race shares one pool of treasures; each extra racer adds two to it.
+            int wanted = Mathf.Min(ShipRepairPacket.MaxTreasures, treasuresPerStage + (Competitive ? 2 * Mathf.Max(0, race.Players.Count - 1) : 0));
+            var picks = ShipRepairTreasures.Pick(run.seed, epoch, wanted, table, collectedTreasures, treasureMaxCarriers);
             var clock = System.Diagnostics.Stopwatch.StartNew();
             foreach (int index in picks)
             {
@@ -178,16 +182,25 @@ namespace OlimarTest
         {
             int index = receipt.c - ShipRepairTreasures.PartBase;
             var t = treasures.FirstOrDefault(x => x.spawned && x.pellet == receipt.a && x.index == index && !x.delivered);
-            if (t == null || !Progress.Accepting || Competitive) return;
+            if (t == null || !Progress.Accepting) return;
             bool ship = false;
             for (int i = 0; i < world.OnionCount; i++)
                 if (world.Onions[i].id == receipt.b && world.Onions[i].is_ship != 0) ship = true;
             if (!ship) return;
+            int points = ShipRepairTreasures.Points(t.pokos, treasureWeight);
+            string who = "";
+            if (Competitive)
+            {
+                // The racer whose Dolphin took it scores; once someone has all thirty parts the race is decided.
+                uint user = world.UserForShip((uint)receipt.b);
+                if (race.Completer != 0 || user == 0 || !race.Players.TryGetValue(user, out var racer)) return;
+                racer.ReceiveTreasure(points);
+                who = racer.Name + ": ";
+            }
+            else { treasureCount++; treasurePoints += points; }
             t.delivered = true;
             collectedTreasures.Add(index);
-            int points = ShipRepairTreasures.Points(t.pokos, treasureWeight);
-            treasureCount++; treasurePoints += points;
-            ShowToast($"{t.name} recovered — +{ShipRepairTreasures.Format(points)} treasure points");
+            ShowToast($"{who}{t.name} recovered — +{ShipRepairTreasures.Format(points)} treasure points");
             Plugin.Log.LogInfo($"Ship Repair: treasure {index} ({t.name}, {t.pokos} Pokos) delivered for {points} hundredths; {treasureCount} treasures, {treasurePoints} total.");
             Broadcast();
         }
@@ -204,12 +217,18 @@ namespace OlimarTest
         }
 
         /// The crew's treasure line for the results and the saved report.
-        string TreasureSummary() => treasureCount == 0 && treasuresPerStage == 0 ? "" :
+        string TreasureSummary() => Competitive || (treasureCount == 0 && treasuresPerStage == 0) ? "" :
             " · " + treasureCount + " treasures (" + ShipRepairTreasures.Format(treasurePoints) + " pts)";
 
         /// The results screen's detail line gets the treasure category in the shared repair.
-        string TreasureDetail() => Competitive || (treasureCount == 0 && treasuresPerStage == 0) ? "" :
-            "  |  " + treasureCount + " TREASURES +" + ShipRepairTreasures.Format(treasurePoints);
+        string TreasureDetail() => treasuresPerStage == 0 && treasureCount == 0 && !race.Players.Values.Any(p => p.Treasures > 0) ? "" :
+            "  |  " + (Competitive ? race.Players.Values.Sum(p => p.Treasures) : treasureCount) + " TREASURES";
+
+        /// The local player's treasures (their own Dolphin's in the race, the crew's otherwise) for the HUD tally; -1 when
+        /// the host turned treasures off.
+        int LocalTreasureCount() => treasuresPerStage <= 0 && treasureCount == 0 && treasures.Count == 0 ? -1
+            : Competitive ? (race.Players.TryGetValue(LocalUserId, out var me) ? me.Treasures : 0) : treasureCount;
+        int LocalTreasurePoints() => Competitive ? (race.Players.TryGetValue(LocalUserId, out var me) ? me.TreasureHundredths : 0) : treasurePoints;
 
         /// Names a treasure on the ground until Pikmin have taken hold of it.
         void TreasureLabels()

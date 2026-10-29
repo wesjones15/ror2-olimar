@@ -263,6 +263,22 @@ static class Program
             Order = new int[0], Parts = Enumerable.Range(0, 400).Select(i => new ShipRepairPacket.Part { Id = i % 30, Slot = i, Pellet = (uint)(100 + i), Weight = 20, Spawned = true }).ToArray(),
             Treasures = Enumerable.Range(0, ShipRepairPacket.MaxTreasures).Select(i => new ShipRepairPacket.Treasure { Index = i, Pellet = (uint)(900 + i) }).ToArray() };
         Check(many.WriteFitting().Length <= ShipRepairPacket.MaxBytes, "treasures and a long part list still fit the message limit");
+        // The race: a racer's treasures are their own category, below a part each, and count in whole parts' worth.
+        var racerA = new ShipRepairRacer { User = 1, Name = "A" }; var racerB = new ShipRepairRacer { User = 2, Name = "B" };
+        racerA.Receive(4); racerB.Receive(4); racerB.Receive(5);
+        for (int i = 0; i < 9; i++) racerA.ReceiveTreasure(ShipRepairTreasures.Points(1000, 0.2f));
+        Check(racerA.Treasures == 9 && racerA.TreasureHundredths == 9 * 80 && racerA.Score == 1 + 7, "nine rich treasures add seven whole parts' worth (80 hundredths each)");
+        racerB.ReceiveTreasure(500);
+        Check(racerB.TreasureHundredths == 99 && racerB.Score == 2, "no single treasure is worth a whole part");
+        Check(ShipRepairRace.Best(new[] { racerA, racerB }, 2) == 1, "treasures can decide the race's winner when parts are close");
+        var raced = new ShipRepairPacket { RunId = Guid.NewGuid().ToString(), Epoch = 2, Mask = 0, State = ShipRepairProgress.Phase.Playing, Seconds = 9f, Stages = 1,
+            Competitive = true, Order = new int[0], Parts = new ShipRepairPacket.Part[0], Racers = new[] { racerA, racerB },
+            Treasures = new[] { new ShipRepairPacket.Treasure { Index = 1, Pellet = 7 } } };
+        Check(ShipRepairPacket.Read(new ByteReader(raced.Write()), out var rd) && rd.Racers.Length == 2 && rd.Racers[0].Treasures == 9
+            && rd.Racers[0].TreasureHundredths == 720 && rd.Racers[0].Score == racerA.Score && rd.Treasures.Length == 1, "racers' treasure tallies round trip with the stage's treasures");
+        racerA.TreasureHundredths = 9 * 99 + 1;
+        Check(!ShipRepairPacket.Read(new ByteReader(raced.Write()), out _), "a racer's points are bounded by their count");
+        racerA.TreasureHundredths = 720;
         Console.WriteLine("PASS: treasure tiers, worth under a part, seeded stage picks and the state message's treasure section.");
     }
 

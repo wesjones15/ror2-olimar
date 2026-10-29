@@ -69,7 +69,7 @@ namespace OlimarTest
             foreach (var racer in Racers)
             {
                 w.U32(racer.User); w.Str(racer.Name); w.U32(racer.Mask); w.I32(racer.Salvaged);
-                w.I32(racer.Pikmin); w.U8((byte)racer.Order.Count);
+                w.I32(racer.Pikmin); w.U16((ushort)racer.Treasures); w.I32(racer.TreasureHundredths); w.U8((byte)racer.Order.Count);
                 foreach (int id in racer.Order) w.U8((byte)id);
             }
             var sent = Parts.Where(p => !p.Delivered).ToArray();
@@ -108,8 +108,10 @@ namespace OlimarTest
             for (int i = 0; i < count; i++)
             {
                 var racer = new ShipRepairRacer { User = r.U32(), Name = r.Str() };
-                uint expected = r.U32(); racer.Salvaged = r.I32(); racer.Pikmin = r.I32(); int deliveries = r.U8();
-                if (racer.User == 0 || racer.Salvaged < 0 || racer.Pikmin < 0 ||
+                uint expected = r.U32(); racer.Salvaged = r.I32(); racer.Pikmin = r.I32();
+                racer.Treasures = r.U16(); racer.TreasureHundredths = r.I32(); int deliveries = r.U8();
+                if (racer.User == 0 || racer.Salvaged < 0 || racer.Pikmin < 0 || racer.TreasureHundredths < 0 ||
+                    racer.TreasureHundredths > racer.Treasures * 99 ||
                     racers.Any(other => other.User == racer.User) || deliveries > 30) return false;
                 for (int j = 0; j < deliveries; j++) if (!racer.Receive(r.U8())) return false;
                 if (racer.Mask != expected) return false;
@@ -145,7 +147,7 @@ namespace OlimarTest
             }
             p.TreasureCount = r.U16(); p.TreasurePoints = r.I32(); count = r.U8();
             if (r.Failed || count > MaxTreasures || p.TreasurePoints < 0 || p.TreasurePoints > p.TreasureCount * 99 ||
-                (p.Competitive && (count != 0 || p.TreasureCount != 0))) return false;
+                (p.Competitive && p.TreasureCount != 0)) return false;
             var treasures = new List<Treasure>();
             for (int i = 0; i < count; i++)
             {

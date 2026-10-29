@@ -87,6 +87,7 @@ namespace OlimarTest
             internal int Parts, Pikmin, Score;
             /// Treasures the crew recovered and their worth in hundredths of a part (shared repair only).
             internal int Treasures, TreasureHundredths;
+            internal bool TreasuresOn;
             internal bool Winner;
         }
         static ResultLine[] resultLines = Array.Empty<ResultLine>();
@@ -105,14 +106,16 @@ namespace OlimarTest
         int Count => Competitive ? race.Players.TryGetValue(LocalUserId, out var player) ? player.Order.Count : 0
             : NetworkServer.active ? Progress.Count : CountBits(remoteMask);
         string Standings => string.Join("\n", race.Players.Values.OrderByDescending(p => p.Score).ThenByDescending(p => p.Order.Count).ThenBy(p => p.User)
-            .Select(p => p.Name + " — " + p.Order.Count + " parts · " + p.Pikmin + " Pikmin · " + p.Score + " score"));
+            .Select(p => p.Name + " — " + p.Order.Count + " parts · " + p.Pikmin + " Pikmin · " + p.Treasures + " treasures (" +
+                ShipRepairTreasures.Format(p.TreasureHundredths) + " pts) · " + p.Score + " score"));
         ResultLine[] ScoreRows() => Competitive
             ? race.Players.Values.OrderByDescending(p => Winner == 0 ? p.Order.Count : p.Score)
                 .ThenByDescending(p => p.Order.Count).ThenBy(p => p.User)
                 .Select(p => new ResultLine { Name = p.Name, Parts = p.Order.Count, Pikmin = p.Pikmin,
+                    Treasures = p.Treasures, TreasureHundredths = p.TreasureHundredths, TreasuresOn = TreasuresOn,
                     Score = p.Score, Winner = p.User == Winner }).ToArray()
             : new[] { new ResultLine { Name = "CREW", Parts = Count, Pikmin = teamPikmin,
-                Treasures = treasureCount, TreasureHundredths = treasurePoints,
+                Treasures = treasureCount, TreasureHundredths = treasurePoints, TreasuresOn = TreasuresOn,
                 Score = Count + teamPikmin / 50 + TreasureScore, Winner = ResultWon } };
         string WinText => Competitive ? (race.Players.TryGetValue(Winner, out var winner) ? winner.Name : "A player") + " won Ship Repair!" : "The Dolphin is repaired!";
         double Seconds => NetworkServer.active ? Progress.Seconds : remoteSeconds;
@@ -660,7 +663,8 @@ namespace OlimarTest
             if (hydrated && packet.Competitive != Competitive) return;
             if (packet.Competitive && race.Players.Values.Any(previous => !packet.Racers.Any(next => next.User == previous.User &&
                 (next.Mask & previous.Mask) == previous.Mask && next.Salvaged >= previous.Salvaged &&
-                next.Pikmin >= previous.Pikmin && previous.Order.SequenceEqual(next.Order.Take(previous.Order.Count))))) return;
+                next.Pikmin >= previous.Pikmin && next.Treasures >= previous.Treasures && next.TreasureHundredths >= previous.TreasureHundredths &&
+                previous.Order.SequenceEqual(next.Order.Take(previous.Order.Count))))) return;
             int before = Count;
             Competitive = packet.Competitive;
             race.Hydrate(packet.Racers, packet.Winner);
@@ -705,7 +709,7 @@ namespace OlimarTest
                 siteUntil = Time.unscaledTime + 5f;
             }
             if (Event.current.type == EventType.Repaint)
-                ShipRepairUi.Hud(Count, ScoreRows(), Competitive, Competitive ? -1 : treasureCount, treasurePoints,
+                ShipRepairUi.Hud(Count, ScoreRows(), Competitive, LocalTreasureCount(), LocalTreasurePoints(),
                     scene ? Language.GetString(scene.nameToken) : null,
                     scene && !string.IsNullOrEmpty(scene.subtitleToken) ? Language.GetString(scene.subtitleToken) : null,
                     siteUntil);

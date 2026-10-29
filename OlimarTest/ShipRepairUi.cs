@@ -250,19 +250,24 @@ namespace OlimarTest
             Fill(new Rect(x, y, 890f, 4f), new Color(.17f, .49f, .76f));
             Fill(new Rect(x, y + 53f + rows.Length * rowHeight, 890f, 4f), new Color(.17f, .49f, .76f));
             Text("CAPTAINS", x + 31f, y + 15f, 28f, gold);
-            Text("PARTS", x + 540f, y + 15f, 25f, gold, true);
-            Text("PIKMIN", x + 680f, y + 15f, 25f, gold, true);
+            // With treasures on, their own column sits between the Pikmin and the score; the other two move left.
+            bool treasures = rows.Any(r => r.TreasuresOn);
+            Text("PARTS", x + (treasures ? 440f : 540f), y + 15f, 25f, gold, true);
+            Text("PIKMIN", x + (treasures ? 560f : 680f), y + 15f, 25f, gold, true);
+            if (treasures) Text("TREASURE", x + 690f, y + 15f, 25f, gold, true);
             Text("SCORE", x + 817f, y + 15f, 25f, gold, true);
             for (int i = 0; i < rows.Length; i++)
             {
                 var p = rows[i]; float at = y + 62f + i * rowHeight;
                 if (p.Winner) Fill(new Rect(x + 12f, at - 4f, 866f, rowHeight - 2f), new Color(.35f, .29f, .09f, .92f));
                 if (p.Winner) Icon(10, new Rect(x + 19f, at, rowHeight - 10f, rowHeight - 10f));
-                Text(Short(p.Name, 21).ToUpperInvariant(), x + 74f, at, textSize, p.Winner ? gold : cream);
-                BubbleNumber(p.Parts, new Rect(x + 482f, at - 4f, 116f, rowHeight - 5f), 2,
+                Text(Short(p.Name, treasures ? 13 : 21).ToUpperInvariant(), x + 74f, at, textSize, p.Winner ? gold : cream);
+                BubbleNumber(p.Parts, new Rect(x + (treasures ? 392f : 482f), at - 4f, treasures ? 96f : 116f, rowHeight - 5f), 2,
                     new Color(.95f, .8f, .78f));
-                BubbleNumber(p.Pikmin, new Rect(x + 617f, at - 4f, 126f, rowHeight - 5f), 3,
+                BubbleNumber(p.Pikmin, new Rect(x + (treasures ? 505f : 617f), at - 4f, treasures ? 110f : 126f, rowHeight - 5f), 3,
                     new Color(.83f, .9f, .99f));
+                if (treasures)
+                    BubbleNumber(p.Treasures, new Rect(x + 636f, at - 4f, 108f, rowHeight - 5f), 2, new Color(.7f, .92f, 1f));
                 BubbleNumber(p.Score, new Rect(x + 759f, at - 4f, 111f, rowHeight - 5f), 2,
                     p.Winner ? new Color(1f, .94f, .62f) : Color.white);
             }
