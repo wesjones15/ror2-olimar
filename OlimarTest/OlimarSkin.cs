@@ -296,16 +296,7 @@ namespace OlimarTest
                 if (!spec.Registered) continue;
                 spec.Def = Def(spec.Name, spec.Token, model, character,
                     Icon(spec.Id == Olimar ? new Color(0.95f, 0.75f, 0.2f) : spec.Id == Louie ? new Color(0.2f, 0.7f, 0.3f) : spec.Id == Pikachu ? new Color(1f, 0.85f, 0.1f) : new Color(0.3f, 0.7f, 0.3f)));
-                if (spec.Id == Pianta && !Plugin.PiantaUnlocked.Value)
-                {
-                    // Held back until earned (the plan: Mithrix's defeat, escaping the planet). Nothing grants it yet.
-                    var unlock = ScriptableObject.CreateInstance<UnlockableDef>();
-                    unlock.cachedName = "Skins.Olimar.Pianta";
-                    unlock.nameToken = spec.Def.nameToken;
-                    unlock.getHowToUnlockString = () => "Defeat Mithrix and escape the planet.";
-                    unlock.getUnlockedString = () => "Olimar's Pianta skin";
-                    spec.Def.unlockableDef = unlock;
-                }
+                spec.Def.unlockableDef = OlimarSkinUnlocks.For(spec.Id);
                 loadout.Add(spec);
                 defs.Add(spec.Def);
             }

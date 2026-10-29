@@ -197,6 +197,7 @@ namespace OlimarTest
             // still playable. Count that time; close only at actual AdvanceStage.
             bool loading = !sceneReady || stage != Stage.instance || Progress.State == ShipRepairProgress.Phase.Loading;
             Progress.Tick(Time.fixedDeltaTime, loading || Time.timeScale == 0f);
+            CheckSkinUnlocks();
             if (loading) return;
             if (TeleporterInteraction.instance && TeleporterInteraction.instance.bossGroup)
                 foreach (var master in TeleporterInteraction.instance.bossGroup.combatSquad.readOnlyMembersList) stageBossMasters.Add(master);
@@ -588,6 +589,8 @@ namespace OlimarTest
             Broadcast();
             run.BeginGameOver(ShipRepairMode.Ending);
         }
+
+        void CheckSkinUnlocks() => OlimarSkinUnlocks.CheckParts(user => Competitive ? PartsFor(user).Count() : Count);
         internal void ScheduleFailure(Action gameOver)
         {
             if (pendingFailure == null && !Winning) pendingFailure = gameOver;
@@ -680,6 +683,7 @@ namespace OlimarTest
                 enemyDrop = p.EnemyDrop, spawned = p.Spawned, stageBoss = p.StageBoss, recycleAt = p.Recycling ? 1f : 0f }));
             remoteEpoch = packet.Epoch; remoteMask = packet.Mask; remotePhase = packet.State; remoteSeconds = packet.Seconds; remoteStages = packet.Stages;
             remoteOrder = packet.Order; receivedCount = packet.Order.Length; hydrated = true;
+            CheckSkinUnlocks();
             if (Winning && !playedVictory) { playedVictory = true; SpawnMusic.PlayVictory(); }
             if (packet.State == ShipRepairProgress.Phase.Failed || packet.State >= ShipRepairProgress.Phase.Winning)
             {

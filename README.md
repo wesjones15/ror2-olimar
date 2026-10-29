@@ -2,6 +2,14 @@
 
 # ror2-olimar
 
+Olimar's alternate skins unlock permanently on your profile, at any difficulty:
+Pianta after stage 1's teleporter event, Captain Pikachu after stage 2's teleporter
+event, and Louie after recovering all 30 unique ship parts in one Ship Repair run.
+Co-op crew parts count for everyone; competitive races use each player's own parts.
+Dead teammates still qualify. The old `Skins.PiantaUnlocked` testing override is
+retired. Skins appear only when their required Sunshine, Melee or Pikmin 2 assets
+are available; you can earn their unlocks before installing those assets.
+
 Olimar's five approved skill portraits render in Unity after first-run disc extraction
 and persist as 256x256 BMPs under the resolved `assets/skill-icons/approved-v3/` folder.
 Later starts reuse them; missing or corrupt cards regenerate. The sprout is buried in

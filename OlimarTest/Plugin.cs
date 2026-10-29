@@ -81,7 +81,6 @@ namespace OlimarTest
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
         internal static ConfigEntry<bool> Sound;
-        internal static ConfigEntry<bool> PiantaUnlocked;
         internal static ConfigEntry<float> PiantaHeightRatio, LouieHeight, PikachuHeight, IceClimberHeight;
         internal static ConfigEntry<int> PiantaColour;
         internal static ConfigEntry<float> SoundVolume, TrumpetGain;
@@ -334,9 +333,6 @@ namespace OlimarTest
             var sunshine = Config.Bind("Skins", "SunshineAssets", "",
                 "The Super Mario Sunshine cache the Pianta skin is drawn from (the Mario plugin's extracted assets folder). " +
                 "Empty: $SMS_ASSETS, then beside this plugin or the Mario plugin's assets_dir.txt. Without it the skin is not offered.");
-            PiantaUnlocked = Config.Bind("Skins", "PiantaUnlocked", true,
-                "Offer the Pianta skin without earning it. Open while it is being tested; it will become a reward for " +
-                "defeating Mithrix and escaping the planet, and turning this off locks it until then.");
             PiantaHeightRatio = Config.Bind("Skins", "PiantaHeightRatio", 1.25f,
                 new ConfigDescription("The Pianta's height to the top of his palm, as a multiple of Olimar's. 1.25 keeps him a little " +
                     "taller than Olimar.", new AcceptableValueRange<float>(0.5f, 3f)));
@@ -404,6 +400,7 @@ namespace OlimarTest
             PikminDamageNumbers.Install(gameObject, Config);
             PikminHealthGauges.Install(gameObject, Config);
             ItemHooks.Install();
+            OlimarSkinUnlocks.Install();
             // With the Pikmin controls the HUD's skill icons name the pad buttons the sim reads (Pad),
             // not RoR2's binds; the Aim scheme (VR) keeps RoR2's.
             PauseControls.Install(gameObject);
@@ -709,6 +706,7 @@ namespace OlimarTest
             survivor.desiredSortPosition = SurvivorOrder.OlimarPosition(false);
 
             // Olimar's own skins in place of the Commando body's.
+            OlimarSkinUnlocks.Register(pack);
             OlimarSkin.Register(body);
 
             pack.bodyPrefabs.Add(new[] { body });

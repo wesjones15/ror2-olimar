@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework><LangVersion>9.0</LangVersion></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../OlimarTest/OlimarSkinUnlocks.cs" Link="OlimarSkinUnlocks.cs" />
+    <Compile Include="../../../ror2-common/src/SkinUnlocks.cs" Link="SkinUnlocks.cs" />
+  </ItemGroup>
+</Project>
