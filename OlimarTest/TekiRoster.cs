@@ -88,6 +88,8 @@ namespace OlimarTest
             new TekiSpec(31, "SKITTER", "Skitter Leaf", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 3, 15, TekiHull.Human) { Ported = true },
             // The Mitite: a swarm bug that wanders about its home, harmless; its leader calls the others up, and it leaves the disc's corpse.
             new TekiSpec(32, "MITITE", "Mitite", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 10, TekiHull.Human) { Ported = true },
+            // The gas pipe: a fixture Ship Repair places, like the Fire Geyser. It vents gas that kills the Pikmin in it and cannot be killed.
+            new TekiSpec(33, "GASPIPE", "Gas Pipe", false, false, Base + "Beetle/BeetleBody.prefab", Base + "Beetle/BeetleMaster.prefab", 0, 1, TekiHull.Golem) { Ported = true, NoCard = true, Hazard = true, NoCorpse = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;

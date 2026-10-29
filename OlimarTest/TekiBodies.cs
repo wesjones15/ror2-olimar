@@ -24,7 +24,7 @@ namespace OlimarTest
         internal static ConfigEntry<int> BigMinStages;
         internal static ConfigEntry<float> HealthScale, SpeedScale, DamageScale, CarrierScale;
         internal static ConfigEntry<bool> FitSizes;
-        internal static ConfigEntry<int> HoneywispsPerPlayer, WaterEnemiesPerPlayer, PosiesPerPlayer, FireGeysersPerStage;
+        internal static ConfigEntry<int> HoneywispsPerPlayer, WaterEnemiesPerPlayer, PosiesPerPlayer, FireGeysersPerStage, GasPipesPerStage;
         internal static ConfigEntry<bool> ClamclampEveryStage;
         static ConfigEntry<int>[] weights, costs;
 
@@ -57,6 +57,8 @@ namespace OlimarTest
                 "Grown Pellet Posies Ship Repair keeps about for each player: kill one and its pellet is yours to carry. 0 for none.");
             FireGeysersPerStage = config.Bind("Enemies", "FireGeysersPerStage", 2,
                 "Fire Geysers placed about each stage after the first (they erupt now and then and can't be killed). 0 for none.");
+            GasPipesPerStage = config.Bind("Enemies", "GasPipesPerStage", 1,
+                "Gas pipes placed about each stage after the first (they vent gas that kills Pikmin, not players, and can't be killed). 0 for none.");
             ClamclampEveryStage = config.Bind("Enemies", "ClamclampEveryStage", true,
                 "A Pearly Clamclamp on every stage after the first, with a ship part for a pearl. It snaps shut on Pikmin at its pearl.");
             BigMinStages = config.Bind("Enemies", "BigMinStagesCleared", 0, "Stages cleared before big Pikmin enemies can spawn.");

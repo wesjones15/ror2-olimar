@@ -16,7 +16,7 @@ namespace OlimarTest
         Stage stage;
         float stageSince, nextTry, nextWisp, nextWater, nextPlant;
         bool breadbugDone, clamDone;
-        int geysersPlaced;
+        int geysersPlaced, gasPipesPlaced;
         readonly List<TekiBody> wisps = new List<TekiBody>();
         readonly List<TekiBody> waterborne = new List<TekiBody>();
         readonly List<TekiBody> posies = new List<TekiBody>();
@@ -29,7 +29,7 @@ namespace OlimarTest
                 stage = Stage.instance;
                 stageSince = Time.time;
                 breadbugDone = clamDone = false;
-                geysersPlaced = 0;
+                geysersPlaced = gasPipesPlaced = 0;
                 nextTry = nextWisp = nextWater = nextPlant = Time.time + 6f;
                 wisps.Clear();
                 waterborne.Clear();
@@ -96,6 +96,11 @@ namespace OlimarTest
                     {
                         var at = PointNear(players, false, out _);
                         if (at.HasValue && TekiBodies.Spawn(TekiCatalog.FireGeyser, at.Value, Random.Range(0f, 360f))) geysersPlaced++;
+                    }
+                    if (gasPipesPlaced < TekiBodies.GasPipesPerStage.Value && TekiCatalog.Has(TekiCatalog.GasPipe))
+                    {
+                        var at = PointNear(players, false, out _);
+                        if (at.HasValue && TekiBodies.Spawn(TekiCatalog.GasPipe, at.Value, Random.Range(0f, 360f))) gasPipesPlaced++;
                     }
                     if (!clamDone && TekiBodies.ClamclampEveryStage.Value && TekiCatalog.Has(TekiCatalog.Clamclamp))
                     {
