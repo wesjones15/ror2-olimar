@@ -40,6 +40,8 @@ namespace OlimarTest
 
         internal static ManualLogSource Log;
         internal static string AssetsDir;
+        /// The shared GameCube library (GameCubeLibrary), or null.
+        internal static string LibraryRoot;
         static volatile bool assetsBusy;
         bool musicInitialized;
 
@@ -119,7 +121,13 @@ namespace OlimarTest
                 "assets_dir.txt next to the plugin, then $PIKMIN_ASSETS, then assets/ next to the plugin.");
             var disc = Config.Bind("Paths", "Disc", "",
                 "Your Pikmin (GameCube) disc image (.iso/.gcm/.ciso), used once to build AssetsDir " +
-                "if it's missing. Empty: look in the plugin folder and next to AssetsDir.");
+                "if it's missing. Empty: look in the plugin folder, next to AssetsDir and in the GameCube library.");
+            var library = Config.Bind("Paths", "Library", "",
+                "A folder shared by the Olimar, Mario and Melee plugins: your disc images (any names, in it or its isos/ folder) " +
+                "and assets/Olimar, assets/Mario, assets/Melee for what they extract. Empty: gamecube_library.txt in this plugin's " +
+                "folder or the plugins folder, then $GAMECUBE_LIBRARY. An AssetsDir set above, assets_dir.txt, $PIKMIN_ASSETS " +
+                "or an assets/ folder already beside the plugin still wins; the library's cache is used for a fresh install.");
+            LibraryRoot = GameCubeLibrary.Root(library.Value, here);
             OlimarHeight = Config.Bind("Scale", "OlimarHeight", 0.667f,
                 "Olimar's height as a share of a standard survivor's (Commando's). Pikmin, the " +
                 "Onion and everything else from the sim scale with him. Try 0.75 too.");
@@ -389,14 +397,16 @@ namespace OlimarTest
                 Log.LogError(error);
                 return;
             }
-            AssetsDir = ResolveAssets(assets.Value, here);
+            AssetsDir = GameCubeLibrary.ResolveAssets(assets.Value, here, "PIKMIN_ASSETS", LibraryRoot, GameCubeLibrary.Olimar, out string assetsFrom);
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
-                        $"assets {AssetsDir}, controls {Scheme}");
+                        $"assets {AssetsDir} ({assetsFrom}), controls {Scheme}" + (LibraryRoot != null ? $", GameCube library {LibraryRoot}" : ""));
             PrepareAssets(disc.Value, here);
-            OlimarSkin.PrepareLouie(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
-            P2Enemies.Prepare(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
-            ShipRepairSession.PrepareTreasures(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
-            OlimarSkin.PreparePikachu(meleeCache.Value, meleeDisc.Value, here, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
+            // Where the other discs are looked for besides this plugin's folder: next to AssetsDir and the library.
+            string discDirs = GameCubeLibrary.SearchList(LibraryRoot, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
+            OlimarSkin.PrepareLouie(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, discDirs);
+            P2Enemies.Prepare(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, discDirs);
+            ShipRepairSession.PrepareTreasures(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, discDirs);
+            OlimarSkin.PreparePikachu(meleeCache.Value, meleeDisc.Value, here, discDirs);
             PikminDamageNumbers.Install(gameObject, Config);
             PikminHealthGauges.Install(gameObject, Config);
             ItemHooks.Install();
@@ -431,16 +441,6 @@ namespace OlimarTest
             catch { return true; }
         }
 
-        static string ResolveAssets(string configured, string here)
-        {
-            if (!string.IsNullOrWhiteSpace(configured)) return configured.Trim();
-            string file = Path.Combine(here, "assets_dir.txt");
-            if (File.Exists(file)) return File.ReadAllText(file).Trim();
-            string env = Environment.GetEnvironmentVariable("PIKMIN_ASSETS");
-            if (!string.IsNullOrWhiteSpace(env)) return env.Trim();
-            return Path.Combine(here, "assets");
-        }
-
         // First run: build the assets folder from the user's disc on a worker thread (the sim
         // waits for it). Nothing from the disc ships with the plugin.
         static void PrepareAssets(string configuredDisc, string here)
@@ -458,7 +458,7 @@ namespace OlimarTest
             {
                 string parent = Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here;
                 var found = new byte[1024];
-                if (Native.pik_find_disc(Native.CString(here + ";" + parent), found, (uint)found.Length) != 0)
+                if (Native.pik_find_disc(Native.CString(GameCubeLibrary.SearchList(LibraryRoot, here, parent)), found, (uint)found.Length) != 0)
                     disc = Native.Utf8(found);
             }
             if (needTekis && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))

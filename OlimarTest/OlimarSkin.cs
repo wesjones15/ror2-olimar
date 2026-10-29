@@ -84,7 +84,9 @@ namespace OlimarTest
                 var target = File.ReadAllText(pointer).Trim();
                 if (Complete(target)) return target;
             }
-            return null;
+            // The Mario plugin's cache in the shared GameCube library.
+            var shared = GameCubeLibrary.AssetsFor(Plugin.LibraryRoot, GameCubeLibrary.Mario);
+            return Complete(shared) ? shared : null;
         }
 
         public static OlimarSkinSpec Spec(uint id) => id < Specs.Length && Specs[id] != null ? Specs[id] : Specs[Olimar];
@@ -193,7 +195,9 @@ namespace OlimarTest
                 var target = File.ReadAllText(pointer).Trim();
                 if (!string.IsNullOrWhiteSpace(target) && Directory.Exists(target)) return target;
             }
-            return null;
+            // The Melee plugin's cache in the shared GameCube library.
+            var shared = GameCubeLibrary.AssetsFor(Plugin.LibraryRoot, GameCubeLibrary.Melee);
+            return shared != null && File.Exists(Path.Combine(shared, "PlCo.dat")) ? shared : null;
         }
 
         /// Loads Pikachu and the Ice Climbers into a new view (before the model table is read); false when unavailable.
