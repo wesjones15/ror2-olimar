@@ -137,7 +137,7 @@ namespace OlimarTest
             // out with its tongue (catching Pikmin to eat), and it loses him when he goes far. Always drops a ship part (big). The Toady Bloyster is the same slug without sight:
             // it ambles and sits and only strikes at what is within reach.
             new TekiSpec(54, "RANGINGBLOYSTER", "Ranging Bloyster", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1000, TekiHull.Golem) { Ported = true },
-            new TekiSpec(55, "TOADYBLOYSTER", "Toady Bloyster", false, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 2, 350, TekiHull.Golem) { Ported = true },
+            new TekiSpec(55, "TOADYBLOYSTER", "Toady Bloyster", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 2, 350, TekiHull.Golem) { Ported = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;

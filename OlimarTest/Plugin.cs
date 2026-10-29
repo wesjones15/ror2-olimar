@@ -174,9 +174,9 @@ namespace OlimarTest
                 new AcceptableValueRange<int>(0, 60)));
             BulbSlots = Config.Bind("Candypop", "SlotsPerBulb", 25,
                 new ConfigDescription("How many Pikmin a Candypop Bud takes before it withers (Pikmin 2: 5). A Pikmin of the bud's own colour gives its slot back. " +
-                "Each Pikmin that goes in comes out as one sprout.", new AcceptableValueRange<int>(1, 200)));
+                "Every 5 Pikmin that go in, it spits 5 live Pikmin of its colour back out (planted sprouts only if the field is full).", new AcceptableValueRange<int>(1, 200)));
             PopSlots = Config.Bind("Candypop", "SlotsPerPop", 5,
-                new ConfigDescription("The same for the rainbow Candypop Pop (Pikmin 2: 1); each Pikmin it takes comes out as 5 sprouts.",
+                new ConfigDescription("The same for the rainbow Candypop Pop (Pikmin 2: 1); each Pikmin it takes comes out as 5 live Pikmin.",
                 new AcceptableValueRange<int>(1, 200)));
             BulbMinSpacing = Config.Bind("Candypop", "BulbSpacingMetres", 25f,
                 new ConfigDescription("Least distance between two buds, and from where the player lands (metres).", new AcceptableValueRange<float>(5f, 120f)));
