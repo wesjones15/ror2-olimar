@@ -49,7 +49,7 @@ namespace OlimarTest
                 .Add(RT + " + tap " + A, "Rapidly throw Pikmin at target")
                 .Add(LB + " + " + B, "Whistle to call Pikmin")
                 .Add(LB + " + " + RS, "Swarm Pikmin")
-                .Add(X, "Land/lift Onion")
+                .Add("hold " + X + " (0.6s)", "Land/lift Onion")
                 .Add("tap " + X + " + " + X, "Dump all Onion Pikmin");
             sheet.Pad("While Standing Under Onion")
                 .Add(X, "Empty Onion")
@@ -65,7 +65,7 @@ namespace OlimarTest
                 .Add("F", "Dismiss Strike / Pikmin Charge")
                 .Add(jump + " + " + secondary, "Whistle to call Pikmin")
                 .Add(special, "Swarm Pikmin")
-                .Add(utility, "Land/lift Onion")
+                .Add("hold " + utility + " (0.6s)", "Land/lift Onion")
                 .Add("tap " + utility + " + " + utility, "Dump all Onion Pikmin");
             sheet.Keys("While Standing Under Onion")
                 .Add(utility, "Empty Onion")

@@ -117,13 +117,13 @@ What works:
   On the character select screen Olimar stands idle in place of Commando, with a red, a
   yellow and a blue Pikmin, and his portrait is rendered from that model (once your disc's
   files are extracted).
-- **Corpses**: a dead enemy leaves a 1, 5, 10 or 20 pellet by its size (`CarriersPerMetre`),
+- **Corpses**: small enemies leave 1 pellets, medium/large 5, tough/elite 10, and bosses 20 (the largest numbered pellet),
   red, yellow or blue at random, with the disc's size, carriers and seeds. Pikmin carry it to the
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
   `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
 - **Onion (phase 8)**: one Onion per Olimar stores all three types. Its Red, Yellow or
   Blue appearance is chosen once per run and kept across stages; it has no effect on storage.
-  It arrives airborne alongside the Dolphin, lands to release the squad, and stays planted until raised. With the Pikmin controls X lowers a
+  It arrives airborne alongside the Dolphin, lands to release the squad, and stays planted until raised. With the Pikmin controls holding X for 0.6 seconds lowers a
   flying Onion where he stands and raises a landed one to follow him (each takes a relocation
   charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
   its menu, and at a chest it opens the chest. The menu only opens while Olimar stands in the
@@ -139,7 +139,8 @@ What works:
   Dolphin recovery effects play at Olimar for two seconds with one Pikmin ghost per sacrifice;
   the effect and ghost count are replicated to other players.
   Raise/lower commands stay on the utility button outside interact prompts, with no movement pages in the menu.
-  Flying, taking-off and landing Onions never show a menu or accept menu commands.
+  Double tap X outside its beam to dump a flying Onion. A hovering Onion descends its beam when Olimar stands beneath it and offers the menu;
+  Y fills it with the squad, who jump to each leg's midpoint and climb its upper half. Taking-off and landing Onions do not offer the menu.
   Native flying call-outs still slide halfway down a leg, then let go and fall. A hovering Onion
   descends towards nearby pellets before collecting them, and the Pikmin they make stay inside it as leaves instead of being planted. Loose ground pellets are eligible even with no Pikmin alive. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
@@ -172,10 +173,13 @@ What works:
   Pikmin still wait to be whistled.
 - **Shake-off**: when an enemy starts an attack (any of its combat skills), the Pikmin on it
   fly off, fall, get up and rejoin; Pikmin latched for less than 2 s hold on
-  (`Pikmin.ShakeProtection`) and stay on until a later attack. RoR2's enemies have no
-  shake-off move, so their attacks stand in for Pikmin 1's flick.
-- **Stages**: the squad and the Onion's stock come along to the next stage; Pikmin left
-  anywhere else stay behind, as at sunset.
+  (`Pikmin.ShakeProtection`). RoR2 enemies also attempt shakes every second, bosses every 0.25 seconds,
+  including gaps between skills. Pikmin enemies keep their own strategies. Nearby groups of at least three ground Pikmin
+  expose targets to RoR2 AI; hits on these groups hurt the real Pikmin through the existing area-damage path.
+- **Stages**: the squad and the Onion's stock keep their colour and leaf/bud/flower stage.
+  If Olimar dies while a teammate is alive, his Pikmin abandon their jobs and return to his Onion, which goes dormant.
+  Living returners blocked by terrain are stored after 20 seconds; a stage transition also preserves returners inside the Onion.
+  Other Pikmin left outside the squad/Onion stay behind, as at sunset. The arrival camera starts 90 degrees around Olimar.
 - **First run**: if `assets/` isn't there, the plugin builds it from your own disc
   (`Paths.Disc` in the config). Tuning comes from the disc; without it the sim falls back to
   code defaults and says so in the log.
@@ -325,7 +329,6 @@ as they happen only with `Debug.LogEvents` on (off by default; it floods the log
   [../ror2-common/MULTIPLAYER.md](../ror2-common/MULTIPLAYER.md) for how it works and the test plan.
 - Olimar's footsteps and voice, and particle effects other than the whistle and ghosts.
 - With `CarryBodies`, clients see a corpse lie where it fell, not carried.
-- Enemies do not directly target Pikmin; attacks shake eligible latched Pikmin off.
 - Hazards (fire, water, electricity), so colours only differ in attack and carrying.
 - Attack speed items don't change how fast Pikmin swing.
 - Carry paths are straight lines; corpses get stuck on walls between them and the Onion.

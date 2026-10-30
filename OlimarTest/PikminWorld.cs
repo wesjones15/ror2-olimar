@@ -92,6 +92,7 @@ namespace OlimarTest
         sealed class Cargo
         {
             public readonly int[] squad = new int[Native.ColourCount], stored = new int[Native.ColourCount];
+            public readonly uint[,] squadStages = new uint[Native.ColourCount, 3], storedStages = new uint[Native.ColourCount, 3];
             public readonly uint colour = (uint)UnityEngine.Random.Range(0, 3);
             public bool saved;
         }
@@ -474,6 +475,7 @@ namespace OlimarTest
             guestUsers.Clear();
             guestKeyOf.Clear();
             foreach (var m in onionMinions.Values) m.Release();
+            ClearPikiGroups();
             onionMinions.Clear();
             onionBodyIds.Clear();
             bodies.Clear();
@@ -669,18 +671,41 @@ namespace OlimarTest
             foreach (var pair in captainOf)
             {
                 if (!cargo.TryGetValue(pair.Key, out var saved)) continue;
-                Array.Clear(saved.squad, 0, 3);
-                Array.Clear(saved.stored, 0, 3);
+                Array.Clear(saved.squad, 0, saved.squad.Length);
+                Array.Clear(saved.stored, 0, saved.stored.Length);
+                Array.Clear(saved.squadStages, 0, saved.squadStages.Length);
+                Array.Clear(saved.storedStages, 0, saved.storedStages.Length);
                 for (int i = 0; i < PikiCount; i++)
                 {
                     var p = Pikis[i];
                     if (p.alive != 0 && p.captain == pair.Value && p.color < Native.ColourCount && InSquad(p.state))
+                    {
                         saved.squad[p.color]++;
+                        saved.squadStages[p.color, Math.Min(2, (int)p.happa)]++;
+                    }
                 }
                 if (onionOf.TryGetValue(pair.Value, out var flight))
+                {
+                    // Stage transitions can interrupt the climb. A dead owner's living
+                    // returners travel inside his Onion, including those still walking home.
+                    for (int i = 0; i < PikiCount; i++)
+                    {
+                        var p = Pikis[i];
+                        if (p.alive == 0 || p.state == Native.PikiState.Swallowed || p.captain != pair.Value || p.color >= Native.ColourCount || InSquad(p.state)) continue;
+                        if (p.state != Native.PikiState.Enter && flight.recallUntil <= 0f) continue;
+                        saved.stored[p.color]++;
+                        saved.storedStages[p.color, Math.Min(2, (int)p.happa)]++;
+                    }
                     for (int i = 0; i < OnionCount; i++)
                         if (Onions[i].id == flight.id)
-                            for (uint c = 0; c < Native.ColourCount; c++) saved.stored[c] = (int)Onions[i].Stored(c);
+                            for (uint c = 0; c < Native.ColourCount; c++)
+                                for (uint h = 0; h < 3; h++)
+                                {
+                                    uint count = Native.pik_sim_onion_stock(sim, (uint)flight.id, c, h);
+                                    saved.storedStages[c, h] += count;
+                                    saved.stored[c] += (int)count;
+                                }
+                }
                 saved.saved = true;
             }
             FreeSim();
@@ -1317,10 +1342,15 @@ namespace OlimarTest
             if (home < 0) return;
             var squad = StartingSquad(d);
             for (uint c = 0; c < Native.ColourCount; c++)
-                if (squad[c] > 0) Native.pik_sim_store_in_onion(sim, (uint)home, c, 0, (uint)squad[c]);
+                for (uint h = 0; h < 3; h++)
+                {
+                    uint count = saved.saved ? saved.squadStages[c, h] : h == 0 ? (uint)Math.Max(0, squad[c]) : 0;
+                    if (count > 0) Native.pik_sim_store_in_onion(sim, (uint)home, c, h, count);
+                }
             if (saved.saved)
                 for (uint c = 0; c < Native.ColourCount; c++)
-                    if (saved.stored[c] > 0) Native.pik_sim_store_in_onion(sim, (uint)home, c, 0, (uint)saved.stored[c]);
+                    for (uint h = 0; h < 3; h++)
+                        if (saved.storedStages[c, h] > 0) Native.pik_sim_store_in_onion(sim, (uint)home, c, h, saved.storedStages[c, h]);
             // An Onion never starts empty: its plucker (Items.AutoPluckDelay) is a Pikmin inside it.
             int inside = saved.saved ? saved.stored.Sum() : 0;
             if (inside == 0) Native.pik_sim_store_in_onion(sim, (uint)home, Native.Red, 0, 1);
@@ -1359,14 +1389,23 @@ namespace OlimarTest
                     float ring = 1.2f + 0.35f * (n / 8);
                     var off = Quaternion.Euler(0f, (n % 8 - 3.5f) * 20f, 0f) * back * ring;
                     var p = UnityHost.ToSim(UnityHost.Snap(feet + off));
-                    Native.pik_sim_spawn_piki(sim, c, ref p, captain);
+                    int spawned = Native.pik_sim_spawn_piki(sim, c, ref p, captain);
+                    if (spawned >= 0 && saved.saved)
+                    {
+                        int index = i;
+                        uint h = 0;
+                        while (h < 2 && index >= saved.squadStages[c, h]) { index -= (int)saved.squadStages[c, h]; h++; }
+                        Native.pik_sim_set_piki_happa(sim, (uint)spawned, h);
+                    }
                 }
             if (saved.saved)
                 for (uint c = 0; c < Native.ColourCount; c++)
                 {
                     int onion = onionOf[captain].id;
-                    if (onion >= 0 && saved.stored[c] > 0)
-                        Native.pik_sim_store_in_onion(sim, (uint)onion, c, 0, (uint)saved.stored[c]);
+                    if (onion >= 0)
+                        for (uint h = 0; h < 3; h++)
+                            if (saved.storedStages[c, h] > 0)
+                                Native.pik_sim_store_in_onion(sim, (uint)onion, c, h, saved.storedStages[c, h]);
                 }
             // An Onion never starts empty: its plucker (Items.AutoPluckDelay) is a Pikmin inside it.
             int home = onionOf[captain].id;
@@ -1515,8 +1554,6 @@ namespace OlimarTest
         {
             int onion = OnionInReach(captain);
             if (onion < 0 || kind < OnionCommandPacket.CallOutAny || kind > OnionCommandPacket.ReturnAll) return false;
-            if (OnionFlying(captain) && (kind == OnionCommandPacket.PutAwayAny || kind == OnionCommandPacket.ReturnAll))
-                return false;
             if (ClientMode)
             {
                 if (!moverDriver) return false;
@@ -1562,7 +1599,6 @@ namespace OlimarTest
 
         public uint PutAway(int captain, int onion, uint colour, uint n)
         {
-            if (OnionFlying(captain)) return 0;
             if (ClientMode)
             {
                 if (moverDriver) moverDriver.SendOnion(OnionCommandPacket.PutAway, colour, n);
@@ -1594,7 +1630,8 @@ namespace OlimarTest
             {
                 // The downed Olimar's knockdown has played out; drop the models (the run is over).
                 corpseUntil = 0f;
-                if (view) view.StopModels();
+                if (view && !CharacterBody.readOnlyInstancesList.Any(b => b && b.isPlayerControlled && b.healthComponent && b.healthComponent.alive)
+                    && !onionOf.Values.Any(f => f.recallUntil > 0f)) view.StopModels();
             }
             if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal)
             {
@@ -1650,7 +1687,10 @@ namespace OlimarTest
             }
             // With no Olimar about (all dead, or mid-load) the Pikmin wait; a knockdown that's
             // still playing keeps the clock going.
-            if (!anyone && Time.fixedTime > stepUntil) return;
+            // A friend's survivor can keep the round alive after the last Olimar dies.
+            // Keep the autonomous swarm/Onion loop running until the stage changes.
+            bool survivorAlive = CharacterBody.readOnlyInstancesList.Any(b => b && b.isPlayerControlled && b.healthComponent && b.healthComponent.alive);
+            if (!anyone && !survivorAlive && Time.fixedTime > stepUntil && !onionOf.Values.Any(f => f.recallUntil > 0f)) return;
 
             Cooldowns();
             HealInWards();
@@ -1684,6 +1724,8 @@ namespace OlimarTest
             TekiAi.Step(sim, (int)ticks);
 
             ReadBack();
+            UpdatePikiGroups();
+            TimedShakeOffs();
             foreach (var kv in driverOf)
                 if (kv.Value && Native.pik_sim_captain(sim, (uint)kv.Key, out var cap) != 0)
                 {
@@ -2515,10 +2557,8 @@ namespace OlimarTest
         static bool OwnerAlive(OnionFlight f) =>
             f.owner && f.owner.GetBody() is CharacterBody b && b.healthComponent && b.healthComponent.alive;
 
-        // Olimar died with a friend still alive. His Onion cannot go on without him: if the friend is another
-        // Olimar the orphaned Pikmin try to join his squad and the Onion sleeps at once; otherwise the Onion
-        // lands where it is, the Pikmin walk home to it, and it sleeps when they have had their time (those
-        // that did not make it stand about, and the enemies see to them).
+        // Olimar died with a friend still alive: his Pikmin return to his own Onion,
+        // which lands and then sleeps. They are never reassigned to another Olimar.
         const float RecallSeconds = 20f;
 
         void OnOlimarDied(OlimarDriver dead)
@@ -2530,17 +2570,6 @@ namespace OlimarTest
                 if (bodies[i] && bodies[i].isPlayerControlled && bodies[i] != dead.Body && bodies[i].healthComponent && bodies[i].healthComponent.alive)
                     friendAlive = true;
             if (!friendAlive) return; // the run is over
-            OlimarDriver heir = null;
-            foreach (var d in driverOf.Values)
-                if (d && d != dead && d.Captain >= 0 && d.Body && d.Body.isPlayerControlled && d.Body.healthComponent && d.Body.healthComponent.alive && d.Active)
-                { heir = d; break; }
-            if (heir != null)
-            {
-                uint joined = Native.pik_sim_adopt_orphans(sim, (uint)dead.Captain, (uint)heir.Captain);
-                Plugin.Log.LogInfo($"Olimar {dead.Captain} died: {joined} Pikmin join Olimar {heir.Captain}; Onion {f.id} goes dormant.");
-                GoDormant(f, 99999f, true);
-                return;
-            }
             Plugin.Log.LogInfo($"Olimar {dead.Captain} died: his Onion {f.id} lands and calls his Pikmin home before it goes dormant.");
             bool wasUp = f.airborne || f.following;
             f.following = false;
@@ -2574,8 +2603,14 @@ namespace OlimarTest
                 Native.pik_sim_send_orphans_home(sim, (uint)f.captain, (uint)f.id);
             }
             float started = f.recallUntil - RecallSeconds;
+            if (Time.fixedTime >= f.recallUntil)
+            {
+                Native.pik_sim_finish_orphan_recall(sim, (uint)f.captain, (uint)f.id);
+                GoDormant(f, 99999f, true);
+                return;
+            }
             bool none = !f.airborne && Time.fixedTime >= started + 3f && Native.pik_sim_captain_piki_count(sim, (uint)f.captain) == 0;
-            if (Time.fixedTime >= f.recallUntil || none) GoDormant(f, 99999f, true);
+            if (none) GoDormant(f, 99999f, true);
         }
 
         /// The killing blow was Olimar's: his own, his Pikmin's (their hits land as damage from him), a
@@ -2665,6 +2700,7 @@ namespace OlimarTest
 
             float r_m = Mathf.Max(0.3f, v.bestFitRadius);
             int weight = Mathf.Clamp(Mathf.RoundToInt(r_m * Plugin.CarriersPerMetre.Value), 1, 20);
+            if (!Plugin.CarryBodies.Value) weight = PelletDropPolicy.Number(v.isChampion, v.isElite, v.baseMaxHealth, r_m);
             var at = UnityHost.ToSim(UnityHost.Snap(v.footPosition));
             float yaw = UnityHost.Yaw(v.transform.forward);
             if (!Plugin.CarryBodies.Value)

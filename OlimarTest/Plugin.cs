@@ -250,9 +250,9 @@ namespace OlimarTest
                 "Kills it takes to raise a Pikmin one stage (leaf, bud, flower). Only the Pikmin that attacked " +
                 "the enemy earn the kill, whoever lands the last blow. 0: off.");
             ShakeProtection = Config.Bind("Pikmin", "ShakeProtection", 2f,
-                "Seconds a Pikmin holds on after latching onto an enemy. When the enemy attacks, " +
-                "Pikmin latched for longer are shaken off and the rest stay on. 0: every attack " +
-                "shakes off every Pikmin, as Pikmin 1's flick does.");
+                "Seconds a Pikmin holds on after latching onto an enemy. Combat skills and timed shake attempts " +
+                "remove older latches; bosses check every 0.25 seconds, other RoR2 enemies every second. " +
+                "0: no protection. Pikmin enemies keep their own flick strategies.");
             OnionItems = Config.Bind("Pikmin", "OnionItems", true,
                 "Each Onion is Olimar's minion and gets his items, so items that work where you " +
                 "stand still (Bustling Fungus) work around it.");
@@ -284,9 +284,8 @@ namespace OlimarTest
                 "Pikmin carry the enemy's own body instead of a numbered pellet. Experimental: the " +
                 "pellet the Pikmin go for stays where the enemy died while the body may roll away.");
             CarriersPerMetre = Config.Bind("Corpses", "CarriersPerMetre", 2f,
-                "How big a pellet an enemy leaves, per metre of its radius: the largest of 1, 5, 10 " +
-                "and 20 not above radius x this (a Beetle leaves a 1 pellet). With " +
-                "CarryBodies, the Pikmin needed to lift the body.");
+                "CarryBodies only: corpse carry weight per metre of its radius. Numbered pellets instead use " +
+                "small 1, medium/large 5, tough/elite 10, boss 20. This setting controls the Pikmin needed to lift a corpse.");
             Sound = Config.Bind("Sound", "Enabled", true,
                 "Play Pikmin's sound effects (from your disc) for whistles, throws, Pikmin and the " +
                 "Onion. Arrival music has separate SpawnMusic settings; RoR2's soundtrack stays.");
@@ -539,6 +538,7 @@ namespace OlimarTest
                 "< ! > Defeated enemies are carried to the Onion, which turns them into new Pikmin.\n" +
                 "< ! > Sprouts grow from leaf to bud to flower, ready to be plucked and join the squad.");
             lang.SetStringByToken("OLIMARTEST_ONION_NAME", "Onion");
+            lang.SetStringByToken("OLIMARTEST_PIKIGROUP_NAME", "Pikmin group");
             lang.SetStringByToken("OLIMARTEST_BODY_OUTRO", "..and so he left, with a ship full of seeds.");
             lang.SetStringByToken("OLIMARTEST_BODY_FAIL", "..and so he vanished, his Pikmin waiting by the Onion.");
             OlimarSkills.Tokens(lang);
@@ -596,6 +596,7 @@ namespace OlimarTest
         }
 
         internal static Minions.Kind OnionMinion;
+        internal static Minions.Kind PikiGroupMinion;
 
         // A round onion-coloured portrait for the ally card: a shaded sphere with a highlight and a dark rim.
         static Texture2D OnionPortrait()
@@ -683,6 +684,26 @@ namespace OlimarTest
                 baseRegen = 0f, levelRegen = 0f,
                 itemFilter = item => Plugin.OnionItems.Value && OnionItem(item),
             });
+
+            // A few shared minion bodies expose native-sim groups to RoR2's AI and hits.
+            // The group's real health belongs to its Pikmin; the proxy never awards kills.
+            PikiGroupMinion = Minions.Define(pack, Plugin.Guid, new MinionSpec
+            {
+                name = "OlimarTestPikiGroup", nameToken = "OLIMARTEST_PIKIGROUP_NAME",
+                baseMaxHealth = 1000000f, levelMaxHealth = 0f,
+                baseRegen = 1000000f, levelRegen = 0f,
+                itemFilter = item => false,
+            });
+            var groupBody = PikiGroupMinion != null ? PikiGroupMinion.body.GetComponent<CharacterBody>() : null;
+            if (groupBody)
+            {
+                groupBody.teamComponent.hideAllyCardDisplay = true;
+                groupBody.healthComponent.dontShowHealthbar = true;
+                PikiGroupMinion.master.GetComponent<CharacterMaster>().hideAllyCard = true;
+                groupBody.baseDamage = groupBody.levelDamage = 0f;
+                var rewards = groupBody.GetComponent<DeathRewards>();
+                if (rewards) { rewards.goldReward = 0; rewards.expReward = 0; }
+            }
 
             // The Onion's card in RoR2's ally list: its health, with a portrait of its own.
             var onionBody = OnionMinion != null && OnionMinion.body ? OnionMinion.body.GetComponent<CharacterBody>() : null;

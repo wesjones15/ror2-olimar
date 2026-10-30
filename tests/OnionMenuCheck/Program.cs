@@ -40,21 +40,32 @@ static class Program
         Check(Total(OnionMenuPolicy.Distribute(15, 3, 4, 8)) == 15, "whole squad returns across colours");
         Check(Total(OnionMenuPolicy.Distribute(100, 3, 4, 8)) == 15, "stale request cannot exceed available Pikmin");
         var flying = new FlyingXPolicy();
-        Check(flying.Step(1f, true, true, false, true) == FlyingXAction.None, "flying first X waits");
-        Check(flying.Step(1.5f, true, true, false, false) == FlyingXAction.Release,
-            "second X dumps even after the landing charge was spent");
-        Check(flying.Step(2f, true, true, false, true) == FlyingXAction.None, "new flying press starts a window");
-        Check(flying.Step(2.8f, false, true, false, true) == FlyingXAction.Land,
-            "single X lands only after the double-press window");
-        Check(flying.Step(3f, true, true, false, false) == FlyingXAction.None, "cooldown press still listens");
-        Check(flying.Step(3.8f, false, true, false, true) == FlyingXAction.None,
-            "cooldown press does not land if the charge refills during the window");
-        Check(flying.Step(4f, true, true, true, true) == FlyingXAction.None,
-            "another RoR2 interact prompt claims X");
-        Check(flying.Step(4.8f, false, true, false, true) == FlyingXAction.None,
-            "claimed X never lands the Onion");
-        Check(flying.Step(5f, true, true, false, true) == FlyingXAction.None, "flying press queues");
-        Check(flying.Step(5.1f, false, false, false, true) == FlyingXAction.None, "landing cancels pending X");
+        Check(flying.Step(1f, true, true, false, true) == FlyingXAction.None, "first X waits");
+        Check(flying.Step(1.1f, false, true, false, true) == FlyingXAction.None, "short X does not relocate");
+        Check(flying.Step(1.5f, true, true, false, false) == FlyingXAction.Release, "double tap dumps during cooldown");
+        flying.Cancel();
+        Check(flying.Step(2f, true, true, false, true) == FlyingXAction.None, "hold begins");
+        Check(flying.Step(2.59f, true, true, false, true) == FlyingXAction.None, "less than .6s waits");
+        Check(flying.Step(2.61f, true, true, false, true) == FlyingXAction.Land, "hold lowers at .6s");
+        Check(flying.Step(3f, true, false, false, true) == FlyingXAction.None, "continuing hold cannot raise it again");
+        flying.Cancel();
+        flying.Step(4f, true, false, false, true);
+        Check(flying.Step(4.61f, true, false, false, true) == FlyingXAction.Land, "landed Onion also requires hold");
+        flying.Cancel();
+        flying.Step(5f, true, true, false, false);
+        Check(flying.Step(5.7f, true, true, false, true) == FlyingXAction.None, "cooldown finishing does not claim a held press");
+        flying.Cancel();
+        flying.Step(6f, true, true, false, true);
+        Check(flying.Step(6.7f, true, true, true, true) == FlyingXAction.None, "interact cancels pending relocation");
+        flying.Cancel();
+        flying.Step(7f, true, true, false, true);
+        flying.Step(7.1f, false, true, false, true);
+        Check(flying.Step(8f, false, true, false, true) == FlyingXAction.None, "single tap never becomes a delayed landing");
+        Check(PelletDropPolicy.Number(false, false, 80f, .7f) == 1, "small enemy: 1");
+        Check(PelletDropPolicy.Number(false, false, 300f, 1.5f) == 5, "medium/large: 5");
+        Check(PelletDropPolicy.Number(false, false, 900f, 1f) == 10, "tough enemy: 10");
+        Check(PelletDropPolicy.Number(false, true, 80f, .7f) == 10, "elite: 10");
+        Check(PelletDropPolicy.Number(true, true, 2000f, 3f) == 20, "boss wins over elite: 20");
         float jump = OlimarJump.Height(15f, 15f, -30f, 0.04f);
         Check(jump * 0.04f > 15f * 15f / 60f, "Commando jump height plus ledge clearance");
         Check(OlimarJump.Height(8f, 15f, -30f, 0.04f) == jump, "base Commando height is the minimum");

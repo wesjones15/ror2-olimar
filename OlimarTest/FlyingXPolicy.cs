@@ -2,37 +2,45 @@ namespace OlimarTest
 {
     internal enum FlyingXAction { None, Land, Release }
 
-    /// The first X reserves a short double-press window. Its landing eligibility is
-    /// captured at that instant, so a cooldown completing during the window does not
-    /// turn an unavailable first press into a delayed landing.
+    /// Hold X for relocation; two short presses dump a flying Onion.
     internal struct FlyingXPolicy
     {
         const float Window = 0.75f;
-        float deadline;
-        bool pending, mayLand;
+        const float HoldSeconds = 0.6f;
+        float deadline, heldAt;
+        bool pending, wasHeld, fired, mayLand;
 
-        public void Cancel() => pending = false;
+        public void Cancel() { pending = wasHeld = fired = false; }
 
-        public FlyingXAction Step(float now, bool pressed, bool flying, bool interactClaimed, bool canLand)
+        public FlyingXAction Step(float now, bool held, bool flying, bool interactClaimed, bool canLand)
         {
-            if (!flying) { Cancel(); return FlyingXAction.None; }
-            if (pressed && !interactClaimed)
+            if (interactClaimed) { Cancel(); return FlyingXAction.None; }
+            if (held && !wasHeld)
             {
-                if (pending && now <= deadline)
+                wasHeld = true;
+                fired = false;
+                heldAt = now;
+                mayLand = canLand;
+                if (flying && pending && now <= deadline)
                 {
-                    Cancel();
+                    pending = false;
+                    fired = true;
                     return FlyingXAction.Release;
                 }
-                pending = true;
-                mayLand = canLand;
-                deadline = now + Window;
-                return FlyingXAction.None;
             }
-            if (pending && now >= deadline)
+            if (held && !fired && now - heldAt >= HoldSeconds)
             {
-                Cancel();
+                fired = true;
+                pending = false;
                 return mayLand ? FlyingXAction.Land : FlyingXAction.None;
             }
+            if (!held && wasHeld)
+            {
+                if (!fired) { pending = flying; deadline = now + Window; }
+                wasHeld = false;
+                fired = false;
+            }
+            if (pending && now > deadline) pending = false;
             return FlyingXAction.None;
         }
     }

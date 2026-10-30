@@ -403,6 +403,32 @@ static class Program
             && File.GetLastWriteTimeUtc(path) == before, "later startups reuse completed intro cache");
     }
 
+    static void CheckMatureDeathRecall()
+    {
+        IntPtr sim = Native.pik_sim_new(null, 27);
+        var pos = new Native.Vec3(0, 0, 0);
+        int captain = Native.pik_sim_add_captain(sim, ref pos);
+        int onion = Native.pik_sim_add_onion(sim, ref pos, 31);
+        for (uint colour = 0; colour < Native.ColourCount; colour++)
+        {
+            for (uint stage = 0; stage < 3; stage++)
+            {
+                Native.pik_sim_store_in_onion(sim, (uint)onion, colour, stage, stage + 1);
+                Check(Native.pik_sim_onion_stock(sim, (uint)onion, colour, stage) == stage + 1,
+                    $"stage-transfer stock: colour {colour}, maturity {stage}");
+            }
+            int piki = Native.pik_sim_spawn_piki(sim, colour, ref pos, captain);
+            Native.pik_sim_set_piki_happa(sim, (uint)piki, 2);
+        }
+        Native.pik_sim_finish_orphan_recall(sim, (uint)captain, (uint)onion);
+        for (uint colour = 0; colour < Native.ColourCount; colour++)
+            Check(Native.pik_sim_onion_stock(sim, (uint)onion, colour, 2) == 4,
+                $"death recall preserves flower: colour {colour}");
+        Check(Native.pik_sim_captain_piki_count(sim, (uint)captain) == 0, "death recall leaves no live stragglers outside");
+        Check(Native.pik_sim_poisoned(sim) == 0, "mature recall boundary remains healthy");
+        Native.pik_sim_free(sim);
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -410,6 +436,7 @@ static class Program
         Check(Native.Load(dll, out string err), $"load {dll} {err}");
         if (err != null) return 1;
         Check(Native.pik_tick_hz() == 30, "30 Hz");
+        CheckMatureDeathRecall();
         if (args.Length > 1)
         {
             CheckIntroCache(args[1]);

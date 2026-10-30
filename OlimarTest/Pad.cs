@@ -36,6 +36,7 @@ namespace OlimarTest
         public bool Throw => throwNow || throwTap;
         public bool Whistle => whistleNow || whistleTap;
         public bool Relocate => relocateNow || relocateTap;
+        public bool RelocateHeld => relocateNow;
         public bool Strike => strikeNow || strikeTap;
         public bool Cycle => cycleNow || cycleTap;
         public bool recentre, zoom, topView;

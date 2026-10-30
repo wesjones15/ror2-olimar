@@ -91,7 +91,7 @@ namespace OlimarTest
             bool flying = PikminWorld.Instance.OnionFlying(DataCaptain);
             string disabled = "<color=#777B78>", enabled = "</color>";
             onionGlyphActions.text = MenuGlyph(PadButton.X, "X") + "  Dump Onion Pikmin (keep one)\n" +
-                (flying ? disabled : "") + MenuGlyph(PadButton.Y, "Y") + "  Fill Onion with squad" + (flying ? enabled : "") + "\n" +
+                MenuGlyph(PadButton.Y, "Y") + "  Fill Onion with squad\n" +
                 MenuGlyph(PadButton.RB, "RB") + "  Heal Olimar from Onion stock\n" +
                 MenuGlyph(PadButton.LB, "LB") + "  Call stuck carriers\n" +
                 (flying ? disabled : "") + MenuGlyph(PadButton.A, "A") + "  Send Onion plucker" + (flying ? enabled : "");

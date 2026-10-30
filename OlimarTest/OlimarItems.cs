@@ -510,7 +510,7 @@ namespace OlimarTest
                 "<style=cIsUtility>Hold LB and press B</style> to call nearby Pikmin back.");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Raise / Lower Onion");
             lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
-                "<style=cIsUtility>Press X</style> to raise or lower the Onion. Under it, X opens its menu.");
+                "<style=cIsUtility>Hold X for 0.6 seconds</style> to raise or lower the Onion. Double tap X while flying to dump Pikmin. Under it, Y fills it.");
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
                 "<style=cIsUtility>Press RB</style> to send your Pikmin charging at nearby enemies.");

@@ -148,7 +148,7 @@ namespace OlimarTest
         int menuOnion = -1;
         int menuOpenedFrame;
         string menuNote;
-        bool onionPressClaimed, strikeSwallow;
+        bool strikeSwallow;
         FlyingXPolicy flyingX;
         /// Locked onto an enemy this tick (RT held).
         public bool LockedOn { get; private set; }
@@ -323,7 +323,7 @@ namespace OlimarTest
             if (!cam)
             {
                 cam = gameObject.AddComponent<PikminCamera>();
-                cam.Init(transform, Yaw());
+                cam.Init(transform, Yaw() + Mathf.PI * 0.5f);
             }
             if (rig != camRig || !rig.IsOverrideCam(cam))
             {
@@ -476,23 +476,10 @@ namespace OlimarTest
                 native.UpdateSprint(sprintPressed, i.stick_x * i.stick_x + i.stick_y * i.stick_y > 0.01f,
                     hold == NativeBody.Hold.None && !MenuOpen);
             sprintPressed = false;
-            // A landed Onion raises on X outside its beam. Flying X is handled in
-            // Update: it needs a second-press window before either landing or dumping.
-            // RoR2 interactions have first claim on the button.
-            bool dismiss = IsAi ? false : Plugin.Scheme == ControlScheme.Pikmin ? pad.Relocate : input.skill3.down;
-            if (!dismiss) onionPressClaimed = false;
-            // A landed or deliberately descended Onion provides the menu. Elsewhere X relocates it.
-            bool pikminX = Plugin.Scheme == ControlScheme.Pikmin;
-            if (!MenuOpen && hold != NativeBody.Hold.All && dismiss && !realPrompt
-                && !InteractPrompt() && pikminX && !PikminWorld.Instance.OnionFlying(DataCaptain))
-            {
-                if (!onionPressClaimed)
-                    PikminWorld.Instance.CommandOnion(DataCaptain, true);
-                onionPressClaimed = true;
-            }
+            // Update handles held X and double taps; interactions claim the press first.
             // The Pikmin scheme's strike is its own button; only the aim scheme shares one with the Onion.
             if (!(Plugin.Scheme == ControlScheme.Pikmin && !IsAi) &&
-                (onionPressClaimed || InteractPrompt() || PikminWorld.Instance.OnionFlying(DataCaptain))) i.dismiss = 0;
+                (InteractPrompt() || PikminWorld.Instance.OnionFlying(DataCaptain))) i.dismiss = 0;
             enemyLock.Range = Plugin.LockRange.Value;
             // The strike's cooldown is the Special slot's: no charge, no strike. A press made while it
             // recharges stays spent until the button is let go, so it doesn't fire the moment it is ready.
@@ -762,10 +749,11 @@ namespace OlimarTest
             var world = PikminWorld.Instance;
             if (!world || !Active) { flyingX.Cancel(); return; }
             var slot = Body && Body.skillLocator ? Body.skillLocator.utility : null;
-            var action = flyingX.Step(Time.unscaledTime, pad.releaseAll, world.OnionFlying(DataCaptain),
+            bool flying = world.OnionFlying(DataCaptain);
+            var action = flyingX.Step(Time.unscaledTime, pad.RelocateHeld, flying,
                 realPrompt || InteractPrompt(), slot == null || NativeSkills.Ready(slot, OlimarSkills.Relocate));
             if (action == FlyingXAction.Release) world.ReleaseFlyingOnion(DataCaptain);
-            else if (action == FlyingXAction.Land) world.CommandOnion(DataCaptain, false);
+            else if (action == FlyingXAction.Land) world.CommandOnion(DataCaptain, !flying);
         }
 
         // Show the shortcut popup automatically in the Onion beam. Real RoR2
@@ -817,12 +805,6 @@ namespace OlimarTest
             {
                 byte kind = pad.releaseAll ? OnionCommandPacket.ReleaseAll : OnionCommandPacket.ReturnAll;
                 pad.releaseAll = pad.returnAll = false;
-                if (kind == OnionCommandPacket.ReturnAll && world.OnionFlying(DataCaptain))
-                {
-                    menuNote = "Land the Onion to put Pikmin away.";
-                    world.PlaySound(2, Body.footPosition);
-                    return;
-                }
                 if (world.ManageOnion(DataCaptain, kind)) menuNote = null;
                 else { menuNote = "Stand in the Onion beam to manage Pikmin."; world.PlaySound(2, Body.footPosition); }
                 return;
