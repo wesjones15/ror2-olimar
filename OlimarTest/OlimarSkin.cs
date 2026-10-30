@@ -109,12 +109,8 @@ namespace OlimarTest
         public static uint Selected()
         {
             if (loadout.Count < 2) return Olimar;
-            var index = BodyCatalog.FindBodyIndex("OlimarTestBody");
-            if (index == BodyIndex.None) return Olimar;
-            foreach (var user in LocalUserManager.readOnlyLocalUsersList)
-                if (user.userProfile != null)
-                    return FromIndex(user.userProfile.loadout.bodyLoadoutManager.GetSkinIndex(index));
-            return Olimar;
+            // The pad being drawn's player in a lobby, else the local player.
+            return FromIndex(DisplayModel.SelectedSkin("OlimarTestBody"));
         }
 
         /// Loads the Pianta into a new view; false when Sunshine's files are missing. Call between
