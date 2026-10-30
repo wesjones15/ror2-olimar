@@ -184,10 +184,13 @@ namespace OlimarTest
             native = GetComponent<NativeBody>();
             smoother = new StepSmoother(transform);
             Items = new OlimarItems(this);
+            spawn.Remember(transform);
             all.Add(this);
         }
 
         readonly GroundGate ground = new GroundGate();
+        // A client's body starts where the network blend left it, not at its spawn (ror2-common's ClientSpawn).
+        readonly ClientSpawn spawn = new ClientSpawn();
 
         void FixedUpdate()
         {
@@ -204,6 +207,7 @@ namespace OlimarTest
             {
                 // Register during the Dolphin arrival so the ship and airborne Onion draw together.
                 if (Body.currentVehicle || (health && !health.alive) || !OnPlayersTeam) return;
+                spawn.Settle(Body, motor);
                 // A stage's floor can load after the body appears: wait in place for it, with RoR2's motor
                 // off so he doesn't fall meanwhile (it comes back on below when the sim hands him back).
                 if (!ground.Ready(Body.footPosition, Time.fixedDeltaTime, "Olimar"))
