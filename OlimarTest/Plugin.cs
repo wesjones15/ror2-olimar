@@ -708,6 +708,7 @@ namespace OlimarTest
             // Olimar's own skins in place of the Commando body's.
             OlimarSkinUnlocks.Register(pack);
             OlimarSkin.Register(body);
+            DisplayModel.BindSkins(display, body);
 
             pack.bodyPrefabs.Add(new[] { body });
             pack.survivorDefs.Add(new[] { survivor });
