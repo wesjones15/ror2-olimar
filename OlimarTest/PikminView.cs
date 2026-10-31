@@ -201,6 +201,12 @@ namespace OlimarTest
                     int ship = world.ShipOfCaptain(d.ViewCaptain);
                     if (ship >= 0) models.SetShipHocotate((uint)ship, OlimarSkin.Selected(d.Body) == OlimarSkin.Louie);
                     models.Materialize(captain, world.BeamProgress(captain));
+                    // Boarding an Onion: the bad ending's lift into it, while it lasts.
+                    if (world.BoardingClip(d.ViewCaptain, out float clipFrame, out var clipAt))
+                    {
+                        if (!models.Boarding(captain, clipFrame, clipAt)) world.boardingMissing = true;
+                    }
+                    else models.Boarding(captain, -1f, default);
                     float progress = world.HealingProgress(captain);
                     uint ghosts = world.HealingCount(captain);
                     models.Heal(captain, progress, ghosts);

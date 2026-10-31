@@ -153,6 +153,11 @@ namespace OlimarTest
             if (view != IntPtr.Zero) Native.pik_view_set_materialize(view, captain, progress);
         }
 
+        /// Olimar boarding an Onion plays the bad ending's lift at `frame` (negative ends it). False when the
+        /// clip isn't extracted.
+        public bool Boarding(uint captain, float frame, Native.Vec3 at) =>
+            view != IntPtr.Zero && Native.pik_view_set_boarding(view, captain, frame, ref at) != 0;
+
         public void Heal(uint captain, float progress, uint ghosts)
         {
             if (view != IntPtr.Zero) Native.pik_view_set_healing(view, captain, progress, ghosts);

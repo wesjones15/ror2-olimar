@@ -13,6 +13,8 @@ namespace OlimarTest
         public bool hasSafe;
         public float groundY;
         public readonly uint[] reserve = new uint[Native.ColourCount];
+        /// Seconds since boarding, for the lift into the Onion.
+        public float boardAge;
     }
 
     // Onion Ride (the Utility skill): Olimar steps into the Onion's beam, presses B, and flies the Onion for
@@ -27,6 +29,25 @@ namespace OlimarTest
         const float RideClimbSpeed = 6f;
         /// Ground nearer than this below the Onion counts as somewhere to put him back.
         const float RideSafeReach = 8f;
+
+        /// The boarding clip is missing from the extracted assets (the view said so): he just vanishes inside.
+        internal bool boardingMissing;
+        static float boardFirst = -1f, boardLast;
+        /// The clip is 30 frames a second; it plays at twice that, so the lift takes about a second and a half.
+        const float BoardingSpeed = 60f;
+
+        /// The lift into the Onion that boarding plays: the clip frame and the Onion's foot (sim units), while it lasts.
+        public bool BoardingClip(int captain, out float frame, out Native.Vec3 at)
+        {
+            frame = -1f;
+            at = default;
+            if (boardingMissing || ClientMode || !onionOf.TryGetValue(captain, out var f) || f.ride == null) return false;
+            if (boardFirst < 0f) Native.pik_view_boarding_frames(out boardFirst, out boardLast);
+            frame = boardFirst + f.ride.boardAge * BoardingSpeed;
+            if (frame >= boardLast) return false;
+            at = UnityHost.ToSim(f.position);
+            return true;
+        }
 
         public bool Riding(int captain) => !ClientMode && onionOf.TryGetValue(captain, out var f) && f.ride != null;
 
@@ -71,6 +92,7 @@ namespace OlimarTest
             if (!driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || !OwnerAlive(f)) { EndRide(f); return; }
             if (d.TakeRideExit()) { EndRide(f); return; }
             bool boost = d.TakeRideBoost();
+            r.boardAge += dt;
             var from = f.position;
             var flat = new Vector2(from.x - r.origin.x, from.z - r.origin.z);
             float scale = r.policy.Step(dt, flat.magnitude, boost);

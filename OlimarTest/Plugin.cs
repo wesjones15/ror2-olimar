@@ -451,7 +451,8 @@ namespace OlimarTest
                 || !File.Exists(Path.Combine(audio, "stings.version"))
                 || File.ReadAllText(Path.Combine(audio, "stings.version")).Trim() != "1";
             // An older extraction has only the first three enemies' files; the rest come from the disc (extraction tops it up).
-            bool needTekis = ready && !File.Exists(Path.Combine(AssetsDir, "tekis", ".all"));
+            bool needTekis = ready && (!File.Exists(Path.Combine(AssetsDir, "tekis", ".all"))
+                || !File.Exists(Path.Combine(AssetsDir, "cinemas", "demo74", "navi.anm")));
             if (ready && !needIntro && !needTekis) return;
             string disc = configuredDisc?.Trim();
             if ((!ready || needTekis) && string.IsNullOrEmpty(disc))

@@ -965,7 +965,7 @@ namespace OlimarTest
         }
 
         /// Arriving and not yet beamed in: Olimar isn't drawn.
-        public bool CaptainHidden(uint captain) => CaptainArriving(captain) && BeamProgress(captain) < 0f || Riding((int)captain);
+        public bool CaptainHidden(uint captain) => CaptainArriving(captain) && BeamProgress(captain) < 0f || Riding((int)captain) && !BoardingClip((int)captain, out _, out _);
 
         public bool CaptainArriving(uint captain) => ClientMode
             ? remoteInfo.TryGetValue((int)captain, out var info) && info.IsArriving
