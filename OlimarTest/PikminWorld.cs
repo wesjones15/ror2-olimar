@@ -115,6 +115,8 @@ namespace OlimarTest
             public bool reviving;
             public int pickup = -1;
             public float pickupDwell;
+            public bool filling;
+            public Vector3 fillGround;
             // The owner walked back beneath a hovering Onion. It holds this spot while its
             // beam descends, then rises to the saved hover height when he walks away.
             public bool menuBeam, menuReturning;
@@ -969,7 +971,11 @@ namespace OlimarTest
             if (flight.dormant) return;
             var pos = UnityHost.ToSim(flight.position);
             Native.pik_sim_set_onion_pose(sim, (uint)flight.id, ref pos, flight.airborne ? (byte)1 : (byte)0);
-            if (flight.airborne && flight.transitionDuration > 0f)
+            // GoalItem::startTakeoff's colour + 6, frame zero: keep the legs
+            // extended for entry while hovering low. Normal flight folds them.
+            if (flight.airborne && flight.filling)
+                Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, 0, 0f);
+            else if (flight.airborne && flight.transitionDuration > 0f)
                 Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, flight.following ? (byte)0 : (byte)1,
                     Mathf.Clamp01(flight.transitionElapsed / flight.transitionDuration));
             if (onionMinions.TryGetValue(flight.id, out var minion))
@@ -1067,6 +1073,7 @@ namespace OlimarTest
                         }
                 }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
+                if (flight.following && UpdateOnionFill(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionMenuHover(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionPickup(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && driverOf.TryGetValue(flight.captain, out var d) && d && d.Body)
@@ -1109,6 +1116,30 @@ namespace OlimarTest
         // then 0.75). Zero is where a landed Onion stands (`landing = hit.point`), so the bottom
         // of its beam touches the ground.
         const float PickupHeight = 0f;
+
+        // Returning Pikmin have priority over trailing Olimar or collecting a
+        // pellet. Hold the entry spot low even if Olimar leaves the menu beam.
+        bool UpdateOnionFill(OnionFlight flight)
+        {
+            if (Native.pik_sim_onion_returning_count(sim, (uint)flight.id) == 0)
+            {
+                flight.filling = false;
+                return false;
+            }
+            if (!flight.filling)
+            {
+                flight.fillGround = UnityHost.Snap(flight.position) + Vector3.up * PickupHeight;
+                flight.filling = true;
+            }
+            flight.pickup = -1;
+            flight.pickupDwell = 0f;
+            flight.transitionDuration = 0f;
+            // Same descent speed and pod-clearance ray as loose pellet pickup.
+            if (!Physics.Linecast(flight.position + Vector3.up * 4.4f, flight.fillGround + Vector3.up * 4.4f,
+                UnityHost.Mask, QueryTriggerInteraction.Ignore))
+                flight.position = Vector3.MoveTowards(flight.position, flight.fillGround, 3f * Time.fixedDeltaTime);
+            return true;
+        }
 
         // Hold the Onion over the spot Olimar walked back to. The same ground-height beam
         // stretch used during pellet suction draws its cone throughout this descent.
@@ -1240,6 +1271,7 @@ namespace OlimarTest
                 return false;
             }
             if (f.dormant) return false;
+            f.filling = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
             f.menuBeam = f.menuReturning = false;
@@ -2527,6 +2559,7 @@ namespace OlimarTest
         void GoDormant(OnionFlight f, float seconds, bool ownerDied)
         {
             f.dormant = true;
+            f.filling = false;
             f.ownerDeath = ownerDied;
             f.recallUntil = 0f;
             f.dormantAge = f.reviveAge = 0f;

@@ -420,7 +420,15 @@ static class Program
             int piki = Native.pik_sim_spawn_piki(sim, colour, ref pos, captain);
             Native.pik_sim_set_piki_happa(sim, (uint)piki, 2);
         }
+        for (uint colour = 0; colour < Native.ColourCount; colour++)
+            Check(Native.pik_sim_onion_put_away(sim, (uint)captain, (uint)onion, colour, 1) == 1,
+                $"fill starts before takeoff: colour {colour}");
+        Check(Native.pik_sim_onion_returning_count(sim, (uint)onion) == Native.ColourCount, "low hover sees every pending returner");
+        var hover = new Native.Vec3(0, 20, 0);
+        Native.pik_sim_set_onion_pose(sim, (uint)onion, ref hover, 1);
+        Check(Native.pik_sim_onion_returning_count(sim, (uint)onion) == Native.ColourCount, "takeoff preserves filling jobs across ABI");
         Native.pik_sim_finish_orphan_recall(sim, (uint)captain, (uint)onion);
+        Check(Native.pik_sim_onion_returning_count(sim, (uint)onion) == 0, "finished recall has no pending returners");
         for (uint colour = 0; colour < Native.ColourCount; colour++)
             Check(Native.pik_sim_onion_stock(sim, (uint)onion, colour, 2) == 4,
                 $"death recall preserves flower: colour {colour}");
