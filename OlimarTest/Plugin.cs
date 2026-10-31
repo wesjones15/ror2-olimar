@@ -81,7 +81,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> StrikeStun, StrikeKillReset;
         internal static ConfigEntry<int> KillsPerStage;
         internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
-        internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled;
+        internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled, ItemDisplays;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<float> PiantaHeightRatio, LouieHeight, PikachuHeight, IceClimberHeight;
         internal static ConfigEntry<int> PiantaColour;
@@ -337,6 +337,11 @@ namespace OlimarTest
                 "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
             GummyClones = Config.Bind("Look", "GummyClones", true,
                 "Goobo Jr.'s Olimar is drawn in RoR2's gummy clone material.");
+            ItemDisplays = Config.Bind("Look", "ItemDisplays", true,
+                "Draw RoR2's cosmetic item displays on the captain: glasses, syringes, crowns and the rest " +
+                "follow the drawn body (Olimar, Louie, the Pianta or Captain Pikachu) instead of being hidden " +
+                "with Commando. Off: hidden, as before.");
+            ItemDisplayRig.Enabled = ItemDisplays.Value;
             var sunshine = Config.Bind("Skins", "SunshineAssets", "",
                 "The Super Mario Sunshine cache the Pianta skin is drawn from (the Mario plugin's extracted assets folder). " +
                 "Empty: $SMS_ASSETS, then beside this plugin or the Mario plugin's assets_dir.txt. Without it the skin is not offered.");

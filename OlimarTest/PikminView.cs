@@ -29,7 +29,7 @@ namespace OlimarTest
             models?.PlaySound(sound, UnityHost.ToSim(at));
             if (sound == 6) recallWhistleUntil = Time.unscaledTime + 0.28f;
         }
-        readonly HashSet<int> drawnCaptains = new HashSet<int>();
+        readonly Dictionary<int, ViewDraw> drawnCaptains = new Dictionary<int, ViewDraw>();
 
         static readonly Color[] PikiColours =
         {
@@ -246,10 +246,19 @@ namespace OlimarTest
             for (int i = 0; i < models.DrawCount; i++)
             {
                 var dr = models.DrawAt(i);
-                if (dr.kind == Native.KindCaptain) drawnCaptains.Add((int)dr.id);
+                if (dr.kind == Native.KindCaptain) drawnCaptains[(int)dr.id] = dr;
             }
             foreach (var d in drivers)
-                d.HideBody(d.Arriving || d.ViewCaptain >= 0 && drawnCaptains.Contains(d.ViewCaptain));
+            {
+                bool drawn = false;
+                ViewDraw dr = default;
+                if (d.ViewCaptain >= 0) drawn = drawnCaptains.TryGetValue(d.ViewCaptain, out dr);
+                if (drawn && !d.Arriving)
+                    d.PoseItems(models.ViewHandle,
+                        new Vector3(dr.pos.x, dr.pos.y, dr.pos.z) * UnityHost.Scale,
+                        new Quaternion(dr.rot_x, dr.rot_y, dr.rot_z, dr.rot_w), UnityHost.Scale);
+                d.HideBody(d.Arriving || drawn);
+            }
         }
 
         void HealingSounds(OlimarDriver driver, float progress, uint count)

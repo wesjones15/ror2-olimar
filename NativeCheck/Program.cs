@@ -84,6 +84,11 @@ static class Program
         var startNavi = Array.Find(first, d => d.kind == Native.KindCaptain && d.id == captain);
         var endNavi = Array.Find(last, d => d.kind == Native.KindCaptain && d.id == captain);
         Check(Math.Abs(endNavi.pos.x - startNavi.pos.x) > 1, "render clock has a moving captain");
+        var head = new float[16];
+        var pelvis = new float[16];
+        bool anchored = Native.pik_view_anchor(view, (uint)captain, 0, head) == 1
+            && Native.pik_view_anchor(view, (uint)captain, 2, pelvis) == 1;
+        Check(anchored && head[13] > pelvis[13], "item anchors put the head above the pelvis");
         foreach (int hz in new[] { 60, 120, 165 })
         {
             bool ok = true;
@@ -727,6 +732,10 @@ static class Program
                 bool worn = false;
                 for (int i = 0; i < pCount; i++) if (pdraws[i].kind == Native.KindCaptain) worn = pdraws[i].model == (uint)pianta;
                 Check(worn, "the captain is drawn as the Pianta");
+                var ph = new float[16];
+                var pp = new float[16];
+                bool pAnchored = Native.pik_view_anchor(pv, 0, 0, ph) == 1 && Native.pik_view_anchor(pv, 0, 2, pp) == 1;
+                Check(pAnchored && ph[13] > pp[13], "Pianta anchors put the head above the pelvis");
                 Native.pik_sim_free(psim);
                 Native.pik_view_free(pv);
                 Console.WriteLine("ok   Pianta skin: model " + pianta + " worn by the captain");
@@ -755,6 +764,10 @@ static class Program
                 bool wearing = false;
                 for (int i = 0; i < lCount; i++) if (ldraws[i].kind == Native.KindCaptain) wearing = ldraws[i].model == (uint)louie;
                 Check(wearing, "the captain is drawn as Louie");
+                var lh = new float[16];
+                var lp = new float[16];
+                bool lAnchored = Native.pik_view_anchor(lv, 0, 0, lh) == 1 && Native.pik_view_anchor(lv, 0, 2, lp) == 1;
+                Check(lAnchored && lh[13] > lp[13], "Louie anchors put the head above the pelvis");
                 Native.pik_sim_free(lsim);
                 Native.pik_view_free(lv);
                 Console.WriteLine("ok   Louie skin: model " + louie + " worn by the captain");
@@ -837,6 +850,10 @@ static class Program
                 }
                 Check(captainOk, "the captain is drawn as Pikachu");
                 Check(climberOk, "his Pikmin are drawn as Ice Climbers");
+                var kh = new float[16];
+                var kp = new float[16];
+                bool kAnchored = Native.pik_view_anchor(kv, 0, 0, kh) == 1 && Native.pik_view_anchor(kv, 0, 2, kp) == 1;
+                Check(kAnchored && kh[13] > kp[13], "Pikachu anchors put the head above the pelvis");
                 Native.pik_sim_free(ksim);
                 Native.pik_view_free(kv);
                 Console.WriteLine("ok   Pikachu skin: model " + pikachu + " worn by the captain, climbers after it");

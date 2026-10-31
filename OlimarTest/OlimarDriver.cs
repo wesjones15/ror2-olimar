@@ -290,10 +290,19 @@ namespace OlimarTest
         // Commando's model is hidden while Pikmin's Olimar is drawn in his place.
         CharacterModel charModel;
         bool bodyHidden;
+        ItemDisplayRig itemDisplays;
+        bool itemDisplaysTried;
 
         public void HideBody(bool hide)
         {
             if (hide == bodyHidden) return;
+            if (itemDisplays != null)
+            {
+                if (hide) { itemDisplays.HideStock(); itemDisplays.SetVisible(true); }
+                else { itemDisplays.ShowStock(); itemDisplays.SetVisible(false); }
+                bodyHidden = hide;
+                return;
+            }
             if (!charModel && Body && Body.modelLocator && Body.modelLocator.modelTransform)
                 charModel = Body.modelLocator.modelTransform.GetComponent<CharacterModel>();
             if (!charModel) return;
@@ -301,8 +310,30 @@ namespace OlimarTest
             bodyHidden = hide;
         }
 
+        /// Places RoR2's item displays on the captain's drawn body (PikminView calls this each
+        /// frame the captain is drawn, with the draw's feet, turn and units).
+        public void PoseItems(IntPtr view, Vector3 at, Quaternion rotation, float units)
+        {
+            if (!ItemDisplayRig.Enabled || !Body) return;
+            if (itemDisplays == null)
+            {
+                if (itemDisplaysTried) return;
+                itemDisplaysTried = true;
+                itemDisplays = ItemDisplayRig.Attach(Body, new OlimarItemAnchors(view, (uint)ViewCaptain));
+                // A captain hidden before the rig existed was hidden through invisibilityCount,
+                // which also hides every item display. The rig's own stock hide replaces it.
+                if (itemDisplays != null && bodyHidden && charModel != null)
+                {
+                    charModel.invisibilityCount--;
+                    charModel = null;
+                }
+            }
+            itemDisplays?.Pose(at, rotation, units);
+        }
+
         void OnDestroy()
         {
+            itemDisplays?.Dispose(); itemDisplays = null;
             if (health && !health.alive) PlayDeathSound();
             all.Remove(this);
             if (PikminWorld.Instance) PikminWorld.Instance.Unregister(this);

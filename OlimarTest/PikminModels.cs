@@ -22,6 +22,8 @@ namespace OlimarTest
 
         /// The meshes (ror2-common), for hosts that place the draws themselves.
         public ModelView Models { get; }
+        /// The native view handle, for per-captain anchor queries (`pik_view_anchor`).
+        public IntPtr ViewHandle => view;
         /// What loaded ("15 models; sound 48000 Hz, 2 channels").
         public string Status { get; }
 
