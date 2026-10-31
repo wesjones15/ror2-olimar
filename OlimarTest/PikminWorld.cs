@@ -987,7 +987,8 @@ namespace OlimarTest
             Native.pik_sim_set_onion_pose(sim, (uint)flight.id, ref pos, flight.airborne ? (byte)1 : (byte)0);
             // GoalItem::startTakeoff's colour + 6, frame zero: keep the legs
             // extended for entry while hovering low. Normal flight folds them.
-            if (flight.airborne && flight.filling)
+            // A ride never does this: it keeps the flying pose throughout (see UpdateRide).
+            if (flight.airborne && flight.filling && flight.ride == null)
                 Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, 0, 0f);
             else if (flight.airborne && flight.transitionDuration > 0f)
                 Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, flight.following ? (byte)0 : (byte)1,

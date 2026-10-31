@@ -28,7 +28,9 @@ Sprint boosts, any of Primary/Secondary/Utility/Equipment exits.
   home is the stopwatch held for this ride's charge.
 - Speed 2x his walk speed, 3x for 2 s after a stick click (`OnionRidePolicy`). Grace 5 s or 10 m on the ground
   plane, then 10 s; none of it pauses. Tests: `tests/OnionMenuCheck`.
-- Height follows the ground like the following Onion, held over pits, low (0.6 m) while Pikmin are climbing aboard.
+- Height follows the ground like the following Onion, held over pits. The ride never drops to the Fill
+  Onion's low, legs-out hover (its old 0.6 m boarding height): the core's hover entry jumps Pikmin to a
+  flying leg's midpoint and climbs from there, so the ride keeps the flying model and animation throughout.
 - Boarding records the Onion's stored count per colour. At the end the excess is the ride's squad and comes out
   with `pik_sim_onion_burst_out` (a third per leg, all in one step); `pik_sim_onion_cancel_entries` sends Pikmin
   still climbing back to the squad. Onion death (`GoDormant`) runs the same end first.

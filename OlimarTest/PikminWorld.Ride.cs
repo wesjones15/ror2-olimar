@@ -28,9 +28,9 @@ namespace OlimarTest
     // goes in through the legs as for Fill. At the end it is sneezed out: a third down each leg at once.
     internal partial class PikminWorld
     {
-        /// How high above the ground the Onion flies, and how low while Pikmin are still climbing aboard
-        /// (the same low hover Fill uses, so the legs are in reach).
-        const float RideHeight = 3.5f, RideBoardingHeight = 0.6f;
+        /// How high above the ground the Onion flies. The squad climbs aboard the flying Onion
+        /// (the core jumps them to a flying leg's midpoint), so the ride never hovers low.
+        const float RideHeight = 3.5f;
         const float RideClimbSpeed = 6f;
         /// Ground nearer than this below the Onion counts as somewhere to put him back.
         const float RideSafeReach = 8f;
@@ -244,9 +244,11 @@ namespace OlimarTest
                     r.hasSafe = true;
                 }
             }
-            bool boarding = Native.pik_sim_onion_returning_count(sim, (uint)f.id) != 0;
-            f.filling = boarding;
-            float wanted = r.groundY + (boarding ? RideBoardingHeight : RideHeight);
+            // The ride keeps the flying presentation throughout: it does not drop to the Fill
+            // Onion's low, legs-out hover to take the squad in (the core's hover entry jumps
+            // Pikmin to the middle of a flying leg and climbs from there, so the height is free).
+            f.filling = false;
+            float wanted = r.groundY + RideHeight;
             at.y = Mathf.MoveTowards(from.y, wanted, RideClimbSpeed * dt);
             f.position = at;
             d.RidePlace(at);
