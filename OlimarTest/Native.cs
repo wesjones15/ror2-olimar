@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 52;
+        public const uint AbiVersion = 53;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
@@ -426,6 +426,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_carry_digit_texture(byte[] dir, out ViewTexture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_hud_icon_texture(byte[] dir, uint icon, out ViewTexture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_font_glyph_texture(byte[] dir, uint character, out ViewTexture info, [Out] byte[] rgba, uint len);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_title_glyph_texture(byte[] dir, uint character, out ViewTexture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_find_disc(byte[] dirs, byte[] outPath, uint outLen);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_extract(byte[] disc, byte[] outDir, byte[] msg, uint msgLen);
 

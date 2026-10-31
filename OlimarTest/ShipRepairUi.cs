@@ -13,6 +13,8 @@ namespace OlimarTest
         static readonly Dictionary<uint, Texture2D> icons = new Dictionary<uint, Texture2D>();
         static readonly Texture2D[] digits = new Texture2D[10];
         static readonly Dictionary<char, Texture2D> locationGlyphs = new Dictionary<char, Texture2D>();
+        // Location names in Pikmin 2's area-name lettering, when the Pikmin 2 disc has been extracted.
+        static readonly Dictionary<char, Texture2D> titleGlyphs = new Dictionary<char, Texture2D>();
         static string loadedFrom;
         static readonly Color cream = new Color(1f, .94f, .72f);
         static readonly Color gold = new Color(1f, .78f, .28f);
@@ -23,9 +25,9 @@ namespace OlimarTest
         {
             if (!Plugin.AssetsReady || string.IsNullOrEmpty(Plugin.AssetsDir)) return;
             if (loadedFrom == Plugin.AssetsDir) return;
-            foreach (var texture in icons.Values.Concat(digits).Concat(locationGlyphs.Values))
+            foreach (var texture in icons.Values.Concat(digits).Concat(locationGlyphs.Values).Concat(titleGlyphs.Values))
                 if (texture) UnityEngine.Object.Destroy(texture);
-            icons.Clear(); locationGlyphs.Clear(); loadedFrom = Plugin.AssetsDir;
+            icons.Clear(); locationGlyphs.Clear(); titleGlyphs.Clear(); loadedFrom = Plugin.AssetsDir;
             var path = Native.CString(loadedFrom);
             foreach (uint id in new uint[] { 7, 8, 9, 10, 19, 21 })
             {
@@ -47,6 +49,13 @@ namespace OlimarTest
                 var rgba = new byte[checked((int)(info.width * info.height * 4))];
                 if (Native.pik_font_glyph_texture(path, c, out info, rgba, (uint)rgba.Length) != 0)
                     locationGlyphs[(char)c] = Texture(info, rgba, "Pikmin bigFont " + (char)c);
+            }
+            for (uint c = 'A'; c <= 'z'; c++)
+            {
+                if (!char.IsLetter((char)c) || Native.pik_title_glyph_texture(path, c, out var info, null, 0) == 0) continue;
+                var rgba = new byte[checked((int)(info.width * info.height * 4))];
+                if (Native.pik_title_glyph_texture(path, c, out info, rgba, (uint)rgba.Length) != 0)
+                    titleGlyphs[(char)c] = Texture(info, rgba, "Pikmin area-name " + (char)c);
             }
         }
 
@@ -100,10 +109,16 @@ namespace OlimarTest
             Load();
             if (string.IsNullOrEmpty(value)) return;
             value = value.ToUpperInvariant().Replace('—', '-').Replace('·', '-');
-            LocationText(value, center, y, Mathf.Min(size, maxWidth / (value.Length * .68f)), color);
+            LocationText(value, center, y, Mathf.Min(size, maxWidth / (value.Length * .68f)), color, false);
         }
 
-        static void LocationText(string value, float center, float y, float size, Color color)
+        static float LocationAdvance(char c, float size, bool lettering)
+        {
+            if (lettering && titleGlyphs.TryGetValue(c, out var title)) return size * 1.15f * title.width / title.height;
+            return size * (c == ' ' ? .35f : .68f);
+        }
+
+        static void LocationText(string value, float center, float y, float size, Color color, bool lettering = true)
         {
             if (string.IsNullOrEmpty(value)) return;
             if (locationGlyphs.Count == 0)
@@ -111,19 +126,30 @@ namespace OlimarTest
                 Text(value, center, y, size, color, true);
                 return;
             }
-            float advance = size * .68f;
-            float x = center - value.Length * advance * .5f;
+            // Pikmin 2's lettering where the disc has it (letters of equal height, as wide as they are);
+            // bigFont's square cells for digits, punctuation and anything else.
             var old = GUI.color;
+            float total = 0f;
+            foreach (char c in value) total += LocationAdvance(c, size, lettering);
+            float x = center - total * .5f;
             foreach (char c in value)
             {
-                if (locationGlyphs.TryGetValue(c, out var glyph))
+                if (lettering && titleGlyphs.TryGetValue(c, out var title))
+                {
+                    float h = size * 1.15f, w = h * title.width / title.height;
+                    GUI.color = new Color(.08f, .035f, .01f, color.a);
+                    GUI.DrawTexture(new Rect(x + 2f, y + 2f, w, h), title);
+                    GUI.color = color;
+                    GUI.DrawTexture(new Rect(x, y, w, h), title);
+                }
+                else if (locationGlyphs.TryGetValue(c, out var glyph))
                 {
                     GUI.color = new Color(.08f, .035f, .01f, color.a);
                     GUI.DrawTexture(new Rect(x + 2f, y + 2f, size, size), glyph);
                     GUI.color = color;
                     GUI.DrawTexture(new Rect(x, y, size, size), glyph);
                 }
-                x += advance;
+                x += LocationAdvance(c, size, lettering);
             }
             GUI.color = old;
         }
