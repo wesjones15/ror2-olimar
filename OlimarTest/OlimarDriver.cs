@@ -271,6 +271,7 @@ namespace OlimarTest
                 if (pad.topView) cam.ToggleTop();
             }
             pad.recentre = pad.zoom = pad.topView = false;
+            if (!RideActive) RideOver();
             if (RideActive)
             {
                 RideInput();
@@ -551,6 +552,7 @@ namespace OlimarTest
             remotePulses |= p.buttons;
             remotePacket = p;
             haveRemote = true;
+            ReceiveRide(p);
         }
 
         /// The server's captain's controls this tick: the pose and cursor his own machine's sim has him at, and
@@ -581,8 +583,9 @@ namespace OlimarTest
             i.throw_ = B((b & PikminInputPacket.Throw) != 0);
             i.dismiss = B((b & PikminInputPacket.Dismiss) != 0);
             i.cycle = B((b & PikminInputPacket.Cycle) != 0);
-            i.swarm_x = p.swarmX;
-            i.swarm_y = p.swarmY;
+            // While he rides, the stick steers the Onion and does not swarm.
+            i.swarm_x = RideActive ? 0f : p.swarmX;
+            i.swarm_y = RideActive ? 0f : p.swarmY;
             // The enemy he locked onto, by this machine's id for it.
             ulong creature = 0;
             if (p.lockNetId != 0)
@@ -615,8 +618,15 @@ namespace OlimarTest
             }
             byte b = (byte)((i.whistle != 0 ? PikminInputPacket.Whistle : 0) | (i.throw_ != 0 ? PikminInputPacket.Throw : 0)
                 | (i.dismiss != 0 ? PikminInputPacket.Dismiss : 0) | (i.cycle != 0 ? PikminInputPacket.Cycle : 0));
+            bool riding = RideActive;
+            if (riding)
+            {
+                // The host flies the Onion: the stick and the one-shot boost and exit go with every packet.
+                if (rideBoost) { outPulses |= PikminInputPacket.Boost; rideBoost = false; }
+                if (rideExit) { outPulses |= PikminInputPacket.Exit; rideExit = false; }
+            }
             outPulses |= b;
-            if ((++sendCount & 1) != 0 && b == sentButtons) return;
+            if (!riding && (++sendCount & 1) != 0 && b == sentButtons) return;
             sentButtons = b;
             var c = State;
             var packet = new PikminInputPacket
@@ -624,7 +634,7 @@ namespace OlimarTest
                 netId = Body.netId.Value,
                 px = c.pos.x, py = c.pos.y, pz = c.pos.z, vx = c.vel.x, vy = c.vel.y, vz = c.vel.z, face = c.face,
                 cx = c.cursor_world.x, cy = c.cursor_world.y, cz = c.cursor_world.z,
-                buttons = outPulses, swarmX = i.swarm_x, swarmY = i.swarm_y, lockNetId = lockNetId, lockPellet = lockThing,
+                buttons = outPulses, swarmX = riding ? rideMove.x : i.swarm_x, swarmY = riding ? rideMove.y : i.swarm_y, lockNetId = lockNetId, lockPellet = lockThing,
             };
             outPulses = 0;
             PikminNet.SendInput(packet);

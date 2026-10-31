@@ -294,6 +294,9 @@ namespace OlimarTest
                 case OnionCommandPacket.FillFlyingAll:
                     FillFlyingOnion(captain);
                     break;
+                case OnionCommandPacket.Board:
+                    BeginRide(captain, out _);
+                    break;
                 case OnionCommandPacket.TriggerPlucker:
                     TriggerOnionPlucker(captain);
                     break;
@@ -1829,6 +1832,7 @@ namespace OlimarTest
                 }
                 float heal = HealingProgress((uint)kv.Key);
                 if (heal >= 0f) flags |= CaptainInfo.Healing;
+                if (onionOf.TryGetValue(kv.Key, out var rideFlight) && rideFlight.ride != null) flags |= CaptainInfo.Riding;
                 sendInfos.Add(new CaptainInfo { id = (byte)kv.Key, netId = d.Body.netId.Value, flags = flags,
                     beam = heal >= 0f ? heal : BeamProgress((uint)kv.Key),
                     healingCount = heal >= 0f ? HealingCount((uint)kv.Key) : (byte)0, onion = onion });

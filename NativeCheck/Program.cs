@@ -177,6 +177,20 @@ static class Program
             Check(!OnionCommandPacket.Read(new ByteReader(bulk, 0, bulk.Length - 1), out _), "short bulk command refused");
         }
 
+        foreach (byte kind in new[] { OnionCommandPacket.FillFlyingAll, OnionCommandPacket.Board })
+        {
+            var one = OnionCommandPacket.Write(new OnionCommandPacket { netId = 9, kind = kind });
+            Check(OnionCommandPacket.Read(new ByteReader(one), out var decoded) && decoded.kind == kind, "ride command round trip: " + kind);
+        }
+        var ride = PikminInputPacket.Write(new PikminInputPacket { netId = 9, buttons = PikminInputPacket.Boost | PikminInputPacket.Exit, swarmX = 0.5f, swarmY = -1f });
+        Check(PikminInputPacket.Read(new ByteReader(ride), out var rideBack) && (rideBack.buttons & PikminInputPacket.Boost) != 0
+            && (rideBack.buttons & PikminInputPacket.Exit) != 0 && rideBack.swarmX == 0.5f && rideBack.swarmY == -1f, "ride input round trip");
+        var ended = RideEndPacket.Write(new RideEndPacket { netId = 9, fx = 1, fy = 2, fz = 3, sx = 4, sy = 5, sz = 6 });
+        Check(RideEndPacket.Read(new ByteReader(ended), out var endBack) && endBack.netId == 9 && endBack.fz == 3 && endBack.sx == 4, "ride end round trip");
+        Check(!RideEndPacket.Read(new ByteReader(ended, 0, ended.Length - 1), out _), "a short ride end is refused");
+        var riding = new CaptainInfo { flags = CaptainInfo.Riding | CaptainInfo.Airborne };
+        Check(riding.IsRiding && riding.OnionAirborne && !riding.IsArriving, "riding is its own flag bit");
+
         IntPtr replica = Native.pik_replica_new(null);
         Check(replica != IntPtr.Zero, "replica starts");
         Check(Native.pik_replica_apply(replica, snapshot, (uint)snapshot.Length) == 1, "replica takes the snapshot");

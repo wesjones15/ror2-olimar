@@ -26,7 +26,7 @@ namespace OlimarTest
         public short onion;
 
         public const byte Temporary = 1, Arriving = 2, Following = 4, Airborne = 8, Healing = 16,
-            MenuBeam = 32, MenuReady = 64;
+            MenuBeam = 32, MenuReady = 64, Riding = 128;
 
         public bool IsTemporary => (flags & Temporary) != 0;
         public bool IsArriving => (flags & Arriving) != 0;
@@ -37,12 +37,14 @@ namespace OlimarTest
         public bool OnionAirborne => (flags & Airborne) != 0;
         public bool OnionMenuBeam => (flags & MenuBeam) != 0;
         public bool OnionMenuReady => (flags & MenuReady) != 0;
+        /// Flying his Onion (Onion Ride).
+        public bool IsRiding => (flags & Riding) != 0;
     }
 
     internal static class PikminEnvelope
     {
         /// Bumped whenever a wire format changes; a message with another number is ignored.
-        public const byte Protocol = 9;
+        public const byte Protocol = 10;
         /// pikmin.dll's ABI (Native.AbiVersion), compared so a mismatched build is refused.
         public static byte Abi = 52;
 
@@ -113,6 +115,8 @@ namespace OlimarTest
         public uint lockPellet;
 
         public const byte Whistle = 1, Throw = 2, Dismiss = 4, Cycle = 8, SwarmToCursor = 16;
+        /// While he rides: the stick click was pressed, or any face button (climb out). The stick is in swarmX/Y.
+        public const byte Boost = 32, Exit = 64;
 
         public static byte[] Write(in PikminInputPacket p)
         {
@@ -157,7 +161,7 @@ namespace OlimarTest
 
         public const byte Follow = 0, Land = 1, CallOut = 2, PutAway = 3;
         public const byte CallOutAny = 4, PutAwayAny = 5, ReleaseAll = 6, ReturnAll = 7;
-        public const byte Heal = 8, ReleaseFlyingAll = 9, TriggerPlucker = 10, RecallStuck = 11, FillFlyingAll = 12;
+        public const byte Heal = 8, ReleaseFlyingAll = 9, TriggerPlucker = 10, RecallStuck = 11, FillFlyingAll = 12, Board = 13;
 
         public static byte[] Write(in OnionCommandPacket p)
         {
@@ -178,7 +182,35 @@ namespace OlimarTest
             p.kind = r.U8();
             p.colour = r.U8();
             p.count = r.U32();
-            return !r.Failed && r.Done && p.kind <= FillFlyingAll;
+            return !r.Failed && r.Done && p.kind <= Board;
+        }
+    }
+
+    /// The server tells a riding Olimar's machine where he was dropped when the ride ended, and the last ground
+    /// the ride crossed (Unity metres).
+    internal struct RideEndPacket
+    {
+        public uint netId;
+        public float fx, fy, fz, sx, sy, sz;
+
+        public static byte[] Write(in RideEndPacket p)
+        {
+            var w = new ByteWriter(32);
+            w.U8(PikminEnvelope.Protocol);
+            w.U32(p.netId);
+            w.F32(p.fx); w.F32(p.fy); w.F32(p.fz);
+            w.F32(p.sx); w.F32(p.sy); w.F32(p.sz);
+            return w.ToArray();
+        }
+
+        public static bool Read(ByteReader r, out RideEndPacket p)
+        {
+            p = default;
+            if (r.U8() != PikminEnvelope.Protocol) return false;
+            p.netId = r.U32();
+            p.fx = r.F32(); p.fy = r.F32(); p.fz = r.F32();
+            p.sx = r.F32(); p.sy = r.F32(); p.sz = r.F32();
+            return !r.Failed && r.Done;
         }
     }
 }

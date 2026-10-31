@@ -15,6 +15,8 @@ namespace OlimarTest
         public const short InputMsg = 0x4F02;
         /// An Onion command from a client's Olimar (client to server).
         public const short OnionMsg = 0x4F03;
+        /// Where a riding Olimar was dropped when the ride ended (server to clients).
+        public const short RideEndMsg = 0x4F04;
 
         static bool warned;
 
@@ -24,6 +26,7 @@ namespace OlimarTest
             Mp.Register(SnapshotMsg, null, OnSnapshot);
             Mp.Register(InputMsg, OnInput, null);
             Mp.Register(OnionMsg, OnOnion, null);
+            Mp.Register(RideEndMsg, null, OnRideEnd);
         }
 
         static bool Finite(float v) => !(float.IsNaN(v) || float.IsInfinity(v));
@@ -53,6 +56,23 @@ namespace OlimarTest
         /// A client's Olimar sends his pose and buttons to the server.
         public static void SendInput(in PikminInputPacket p) =>
             Mp.SendToServer(InputMsg, PikminInputPacket.Write(p), true);
+
+        public static void SendRideEnd(uint netId, UnityEngine.Vector3 feet, UnityEngine.Vector3 safe) =>
+            Mp.SendToAll(RideEndMsg, RideEndPacket.Write(new RideEndPacket
+            {
+                netId = netId, fx = feet.x, fy = feet.y, fz = feet.z, sx = safe.x, sy = safe.y, sz = safe.z,
+            }), true);
+
+        // A client's Olimar is told where the host dropped him out of the Onion.
+        static void OnRideEnd(NetworkConnection unused, ByteReader reader)
+        {
+            if (NetworkServer.active || !RideEndPacket.Read(reader, out var p)) return;
+            if (!(Finite(p.fx + p.fy + p.fz) && Finite(p.sx + p.sy + p.sz))) return;
+            var go = Mp.Find(p.netId);
+            var driver = go ? go.GetComponent<OlimarDriver>() : null;
+            if (driver && driver.IsLocalClient)
+                driver.RideEndedHere(new UnityEngine.Vector3(p.fx, p.fy, p.fz), new UnityEngine.Vector3(p.sx, p.sy, p.sz));
+        }
 
         public static void SendOnion(in OnionCommandPacket p) =>
             Mp.SendToServer(OnionMsg, OnionCommandPacket.Write(p), true);

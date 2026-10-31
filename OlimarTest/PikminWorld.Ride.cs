@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RoR2;
 using Ror2Common;
 using UnityEngine;
@@ -41,21 +42,66 @@ namespace OlimarTest
         {
             frame = -1f;
             at = default;
-            if (boardingMissing || ClientMode || !onionOf.TryGetValue(captain, out var f) || f.ride == null) return false;
+            if (boardingMissing) return false;
             if (boardFirst < 0f) Native.pik_view_boarding_frames(out boardFirst, out boardLast);
-            frame = boardFirst + f.ride.boardAge * BoardingSpeed;
+            float age;
+            Vector3 foot;
+            if (ClientMode)
+            {
+                if (!Riding(captain) || !RideOnionFoot(captain, out foot)) { rideSeen.Remove(captain); return false; }
+                if (!rideSeen.TryGetValue(captain, out float since)) rideSeen[captain] = since = Time.time;
+                age = Time.time - since;
+            }
+            else
+            {
+                if (!onionOf.TryGetValue(captain, out var f) || f.ride == null) return false;
+                age = f.ride.boardAge;
+                foot = f.position;
+            }
+            frame = boardFirst + age * BoardingSpeed;
             if (frame >= boardLast) return false;
-            at = UnityHost.ToSim(f.position);
+            at = UnityHost.ToSim(foot);
             return true;
         }
 
-        public bool Riding(int captain) => !ClientMode && onionOf.TryGetValue(captain, out var f) && f.ride != null;
+        public bool Riding(int captain) => ClientMode
+            ? remoteInfo.TryGetValue(captain, out var info) && info.IsRiding
+            : onionOf.TryGetValue(captain, out var f) && f.ride != null;
+
+        /// Where the Onion he rides is, wherever the sim runs: the flight on the server, the replica on a client.
+        public bool RideOnionFoot(int captain, out Vector3 foot)
+        {
+            foot = default;
+            if (!ClientMode)
+            {
+                if (!onionOf.TryGetValue(captain, out var f) || f.ride == null) return false;
+                foot = f.position;
+                return true;
+            }
+            if (!remoteInfo.TryGetValue(captain, out var info) || info.onion < 0) return false;
+            for (int i = 0; i < OnionCount; i++)
+                if (Onions[i].id == info.onion)
+                {
+                    foot = UnityHost.ToUnity(Onions[i].pos);
+                    return true;
+                }
+            return false;
+        }
+
+        // When a client first saw a captain riding, for the lift into the Onion.
+        readonly Dictionary<int, float> rideSeen = new Dictionary<int, float>();
 
         /// Olimar presses B in his Onion's beam. Spends a skill charge; `why` says what is missing.
         public bool BeginRide(int captain, out string why)
         {
             why = null;
-            if (ClientMode) { why = "Onion Ride needs the host for now."; return false; }
+            if (ClientMode)
+            {
+                // The host flies the Onion; it answers with the Riding flag.
+                if (!moverDriver || OnionInReach(captain) < 0) { why = "Stand in the Onion's beam to board."; return false; }
+                moverDriver.SendOnion(OnionCommandPacket.Board, 0, 0);
+                return true;
+            }
             if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body)
             { why = "There is no Onion to board."; return false; }
             if (f.ride != null) return false;
