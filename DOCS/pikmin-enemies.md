@@ -27,7 +27,7 @@ puts it. The disc's model, animations, sounds and particle effects are drawn on 
 | 20 | Rolling Boulder | `TaiIwagonStrategy` | made by the Cannon Beetle |
 | 21 | Giant Egg | `TAItamagoStrategy` | director; bursts into a Smoky Progg when a player is near |
 | 22 | Fire Geyser | `TAIhibaAStrategy` | placed (`FireGeysersPerStage`), unkillable |
-| 23 | Pellet Posy | `TaiPalmStrategy` | placed (`PelletPosiesPerPlayer`), kill it for a pellet |
+| 23 | Pellet Posy | `TaiPalmStrategy` | common in Ship Repair (`PelletPosiesShipPerPlayer`), fewer near Classic Olimars (`PelletPosiesClassicPerOlimar`); grown plants drop a matching 1 pellet |
 | 24, 25, 26 | Pearly Clamclamp, pearl, treasure pearl | `TaiShell/PearlStrategy` | one per stage after the first; its pearl is a ship part |
 
 Not ported: the Iwagen (unused; its parameter file is an older format), the Breadbug nest (`Hollec`, no usable parameter

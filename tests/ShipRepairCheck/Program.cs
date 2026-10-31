@@ -8,6 +8,13 @@ static class Program
     static void Check(bool value, string message) { if (!value) throw new Exception(message); }
     static int Main()
     {
+        Check(PosySpawnPolicy.Target(true, 1, 0, 6, 2) == 6, "Ship Repair: common Posies for any survivor");
+        Check(PosySpawnPolicy.Target(false, 4, 1, 6, 2) == 2, "Classic: population counts Olimars, not other survivors");
+        Check(PosySpawnPolicy.Target(false, 4, 0, 6, 2) == 0, "Classic without Olimar has no Posies");
+        Check(PosySpawnPolicy.Target(true, 100, 0, 6, 2) == 24 && PosySpawnPolicy.Target(false, 100, 100, 6, 2) == 8, "Posy stage caps");
+        Check(PosySpawnPolicy.Target(true, 4, 1, 0, 2) == 0 && PosySpawnPolicy.Target(false, 4, 1, 6, -1) == 0, "disabled and negative Posy counts");
+        Check(PosySpawnPolicy.RefillSeconds(true) < PosySpawnPolicy.RefillSeconds(false), "Classic replenishes less often");
+        Check(PosySpawnPolicy.InitialSize(0) == 2 && PosySpawnPolicy.InitialSize(1) == 1 && PosySpawnPolicy.InitialSize(3) == 0, "ready, bud and seedling Posies");
         var run = new ShipRepairProgress();
         run.EnterStage();
         Check(!run.Receive(run.Epoch, 0), "arrival cannot award parts");

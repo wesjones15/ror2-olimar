@@ -121,7 +121,7 @@ namespace OlimarTest
         /// One RoR2 step that ran `ticks` sim ticks (server).
         public static void Step(IntPtr sim, int ticks)
         {
-            if (!NetworkServer.active || sim == IntPtr.Zero || ticks <= 0 || !ShipRepairMode.Active) return;
+            if (!NetworkServer.active || sim == IntPtr.Zero || ticks <= 0) return;
             bool any = false;
             foreach (var b in TekiBody.All)
                 if (b && b.Ai) { any = true; break; }
@@ -194,10 +194,15 @@ namespace OlimarTest
                 }
                 float lost = b.aiLastHealth - body.healthComponent.health;
                 b.aiLastHealth = body.healthComponent.health;
-                if (lost > 0f && TekiCatalog.Has(b.kind))
+                if ((lost > 0f || b.kind == TekiCatalog.PelletPosy && body.healthComponent.health <= 1f && !b.aiDeathSent) && TekiCatalog.Has(b.kind))
                 {
                     float amount = lost / Mathf.Max(1f, body.maxHealth) * TekiCatalog.Get(b.kind).life;
-                    TekiAiNative.pik_tekis_damage(h, (uint)b.aiId, Mathf.Max(amount, 0.5f), -1);
+                    if (b.kind == TekiCatalog.PelletPosy && body.healthComponent.health <= 1f && !b.aiDeathSent)
+                    {
+                        b.aiDeathSent = true;
+                        TekiAiNative.pik_tekis_damage(h, (uint)b.aiId, 1e6f, -1);
+                    }
+                    else if (!b.aiDeathSent) TekiAiNative.pik_tekis_damage(h, (uint)b.aiId, Mathf.Max(amount, 0.5f), -1);
                 }
                 // The ground and water under the body, which the strategies jump, fall and land on.
                 {

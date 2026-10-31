@@ -117,6 +117,12 @@ What works:
   On the character select screen Olimar stands idle in place of Commando, with a red, a
   yellow and a blue Pikmin, and his portrait is rendered from that model (once your disc's
   files are extracted).
+- **Pellet Posies**: the disc's plant model, three growth stages, cycling blue/red/yellow flower,
+  hit/fall animations, growth particles and five sounds. Grown plants release their matching 1 pellet
+  after falling; immature plants do not. Ship Repair keeps six per player (24 cap), replacing harvested
+  plants every 20 seconds. Classic keeps two per living Olimar (8 cap), replenishing every 60 seconds;
+  no Olimar means no new plants. Some spawn as buds or seedlings and grow at the disc's pace.
+  Configure `Enemies.PelletPosiesShipPerPlayer` / `PelletPosiesClassicPerOlimar`; these replace the old sparse `PelletPosiesPerPlayer` setting.
 - **Corpses**: small enemies leave 1 pellets, medium/large 5, tough/elite 10, and bosses 20 (the largest numbered pellet),
   red, yellow or blue at random, with the disc's size, carriers and seeds. Pikmin carry it to the
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.

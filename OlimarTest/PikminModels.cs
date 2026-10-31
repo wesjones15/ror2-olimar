@@ -51,8 +51,8 @@ namespace OlimarTest
         {
             // The Dolphin's parts are drawn as the sim fits them: all 30 unless the ship-parts mode is on.
             Native.pik_view_set_repaired_ship(1);
-            // Pikmin's enemies are drawn by the Ship Repair world's view only.
-            TekiNative.pik_view_set_teki_models((byte)(ShipRepairMode.Active && TekiBodies.Enabled.Value ? 1 : 0));
+            // Ship Repair's enemies and Classic's Olimar-only Pellet Posies share this renderer.
+            TekiNative.pik_view_set_teki_models((byte)(TekiBodies.Enabled.Value && (ShipRepairMode.Active || TekiBodies.ClassicPosiesPerOlimar.Value > 0) ? 1 : 0));
             var v = Native.pik_view_new(Native.CString(assetsDir), (byte)(sound ? 1 : 0));
             TekiNative.pik_view_set_teki_models(0);
             if (v == IntPtr.Zero)

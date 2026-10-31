@@ -89,7 +89,7 @@ namespace OlimarTest
             if (!aiHave || !body.healthComponent || !body.healthComponent.alive) return;
             var s = aiState;
             // Hidden between trips: nothing can hit it.
-            bool solid = s.Collidable && s.Visible;
+            bool solid = s.Collidable && s.Visible && (kind != TekiCatalog.PelletPosy || s.Alive);
             if (!solid && hurtDeactivated == 0 && body.hurtBoxGroup)
             {
                 body.hurtBoxGroup.hurtBoxesDeactivatorCounter++;
@@ -182,7 +182,8 @@ namespace OlimarTest
             instance = new TekiNative.Instance
             {
                 id = id,
-                kind = kind,
+                // Low byte kind; next byte is the optional material frame + 1.
+                kind = (uint)kind | (kind == TekiCatalog.PelletPosy ? (((s.flags >> 8) & 3u) + 1u) << 8 : 0u),
                 pos = UnityHost.ToSim(body.footPosition),
                 yaw = NetworkServer.active ? s.yaw : UnityHost.Yaw(transform.forward),
                 motion = s.motion,

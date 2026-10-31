@@ -19,7 +19,8 @@ namespace OlimarTest
             public byte alive, buried, p1, p2;
         }
 
-        // flags: bit 0 visible, 1 alive, 2 flying, 3 collidable, 4 holding a pellet, 5 off the ground.
+        // flags: bit 0 visible, 1 alive, 2 flying, 3 collidable, 4 holding a pellet, 5 off the ground;
+        // bits 8..9 Pellet Posy's material-animation frame (blue/red/yellow).
         [StructLayout(LayoutKind.Sequential)]
         public struct State
         {

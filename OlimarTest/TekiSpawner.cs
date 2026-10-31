@@ -17,13 +17,14 @@ namespace OlimarTest
         float stageSince, nextTry, nextWisp, nextWater, nextPlant;
         bool breadbugDone, clamDone;
         int geysersPlaced, gasPipesPlaced;
+        float nextPosyRefill;
         readonly List<TekiBody> wisps = new List<TekiBody>();
         readonly List<TekiBody> waterborne = new List<TekiBody>();
         readonly List<TekiBody> posies = new List<TekiBody>();
 
         void FixedUpdate()
         {
-            if (!NetworkServer.active || !ShipRepairMode.Active || !Run.instance || !Stage.instance || !TekiBodies.Enabled.Value) return;
+            if (!NetworkServer.active || !Run.instance || !Stage.instance || !TekiBodies.Enabled.Value) return;
             if (Stage.instance != stage)
             {
                 stage = Stage.instance;
@@ -31,6 +32,7 @@ namespace OlimarTest
                 breadbugDone = clamDone = false;
                 geysersPlaced = gasPipesPlaced = 0;
                 nextTry = nextWisp = nextWater = nextPlant = Time.time + 6f;
+                nextPosyRefill = Time.time + 6f;
                 wisps.Clear();
                 waterborne.Clear();
                 posies.Clear();
@@ -39,6 +41,32 @@ namespace OlimarTest
             nextTry = Time.time + 2f;
             var players = Players();
             if (players.Count == 0) return;
+            bool shipMode = ShipRepairMode.Active;
+            var olimars = players.FindAll(p => p.GetComponent<OlimarDriver>());
+            var around = shipMode ? players : olimars;
+            if (around.Count == 0) return;
+            // Posies are safe resources in both modes; other placed Pikmin enemies
+            // remain Ship Repair fixtures. Fill the initial quota together, then
+            // replenish harvested plants at the mode's slower cadence.
+            if (Time.time >= nextPosyRefill && TekiCatalog.Has(TekiCatalog.PelletPosy))
+            {
+                nextPosyRefill = Time.time + PosySpawnPolicy.RefillSeconds(shipMode);
+                posies.RemoveAll(p => !p || !p.Body || !p.Body.healthComponent || !p.Body.healthComponent.alive);
+                int target = PosySpawnPolicy.Target(shipMode, players.Count, olimars.Count,
+                    TekiBodies.PosiesPerPlayer.Value, TekiBodies.ClassicPosiesPerOlimar.Value);
+                for (int n = posies.Count; n < target; n++)
+                {
+                    var at = PointNear(around, false, out _);
+                    if (!at.HasValue) break;
+                    bool crowded = posies.Exists(p => p && p.Body && (p.Body.footPosition - at.Value).sqrMagnitude < 4f * 4f);
+                    if (crowded) continue;
+                    var posy = TekiBodies.Spawn(TekiCatalog.PelletPosy, at.Value, Random.Range(0f, 360f));
+                    if (!posy) break;
+                    posy.count0 = PosySpawnPolicy.InitialSize(n);
+                    posies.Add(posy);
+                }
+            }
+            if (!shipMode) return;
 
             // The first stage's Breadbug, which carries a ship part for whoever defeats it.
             if (!breadbugDone && Run.instance.stageClearCount == 0 && TekiCatalog.Has(TekiCatalog.Breadbug))
@@ -71,25 +99,11 @@ namespace OlimarTest
                 }
             }
 
-            // Plants, geysers and a shell: the stage's fixtures. Pellet Posies are kept grown, ready to be killed for their
-            // pellets; the first stage has none of the dangerous ones.
+            // Hazard fixtures and a shell remain Ship Repair only; the first stage
+            // has none of the dangerous ones.
             if (Time.time >= nextPlant)
             {
                 nextPlant = Time.time + 20f;
-                posies.RemoveAll(p => !p);
-                if (TekiCatalog.Has(TekiCatalog.PelletPosy) && posies.Count < Mathf.Min(6, players.Count * TekiBodies.PosiesPerPlayer.Value))
-                {
-                    var at = PointNear(players, false, out _);
-                    if (at.HasValue)
-                    {
-                        var posy = TekiBodies.Spawn(TekiCatalog.PelletPosy, at.Value, Random.Range(0f, 360f));
-                        if (posy)
-                        {
-                            posy.count0 = 2;
-                            posies.Add(posy);
-                        }
-                    }
-                }
                 if (Run.instance.stageClearCount > 0)
                 {
                     if (geysersPlaced < TekiBodies.FireGeysersPerStage.Value && TekiCatalog.Has(TekiCatalog.FireGeyser))

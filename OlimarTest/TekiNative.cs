@@ -38,6 +38,7 @@ namespace OlimarTest
         [StructLayout(LayoutKind.Sequential)]
         public struct Instance
         {
+            // kind: low byte enemy kind; next byte optional material frame + 1.
             public uint id, kind;
             public Native.Vec3 pos;
             public float yaw;
