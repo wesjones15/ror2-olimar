@@ -31,6 +31,7 @@
     <Reference Include="Unity.ResourceManager"><HintPath>$(Managed)\Unity.ResourceManager.dll</HintPath></Reference>
     <Reference Include="KinematicCharacterController"><HintPath>$(Managed)\KinematicCharacterController.dll</HintPath></Reference>
     <Reference Include="HGCSharpUtils"><HintPath>$(Managed)\HGCSharpUtils.dll</HintPath></Reference>
+    <Reference Include="HGUnityUtils"><HintPath>$(Managed)\HGUnityUtils.dll</HintPath></Reference>
     <Reference Include="Rewired_Core"><HintPath>$(Managed)\Rewired_Core.dll</HintPath></Reference>
     <Reference Include="Rewired_CSharp"><HintPath>$(Managed)\Rewired_CSharp.dll</HintPath></Reference>
     <Reference Include="UnityEngine"><HintPath>$(Managed)\UnityEngine.dll</HintPath></Reference>
