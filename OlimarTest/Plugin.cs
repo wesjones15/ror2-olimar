@@ -699,9 +699,14 @@ namespace OlimarTest
             var groupBody = PikiGroupMinion != null ? PikiGroupMinion.body.GetComponent<CharacterBody>() : null;
             if (groupBody)
             {
-                groupBody.teamComponent.hideAllyCardDisplay = true;
-                groupBody.healthComponent.dontShowHealthbar = true;
-                PikiGroupMinion.master.GetComponent<CharacterMaster>().hideAllyCard = true;
+                // The body is a prefab here, so CharacterBody's cached components (set in Awake) are still null:
+                // ask the object for them.
+                var team = groupBody.GetComponent<TeamComponent>();
+                if (team) team.hideAllyCardDisplay = true;
+                var groupHealth = groupBody.GetComponent<HealthComponent>();
+                if (groupHealth) groupHealth.dontShowHealthbar = true;
+                var groupMaster = PikiGroupMinion.master ? PikiGroupMinion.master.GetComponent<CharacterMaster>() : null;
+                if (groupMaster) groupMaster.hideAllyCard = true;
                 groupBody.baseDamage = groupBody.levelDamage = 0f;
                 var rewards = groupBody.GetComponent<DeathRewards>();
                 if (rewards) { rewards.goldReward = 0; rewards.expReward = 0; }
