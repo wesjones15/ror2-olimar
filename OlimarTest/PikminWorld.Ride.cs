@@ -16,6 +16,10 @@ namespace OlimarTest
         public readonly uint[] reserve = new uint[Native.ColourCount];
         /// Seconds since boarding, for the lift into the Onion.
         public float boardAge;
+        /// The Utility slot was full when he boarded, and how many charges it held once the ride's was spent: the
+        /// recharge of the ride's charge waits for the ride to end (see HoldRecharge).
+        public bool slotWasFull;
+        public int stockAfter;
     }
 
     // Onion Ride (the Utility skill): Olimar steps into the Onion's beam, presses B, and flies the Onion for
@@ -108,10 +112,10 @@ namespace OlimarTest
             if (f.dormant) { why = "The Onion is dormant."; return false; }
             if (OnionInReach(captain) != f.id) { why = "Stand in the Onion's beam to board."; return false; }
             var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
-            // The charge goes at boarding and RoR2 starts the recharge from there, so cooldown reduction and
-            // extra-charge items work as they do for any skill.
+            // The charge goes at boarding, but its recharge waits for the ride to end (HoldRecharge).
+            bool full = slot && slot.stock >= slot.maxStock;
             if (slot && !NativeSkills.Spend(slot, OlimarSkills.Ride)) { why = "Onion Ride is recharging."; return false; }
-            var ride = new OnionRide { origin = f.position, groundY = f.position.y };
+            var ride = new OnionRide { origin = f.position, groundY = f.position.y, slotWasFull = full, stockAfter = slot ? slot.stock : 0 };
             for (uint c = 0; c < Native.ColourCount; c++)
                 if (OnionCounts(f.id, captain, c, out var n)) ride.reserve[c] = n.in_onion;
             f.ride = ride;
@@ -139,6 +143,7 @@ namespace OlimarTest
             if (d.TakeRideExit()) { EndRide(f); return; }
             bool boost = d.TakeRideBoost();
             r.boardAge += dt;
+            HoldRecharge(d, r);
             var from = f.position;
             var flat = new Vector2(from.x - r.origin.x, from.z - r.origin.z);
             float scale = r.policy.Step(dt, flat.magnitude, boost);
@@ -181,6 +186,17 @@ namespace OlimarTest
             f.position = at;
             d.RidePlace(at);
             WriteFlight(f);
+        }
+
+        /// RoR2 recharges a spent charge from the moment it goes. Onion Ride's starts when the ride ends, so
+        /// while he rides the slot's stopwatch is held at zero. With a charge already coming back from an earlier
+        /// ride it keeps running for that one; only once that one is home (stock above what the ride left) does the
+        /// stopwatch belong to this ride's charge, and it is held too. Cooldown items scale the interval as ever.
+        static void HoldRecharge(OlimarDriver d, OnionRide r)
+        {
+            var slot = d && d.Body && d.Body.skillLocator ? d.Body.skillLocator.utility : null;
+            if (!slot || !NativeSkills.Holds(slot, OlimarSkills.Ride) || slot.stock >= slot.maxStock) return;
+            if (r.slotWasFull || slot.stock > r.stockAfter) slot.rechargeStopwatch = 0f;
         }
 
         /// The ride is over (he pressed a button, the time ran out, or the Onion fell): he is dropped out of the

@@ -102,7 +102,7 @@ What works:
 - **RoR2 health bar** (`Look.HideRoR2HealthBar`, on): hidden while you play Olimar, since the Pikmin HUD row
   covers where it sits and shows his life as the circle. Other survivors keep it; can change during play.
 - **Onion shortcut popup**: one uGUI panel (background, then text, so the glyphs aren't dimmed), small and on the
-  right of the screen so Olimar stays in view.
+  right of the screen so Olimar stays in view. It lists X dump, Y fill, RB heal, LB call stragglers, A send the plucker and B board (Onion Ride).
 - **Jump pads**: each Pikmin that takes off with Olimar cries `SE_PIKI_FLY`, as when thrown; the squad repeats the
   pad's throw once, however many ticks the pad reports it, and follows him after landing.
 - **Pellet pickup**: a flying Onion descends to the ground (its beam's bottom touches it) before sucking up a pellet.
@@ -141,12 +141,12 @@ What works:
 - **Onion (phase 8)**: one Onion per Olimar stores all three types. Its Red, Yellow or
   Blue appearance is chosen once per run and kept across stages; it has no effect on storage.
   It arrives airborne alongside the Dolphin, lands to release the squad, and stays planted until raised. With the Pikmin controls holding X for 0.6 seconds lowers a
-  flying Onion where he stands and raises a landed one to follow him (each takes a relocation
-  charge), but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
+  flying Onion where he stands and raises a landed one to follow him (free: no charge or cooldown),
+  but only when RoR2 shows no interact prompt: under the Onion X is interact and opens
   its menu, and at a chest it opens the chest. The menu only opens while Olimar stands in the
   central beam of his landed Onion, and closes if he leaves it or the Onion takes off.
   The menu is a single page for all colours: up/down chooses an exact number to call out
-  or put away, A/left click confirms, and B/right click closes. Counts stop at their limits without wrapping.
+  or put away, A/left click confirms, and B boards the Onion (Onion Ride). Counts stop at their limits without wrapping.
   **X** in the menu releases all stored Pikmin except one (subject to the field cap); press X twice
   under the Onion to open and release. **Y** in the menu returns the whole squad and consumes that
   equipment-button press. On keyboard these shortcuts use Utility and Equipment.
@@ -156,7 +156,7 @@ What works:
   Dolphin recovery effects play at Olimar for two seconds with one Pikmin ghost per sacrifice;
   the effect and ghost count are replicated to other players.
   Raise/lower commands stay on the utility button outside interact prompts, with no movement pages in the menu.
-  Double tap X outside its beam to dump a flying Onion. A hovering Onion descends its beam when Olimar stands beneath it and offers the menu;
+  RT + X dumps a flying Onion's Pikmin from anywhere and RT + Y fills it with the squad (it comes down low to take them). A hovering Onion descends its beam when Olimar stands beneath it and offers the menu;
   Y fills it with the squad, who jump to each leg's midpoint and climb its upper half. Taking-off and landing Onions do not offer the menu.
   Native flying call-outs still slide halfway down a leg, then let go and fall. A hovering Onion
   descends towards nearby pellets before collecting them, and the Pikmin they make stay inside it as leaves instead of being planted. Loose ground pellets are eligible even with no Pikmin alive. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
@@ -213,31 +213,34 @@ position, so your RoR2 binds don't change it:
 | left stick       | move                | walk; a light tilt aims      |
 | A                | primary             | throw, pluck                 |
 | B                | secondary           | jump                         |
-| LB (held) + B    | jump (held) + secondary | whistle; modifier blocks jumping |
-| X                | utility             | lower the Onion here / raise it to follow (when no interact prompt is up) |
+| RT (held) + B    | jump (held) + secondary | whistle; modifier blocks jumping |
+| LB (held)        |                     | lock on to an enemy (LB + RB cycles, LB + A throws rapidly at it) |
+| X (hold 0.6 s)   | utility             | lower the Onion here / raise it to follow (free; when no interact prompt is up) |
+| RT + X           | V                   | dump a flying Onion's Pikmin |
+| RT + Y           | B                   | fill a flying Onion with the squad |
+| B under an Onion | secondary           | board the Onion: Onion Ride (below) |
 | RB               | F                   | dismiss strike: a melee blow all around him, 4 s cooldown (see below) |
 | d-pad left/right | mouse wheel         | colour to throw: Any (nearest), Red, Yellow, Blue |
 | Y                | equipment           | RoR2's equipment, as usual   |
-| right stick      | special (held)      | swarm (toward the cursor)    |
+| RT + right stick | special (held)     | swarm (toward the cursor)    |
 | LT / left trigger | jump               | swing the camera behind him  |
 | right stick click | C                  | zoom (three levels)          |
 | RoR2 sprint bind | sprint              | sprint until movement stops  |
-| RT (fixed camera only) |               | top view                     |
 | X under an Onion | interact            | open the Onion window        |
 
 The camera is a stand-in for Pikmin's: it looks down from behind and only turns when told
 to. Pikmin's own camera (cameraMgr.cpp) isn't ported.
 
-With the default Orbit camera, the right stick pans (up and down tilts it from the top view to `Controls.LookUpDegrees`, 70, above level, as far up as RoR2's own camera looks) and LB + right stick swarms;
-LT recentres, RT locks onto an enemy, and RB cycles locked targets (or strikes when unlocked). The lock reaches `Controls.LockRange` (40 m, past the 24 m throw) with a clear line.
+With the default Orbit camera, the right stick pans (up and down tilts it from the top view to `Controls.LookUpDegrees`, 70, above level, as far up as RoR2's own camera looks) and RT + right stick swarms;
+LT recentres, LB locks onto an enemy, and LB + RB cycles locked targets (RB alone strikes). The lock reaches `Controls.LockRange` (40 m, past the 24 m throw) with a clear line.
 A thrown Pikmin is steered in flight onto the cursor (`Combat.CursorHoming`, on), the way a lock-on steers it onto its enemy,
 so it lands where the cursor was whatever Olimar's speed or the cursor's height; the arc then no longer varies with how long the throw was held.
 Olimar jumps with the Pikmin's own jump animation (`Pikmin.OlimarUsesPikminJump`, on; off gives his geyser-ride pose).
-B jumps in both camera modes. Holding LB prevents Olimar from jumping; releasing LB
-with B still held does not jump. B still cancels the Onion menu and does not jump on closing it.
+B jumps in both camera modes. Holding RT prevents Olimar from jumping; releasing RT
+with B still held does not jump. In an Onion's beam B boards it instead (Onion Ride) and does not jump.
 
 The HUD's skill icons show the pad buttons the Pikmin controls use (ror2-common `GlyphOverride`): A for
-the throw, LB + B for the whistle, X to raise or lower the Onion, RB for the Dismiss Strike (its recharge is the
+the throw, RT + B for the whistle, B in the Onion's beam for Onion Ride (its charges and cooldown), RB for the Dismiss Strike (its recharge is the
 Special slot's, so cooldown items shorten it). The Onion Pluckers are the character's passive, listed
 with the four skills on the character select screen but with no icon in the HUD. The Aim scheme and
 keyboard keep RoR2's binds. The skills' names and descriptions on the character select screen give the
@@ -259,6 +262,33 @@ Pikmin's airborne `ROLLJMP` motion (`PikiFlyingState::init`). Both are inside th
 `pikis/bluModel.anm` bundle and `pikis/animMgr.bin`, copied by the existing first-run
 extractor from the user's disc. Existing complete extractions already contain them;
 no animation data is shipped with the mod. Normal locomotion resumes on landing.
+
+### Onion Ride
+
+The Utility slot is **Onion Ride**, Olimar's escape and repositioning tool. Stand in the beam of a live Onion
+(landed or hovering) and press **B** to board (B is jump everywhere else). It spends a charge; the 30 s
+cooldown (`Items.RideRecharge`; cooldown items and Hardlight's extra charges apply) starts when the ride ends.
+Olimar lifts into the Onion with Pikmin 1's bad-ending motion (`cinemas/demo74/navi.anm`, extracted from your
+disc like the rest), the Onion takes off if it was landed, and his squad goes in through its legs as Fill does.
+
+- **Steering**: left stick, at twice his walking speed; clicking the stick boosts to three times for 2 s.
+  The right stick is the camera. Nothing else works: no throwing, whistle, swarm, lock-on, strike, Onion
+  commands, equipment or interaction.
+- **Height**: the Onion keeps the ground-relative height it flies at when following him, held over pits, and
+  hovers low while Pikmin are still climbing aboard.
+- **Clock**: up to 5 s of grace (ends early if the Onion goes more than 10 m from where he boarded, measured
+  on the ground plane), then 10 s. Neither pauses or resets.
+- **Ending**: A, B, X or Y (a press that ends a ride cannot start the next), the clock, or the Onion's death.
+  Olimar drops out of the beam and the Pikmin that went aboard during the ride come out together, a third
+  down each leg; the Onion's reserve stays put and Pikmin still climbing drop back to the field.
+  If the Onion is destroyed the same happens just before it goes dormant.
+- **Danger**: the Onion is a normal target and takes the damage; Olimar and the Pikmin are not hurt while aboard.
+- **Falling**: if he is dropped over a pit, fall recovery returns him to the last ground the ride crossed
+  (the boarding spot if none), with his squad.
+- **Multiplayer**: a client boards with a command, the host flies the Onion from the stick, boost and exit bits
+  in his input packet, and tells him where he was dropped (network protocol 10).
+
+Raising and lowering the Onion (hold X 0.6 s) is separate, free, and never touches the ride's charges.
 
 **Aim** (for VR): RoR2 moves Olimar as usual and the Pikmin cursor is wherever you aim.
 Primary throws, secondary whistles, utility lifts or lands the Onion (and strikes, when there is no Onion press to make), special swarms toward the cursor.

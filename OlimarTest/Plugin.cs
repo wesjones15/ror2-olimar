@@ -147,8 +147,8 @@ namespace OlimarTest
                     "this reaches only a little beyond it: enough to lock a flyer, then close in.",
                     new AcceptableValueRange<float>(5f, 100f)));
             var scheme = Config.Bind("Controls", "Scheme", ControlScheme.Auto,
-                "Pikmin: the sim moves Olimar, pad buttons by position (A throw/pluck, B jump, LB + B whistle, " +
-                "X dismiss, LB blocks jumping, LT recentres). Keyboard: secondary jumps; hold jump + secondary to whistle. Aim: RoR2 moves the body " +
+                "Pikmin: the sim moves Olimar, pad buttons by position (A throw/pluck, B jump, RT + B whistle, " +
+                "X dismiss, RT blocks jumping, LT recentres). Keyboard: secondary jumps; hold jump + secondary to whistle. Aim: RoR2 moves the body " +
                 "and the cursor is where you aim (primary throw, secondary whistle, utility " +
                 "dismiss, special swarm). Auto: Aim in VR (VRMod), Pikmin otherwise.");
             StartRed = Config.Bind("Pikmin", "StartRed", 10, "Red Pikmin in the squad at the start of a run.");
@@ -312,7 +312,7 @@ namespace OlimarTest
                 "How strongly cooldown items (Alien Head, Purity) speed up sprouting, seeds after feeding, " +
                 "regrouping, the plucker and emergency Pikmin: times 1 / (cooldown ratio ^ this).");
             RideRecharge = Config.Bind("Items", "RideRecharge", 30f,
-                "Seconds for an Onion Ride charge (utility) to come back, counted from boarding. Cooldown items and " +
+                "Seconds for an Onion Ride charge (utility) to come back, counted from the end of the ride. Cooldown items and " +
                 "extra-charge items (Hardlight Afterburner) apply; restart to apply.");
             AutoPluckDelay = Config.Bind("Items", "AutoPluckDelay", 60f,
                 "Seconds a sprout can stand ready before a Pikmin from the landed Onion comes out to " +

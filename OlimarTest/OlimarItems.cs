@@ -514,7 +514,7 @@ namespace OlimarTest
                 "Stand in the Onion's beam and <style=cIsUtility>press B</style> to board it, then steer it with the left stick for " +
                 "<style=cIsDamage>10 seconds</style> (after up to 5 seconds of grace to let your Pikmin climb aboard). " +
                 "<style=cIsUtility>Click the left stick</style> for a 2 second speed boost. <style=cIsUtility>Press A, B, X or Y</style> " +
-                "to get out; your squad is sneezed out with you. The Onion can be hit while you ride. Cooldown: <style=cIsUtility>30 seconds</style>. " +
+                "to get out; your squad is sneezed out with you. The Onion can be hit while you ride. Cooldown: <style=cIsUtility>30 seconds</style>, starting when the ride ends. " +
                 "Hold X for 0.6 seconds to raise or lower the Onion: that is free.");
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
