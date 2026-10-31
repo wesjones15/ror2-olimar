@@ -419,8 +419,8 @@ namespace OlimarTest
             {
                 [SkillSlot.Primary] = new[] { PadButton.A },
                 [SkillSlot.Secondary] = new[] { PadButton.RT, PadButton.B },
-                // Onion Ride: B in the Onion's beam.
-                [SkillSlot.Utility] = new[] { PadButton.B },
+                // Onion Ride: LT in the Onion's beam, RT + LT to call it.
+                [SkillSlot.Utility] = new[] { PadButton.RT, PadButton.LT },
                 // The dismiss strike.
                 [SkillSlot.Special] = new[] { PadButton.RB },
             });

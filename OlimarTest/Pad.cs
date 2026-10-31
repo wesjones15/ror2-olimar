@@ -9,7 +9,7 @@ namespace OlimarTest
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
     // B: jump, RT + B: whistle, X: raise or lower the Onion (interact when a prompt is up), RB: the dismiss strike (a melee blow; it no
     // longer dismisses the squad), d-pad left or right: next colour to throw, RT + right stick: swarm
-    // (the C-stick), LT: recentre the camera, right stick click: zoom, LB: lock on (RB then cycles).
+    // (the C-stick), LT: recentre the camera (RT + LT calls the Onion; LT in its beam boards), right stick click: zoom, LB: lock on (RB then cycles).
     // RT is the alternate-command modifier: RT + X dumps and RT + Y fills a flying Onion.
     // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,
     // jump + secondary whistle, utility relocates the Onion, F strikes, special swarm toward the
@@ -46,6 +46,8 @@ namespace OlimarTest
         // RT (the alternate-command modifier) held, and its remote Onion commands: RT + X dumps and RT + Y
         // fills, away from the beam. Consumed by the driver.
         public bool modifierHeld, remoteDump, remoteFill;
+        // LT in an Onion's beam boards it (Onion Ride); RT + LT anywhere calls the Onion to him and boards.
+        public bool board, summonPressed;
         // Ride controls: the left stick click (the boost) and any of A/B/X/Y pressed (the exit).
         public bool boostPressed, anyFacePressed;
         /// Y or X was pressed with RT held, so RoR2 mustn't also see an equipment or interact press.
@@ -86,7 +88,11 @@ namespace OlimarTest
                 anyFacePressed |= gp.a.justPressed || gp.b.justPressed || gp.x.justPressed || gp.y.justPressed;
                 swallowInteract = rt && (gp.x.value || gp.y.value);
                 cycleNow = gp.dPad.left.value || gp.dPad.right.value;
-                recentre |= Pressed(gp.leftTrigger);
+                // LT recentres the camera; with RT held it is the Onion summon instead, and in a beam it boards.
+                bool lt = Pressed(gp.leftTrigger);
+                recentre |= lt && !rt;
+                board |= lt;
+                summonPressed |= lt && rt;
                 zoom |= gp.rightStick.press.justPressed;
                 strikeNow = gp.rightBumper.value;
                 strikeHeld = gp.rightBumper.value;
@@ -96,7 +102,7 @@ namespace OlimarTest
                 {
                     look = rt ? Vector2.zero : Dead(gp.rightStick.value);
                     swarm = rt ? Dead(gp.rightStick.value) : Vector2.zero;
-                    recentre = Pressed(gp.leftTrigger);
+                    recentre = lt && !rt;
                     lockHeld = gp.leftBumper.value;
                     cycleTarget |= lockHeld && gp.rightBumper.justPressed;
                     targetDirection = Dead(gp.rightStick.value);
@@ -140,6 +146,9 @@ namespace OlimarTest
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
                 recentre |= player.GetButtonDown(Action.Jump);
+                // Keyboard: Jump in a beam boards (as LT does) and Z calls the Onion to him.
+                board |= player.GetButtonDown(Action.Jump);
+                summonPressed |= UnityEngine.Input.GetKeyDown(KeyCode.Z);
                 zoom |= UnityEngine.Input.GetKeyDown(KeyCode.C);
                 confirm |= player.GetButtonDown(Action.PrimarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Return)
                            || UnityEngine.Input.GetKeyDown(KeyCode.KeypadEnter);

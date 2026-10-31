@@ -28,7 +28,7 @@ namespace OlimarTest
             string X = Pad(player, PadButton.X, "X"), Y = Pad(player, PadButton.Y, "Y");
             string LB = Pad(player, PadButton.LB, "LB"), RB = Pad(player, PadButton.RB, "RB");
             string RT = Pad(player, PadButton.RT, "RT"), RS = Pad(player, PadButton.RS, "RS");
-            string LS = Pad(player, PadButton.LS, "Left stick");
+            string LS = Pad(player, PadButton.LS, "Left stick"), LT = Pad(player, PadButton.LT, "LT");
             string primary = Key(eventSystem, "PrimarySkill", "Primary");
             string secondary = Key(eventSystem, "SecondarySkill", "Secondary");
             string utility = Key(eventSystem, "UtilitySkill", "Utility");
@@ -52,6 +52,7 @@ namespace OlimarTest
                 .Add(RT + " + " + RS, "Swarm Pikmin")
                 .Add(RT + " + " + X, "Dump flying Onion's Pikmin")
                 .Add(RT + " + " + Y, "Fill flying Onion with squad")
+                .Add(RT + " + " + LT, "Call the Onion to you and board it")
                 .Add("hold " + X + " (0.6s)", "Land/lift Onion");
             sheet.Pad("While Standing Under Onion")
                 .Add(X, "Empty Onion")
@@ -59,7 +60,7 @@ namespace OlimarTest
                 .Add(LB, "Call straggler Pikmin")
                 .Add(RB, "Restore health... for a price")
                 .Add(A, "Send Onion plucker")
-                .Add(B, "Board Onion (Onion Ride)");
+                .Add(LT, "Board Onion (Onion Ride)");
             sheet.Pad("Riding the Onion")
                 .Add(LS, "Steer the Onion")
                 .Add(RS, "Camera")
@@ -76,14 +77,15 @@ namespace OlimarTest
                 .Add(special, "Swarm Pikmin")
                 .Add("hold " + utility + " (0.6s)", "Land/lift Onion")
                 .Add("V", "Dump flying Onion's Pikmin")
-                .Add("B", "Fill flying Onion with squad");
+                .Add("B", "Fill flying Onion with squad")
+                .Add("Z", "Call the Onion to you and board it");
             sheet.Keys("While Standing Under Onion")
                 .Add(utility, "Empty Onion")
                 .Add(equipment, "Fill Onion with Squad")
                 .Add("G", "Call straggler Pikmin")
                 .Add("F", "Restore health... for a price")
                 .Add(primary, "Send Onion plucker")
-                .Add(secondary, "Board Onion (Onion Ride)");
+                .Add(jump, "Board Onion (Onion Ride)");
             sheet.Keys("Riding the Onion")
                 .Add("Move", "Steer the Onion")
                 .Add("Sprint", "Speed boost (2s)")

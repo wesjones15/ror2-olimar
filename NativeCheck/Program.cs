@@ -177,7 +177,7 @@ static class Program
             Check(!OnionCommandPacket.Read(new ByteReader(bulk, 0, bulk.Length - 1), out _), "short bulk command refused");
         }
 
-        foreach (byte kind in new[] { OnionCommandPacket.FillFlyingAll, OnionCommandPacket.Board })
+        foreach (byte kind in new[] { OnionCommandPacket.FillFlyingAll, OnionCommandPacket.Board, OnionCommandPacket.Summon })
         {
             var one = OnionCommandPacket.Write(new OnionCommandPacket { netId = 9, kind = kind });
             Check(OnionCommandPacket.Read(new ByteReader(one), out var decoded) && decoded.kind == kind, "ride command round trip: " + kind);

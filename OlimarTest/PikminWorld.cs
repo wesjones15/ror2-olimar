@@ -106,6 +106,9 @@ namespace OlimarTest
             public bool releaseWhenReady;
             /// Olimar is flying this Onion (PikminWorld.Ride.cs).
             public OnionRide ride;
+            /// Called to Olimar to board him (RT + LT): flies over him, comes down, and boards.
+            public bool summon;
+            public float summonAge;
             public bool dormant;
             /// Dormant because its owner died (it wakes when he is alive again), not from damage.
             public bool ownerDeath;
@@ -296,6 +299,9 @@ namespace OlimarTest
                     break;
                 case OnionCommandPacket.Board:
                     BeginRide(captain, out _);
+                    break;
+                case OnionCommandPacket.Summon:
+                    ToggleSummon(captain, out _);
                     break;
                 case OnionCommandPacket.TriggerPlucker:
                     TriggerOnionPlucker(captain);
@@ -1082,6 +1088,7 @@ namespace OlimarTest
                 }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
                 if (flight.ride != null) { UpdateRide(flight); continue; }
+                if (flight.summon && UpdateSummon(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionFill(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionMenuHover(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionPickup(flight)) { WriteFlight(flight); continue; }
@@ -1280,6 +1287,7 @@ namespace OlimarTest
                 return false;
             }
             if (f.dormant || f.ride != null) return false;
+            f.summon = false;
             f.filling = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
@@ -2580,6 +2588,7 @@ namespace OlimarTest
         // has fully recovered.
         void GoDormant(OnionFlight f, float seconds, bool ownerDied)
         {
+            f.summon = false;
             // A ride in progress ends first, while the Onion can still hand its Pikmin back.
             if (f.ride != null) EndRide(f, true);
             f.dormant = true;

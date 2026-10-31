@@ -126,6 +126,11 @@ namespace OlimarTest
             if (!world || !Active || MenuOpen || RideActive) return;
             if (pad.remoteDump && world.OnionFlying(DataCaptain)) world.ReleaseFlyingOnion(DataCaptain);
             if (pad.remoteFill && world.OnionFlying(DataCaptain)) world.FillFlyingOnion(DataCaptain);
+            if (pad.summonPressed && !world.ToggleSummon(DataCaptain, out var why))
+            {
+                if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {DataCaptain}: Onion summon refused: {why}");
+                world.PlaySound(2, Body.footPosition);
+            }
         }
     }
 }

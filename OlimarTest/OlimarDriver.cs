@@ -266,7 +266,7 @@ namespace OlimarTest
             if (cam != null)
             {
                 if (!MenuOpen && !Arriving) cam.Pan(pad.look);
-                if (pad.recentre && HasState) cam.Recentre(State.face);
+                if (pad.recentre && HasState && !MenuOpen) cam.Recentre(State.face);
                 if (pad.zoom) cam.CycleZoom();
                 if (pad.topView) cam.ToggleTop();
             }
@@ -276,14 +276,14 @@ namespace OlimarTest
             {
                 RideInput();
                 pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.recallStuck = false;
-                pad.remoteDump = pad.remoteFill = pad.boostPressed = pad.anyFacePressed = false;
+                pad.remoteDump = pad.remoteFill = pad.boostPressed = pad.anyFacePressed = pad.board = pad.summonPressed = false;
                 return;
             }
             OnionPrompt();
             if (MenuOpen && Time.frameCount > menuOpenedFrame) MenuInput();
             else if (!MenuOpen) { FlyingXInput(); RemoteOnionInput(); }
             pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.recallStuck = false;
-            pad.remoteDump = pad.remoteFill = pad.boostPressed = pad.anyFacePressed = false;
+            pad.remoteDump = pad.remoteFill = pad.boostPressed = pad.anyFacePressed = pad.board = pad.summonPressed = false;
 
         }
 
@@ -441,7 +441,8 @@ namespace OlimarTest
                 if (MenuOpen)
                 {
                     i.swarm_x = i.swarm_y = 0f;
-                    i.throw_ = i.whistle = i.dismiss = i.cycle = i.jump = 0;
+                    // Jump is his own under the beam; only the Pikmin commands wait.
+                    i.throw_ = i.whistle = i.dismiss = i.cycle = 0;
                 }
             }
             else
@@ -855,10 +856,10 @@ namespace OlimarTest
                 world.RecallStuckCarriers(DataCaptain);
                 return;
             }
-            if (pad.cancel)
+            if (pad.board || pad.summonPressed)
             {
-                // B boards the Onion (it is jump outside the beam).
-                pad.cancel = false;
+                // LT boards the Onion.
+                pad.board = pad.summonPressed = false;
                 if (RideRecentlyEnded) return;
                 if (!world.BeginRide(DataCaptain, out var why))
                 {

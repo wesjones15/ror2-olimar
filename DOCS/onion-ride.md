@@ -12,9 +12,12 @@ and costs nothing. RT + X / RT + Y also keep RoR2's interact and equipment press
 (`OnionMenuEquipment`: hooks on `EquipmentSlot.MyFixedUpdate` and `InteractionDriver.FixedUpdate`).
 
 In an Onion's beam, beam commands win: X dump, Y fill, RB heal, LB call stragglers, A send the plucker,
-**B board** (Onion Ride). Riding: left stick steers, its click boosts, right stick is the camera, A/B/X/Y exit.
+**LT board** (Onion Ride; LT is the camera recentre elsewhere, and B stays jump in the beam). Riding: left stick steers, its click boosts, right stick is the camera, A/B/X/Y exit.
 
-Keyboard (not in the spec; made up): V dump, B fill, Utility hold relocate, Secondary in the beam boards,
+**RT + LT** calls the Onion to Olimar from anywhere: it flies over like a raised Onion does (the fast 1.8 s glide, then it eases in), comes down its beam, and boards him; RT + LT again calls it off
+(`PikminWorld.ToggleSummon`; refused if the Onion is dormant or the ride has no charge). Holding RT stops LT recentring the camera.
+
+Keyboard (not in the spec; made up): V dump, B fill, Z call the Onion, Utility hold relocate, Jump in the beam boards,
 Sprint boosts, any of Primary/Secondary/Utility/Equipment exits.
 
 ## Ride rules
@@ -34,9 +37,9 @@ Sprint boosts, any of Primary/Secondary/Utility/Equipment exits.
 - The lift into the Onion is `cinemas/demo74/navi.anm` (frames 465-552 of the bad ending, played at 2x); the
   extractor tops existing caches up with that file. Without it he just vanishes.
 
-## Multiplayer (network protocol 10, ABI 57)
+## Multiplayer (network protocol 11, ABI 57)
 
-Client boards with `OnionCommandPacket.Board`; steering is in `PikminInputPacket.swarmX/Y` with the
+Client boards with `OnionCommandPacket.Board` and calls the Onion with `Summon`; steering is in `PikminInputPacket.swarmX/Y` with the
 `Boost`/`Exit` bits; the snapshot's `CaptainInfo.Riding` flag tells everyone; `RideEndPacket` (message 0x4F04)
 places the client. Same build required on all machines.
 

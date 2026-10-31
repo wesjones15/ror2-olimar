@@ -95,7 +95,7 @@ namespace OlimarTest
         // When a client first saw a captain riding, for the lift into the Onion.
         readonly Dictionary<int, float> rideSeen = new Dictionary<int, float>();
 
-        /// Olimar presses B in his Onion's beam. Spends a skill charge; `why` says what is missing.
+        /// Olimar presses LT in his Onion's beam (or his called Onion arrives). Spends a skill charge; `why` says what is missing.
         public bool BeginRide(int captain, out string why)
         {
             why = null;
@@ -131,6 +131,71 @@ namespace OlimarTest
             d.RideBegan(f.position);
             WriteFlight(f);
             Plugin.Log.LogInfo($"captain {captain}: boarded Onion {f.id}; grace of up to {OnionRidePolicy.GraceSeconds:0} s from {f.position}");
+            return true;
+        }
+
+        /// How fast a called Onion eases in over him once the raise's fast glide has brought it close, and how long it keeps trying.
+        const float SummonSpeed = 12f, SummonSeconds = 25f;
+
+        /// RT + LT: calls his Onion to where he stands and boards him when its beam is down; again to call it off.
+        public bool ToggleSummon(int captain, out string why)
+        {
+            why = null;
+            if (ClientMode)
+            {
+                if (!moverDriver || !remoteInfo.TryGetValue(captain, out var info) || info.onion < 0) { why = "There is no Onion to call."; return false; }
+                moverDriver.SendOnion(OnionCommandPacket.Summon, 0, 0);
+                return true;
+            }
+            if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body)
+            { why = "There is no Onion to call."; return false; }
+            if (f.ride != null) return false;
+            if (f.summon) { f.summon = false; return true; }
+            if (f.dormant) { why = "The Onion is dormant."; return false; }
+            var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
+            // Checked now so a called Onion never flies over for nothing.
+            if (slot && !NativeSkills.Ready(slot, OlimarSkills.Ride)) { why = "Onion Ride is recharging."; return false; }
+            f.summon = true;
+            f.summonAge = 0f;
+            // It comes the way a raised Onion does: a landed one takes off and a far one flies over fast (the raise's
+            // 1.8 s glide), free since it is not the ride's charge; then it eases in over him (UpdateSummon).
+            if (!f.following || !f.airborne) CommandOnion(captain, true);
+            else if (Vector3.Distance(f.position, d.Body.footPosition) > 15f)
+            {
+                f.transitionStart = f.position;
+                f.transitionElapsed = 0f;
+                f.transitionDuration = 1.8f;
+                WriteFlight(f);
+            }
+            return true;
+        }
+
+        /// While called: fly above him at the following height, then let the beam come down (the menu hover) and
+        /// board when it is. True while this moved the Onion; false lets the usual flight run this step.
+        bool UpdateSummon(OnionFlight f)
+        {
+            f.summonAge += Time.fixedDeltaTime;
+            if (!driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || f.dormant || !OwnerAlive(f) || f.summonAge > SummonSeconds)
+            { f.summon = false; return false; }
+            if (f.menuReady && OnionInReach(f.captain) == f.id)
+            {
+                f.summon = false;
+                if (!BeginRide(f.captain, out var why) && Plugin.LogEvents.Value)
+                    Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't board him: {why}");
+                return true;
+            }
+            // Taking off, or already coming down on him: the usual flight does that.
+            if (f.transitionDuration > 0f || f.menuBeam || f.menuReturning) return false;
+            f.following = f.airborne = true;
+            f.filling = false;
+            f.pickup = -1;
+            f.pickupDwell = 0f;
+            var feet = d.Body.footPosition;
+            var over = new Vector3(feet.x, UnityHost.Snap(feet).y + RideHeight + 1.5f, feet.z);
+            var flat = new Vector2(over.x - f.position.x, over.z - f.position.z);
+            // Close enough above him: the beam takes over (UpdateOnionMenuHover) once it can.
+            if (flat.magnitude < 0.9f && Mathf.Abs(over.y - f.position.y) < 2.5f) return false;
+            f.position = Vector3.MoveTowards(f.position, over, SummonSpeed * Time.fixedDeltaTime);
             return true;
         }
 
