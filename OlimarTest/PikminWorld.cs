@@ -104,6 +104,8 @@ namespace OlimarTest
             public float transitionElapsed, transitionDuration;
             public bool following = true, airborne = true;
             public bool releaseWhenReady;
+            /// Olimar is flying this Onion (PikminWorld.Ride.cs).
+            public OnionRide ride;
             public bool dormant;
             /// Dormant because its owner died (it wakes when he is alive again), not from damage.
             public bool ownerDeath;
@@ -288,6 +290,9 @@ namespace OlimarTest
                     break;
                 case OnionCommandPacket.ReleaseFlyingAll:
                     ReleaseFlyingOnion(captain);
+                    break;
+                case OnionCommandPacket.FillFlyingAll:
+                    FillFlyingOnion(captain);
                     break;
                 case OnionCommandPacket.TriggerPlucker:
                     TriggerOnionPlucker(captain);
@@ -960,7 +965,7 @@ namespace OlimarTest
         }
 
         /// Arriving and not yet beamed in: Olimar isn't drawn.
-        public bool CaptainHidden(uint captain) => CaptainArriving(captain) && BeamProgress(captain) < 0f;
+        public bool CaptainHidden(uint captain) => CaptainArriving(captain) && BeamProgress(captain) < 0f || Riding((int)captain);
 
         public bool CaptainArriving(uint captain) => ClientMode
             ? remoteInfo.TryGetValue((int)captain, out var info) && info.IsArriving
@@ -1073,6 +1078,7 @@ namespace OlimarTest
                         }
                 }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
+                if (flight.ride != null) { UpdateRide(flight); continue; }
                 if (flight.following && UpdateOnionFill(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionMenuHover(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionPickup(flight)) { WriteFlight(flight); continue; }
@@ -1270,7 +1276,7 @@ namespace OlimarTest
                 if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {captain}: no Onion to {(follow ? "raise" : "lower")}");
                 return false;
             }
-            if (f.dormant) return false;
+            if (f.dormant || f.ride != null) return false;
             f.filling = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
@@ -1287,18 +1293,7 @@ namespace OlimarTest
                 }
                 f.landing = hit.point;
             }
-            // Each lift and each landing takes a utility charge (Hardlight adds more).
-            var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
-            if (slot && !NativeSkills.Spend(slot, OlimarSkills.Relocate))
-            {
-                if (Plugin.LogEvents.Value && Time.unscaledTime >= relocationNoteAt)
-                {
-                    relocationNoteAt = Time.unscaledTime + 1f;
-                    Plugin.Log.LogInfo($"captain {captain}: no Onion relocation charge yet (utility slot {(slot.skillDef ? slot.skillDef.skillName : "empty")}, " +
-                        $"{slot.stock}/{slot.maxStock} charges, {slot.cooldownRemaining:0.0} s to the next)");
-                }
-                return false;
-            }
+            // Raising and lowering the Onion costs nothing: the 0.6 s hold is the guard (Onion Ride has the charges).
             if (Plugin.LogEvents.Value)
                 Plugin.Log.LogInfo($"captain {captain}: Onion {(follow ? "raised to follow him" : "lowered here")}");
             f.transitionStart = f.position;
@@ -1318,9 +1313,25 @@ namespace OlimarTest
                 moverDriver.SendOnion(OnionCommandPacket.ReleaseFlyingAll, 0, 0);
                 return true;
             }
-            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant || !flight.airborne)
+            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant || !flight.airborne || flight.ride != null)
                 return false;
             flight.releaseWhenReady = true;
+            return true;
+        }
+
+        /// RT + Y: a flying Onion takes the squad in (the same Fill as in the beam, from afar). It comes down low
+        /// to take them, as it does for Fill.
+        public bool FillFlyingOnion(int captain)
+        {
+            if (ClientMode)
+            {
+                if (!moverDriver || !OnionFlying(captain)) return false;
+                moverDriver.SendOnion(OnionCommandPacket.FillFlyingAll, 0, 0);
+                return true;
+            }
+            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant || !flight.airborne || flight.ride != null)
+                return false;
+            ApplyOnionTransfer(captain, flight.id, OnionCommandPacket.ReturnAll, 0);
             return true;
         }
 
@@ -2565,6 +2576,8 @@ namespace OlimarTest
         // has fully recovered.
         void GoDormant(OnionFlight f, float seconds, bool ownerDied)
         {
+            // A ride in progress ends first, while the Onion can still hand its Pikmin back.
+            if (f.ride != null) EndRide(f, true);
             f.dormant = true;
             f.filling = false;
             f.ownerDeath = ownerDied;

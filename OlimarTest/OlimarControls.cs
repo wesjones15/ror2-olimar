@@ -28,6 +28,7 @@ namespace OlimarTest
             string X = Pad(player, PadButton.X, "X"), Y = Pad(player, PadButton.Y, "Y");
             string LB = Pad(player, PadButton.LB, "LB"), RB = Pad(player, PadButton.RB, "RB");
             string RT = Pad(player, PadButton.RT, "RT"), RS = Pad(player, PadButton.RS, "RS");
+            string LS = Pad(player, PadButton.LS, "Left stick");
             string primary = Key(eventSystem, "PrimarySkill", "Primary");
             string secondary = Key(eventSystem, "SecondarySkill", "Secondary");
             string utility = Key(eventSystem, "UtilitySkill", "Utility");
@@ -44,18 +45,26 @@ namespace OlimarTest
                 .Add(B, "Jump")
                 .Add(A, "Grab and Throw Pikmin")
                 .Add(RB, "Dismiss Strike / Pikmin Charge")
-                .Add("hold " + RT, "Lock on to target")
-                .Add(RT + " + tap " + RB, "Cycle target")
-                .Add(RT + " + tap " + A, "Rapidly throw Pikmin at target")
-                .Add(LB + " + " + B, "Whistle to call Pikmin")
-                .Add(LB + " + " + RS, "Swarm Pikmin")
-                .Add("hold " + X + " (0.6s)", "Land/lift Onion")
-                .Add("tap " + X + " + " + X, "Dump all Onion Pikmin");
+                .Add("hold " + LB, "Lock on to target")
+                .Add(LB + " + tap " + RB, "Cycle target")
+                .Add(LB + " + tap " + A, "Rapidly throw Pikmin at target")
+                .Add(RT + " + " + B, "Whistle to call Pikmin")
+                .Add(RT + " + " + RS, "Swarm Pikmin")
+                .Add(RT + " + " + X, "Dump flying Onion's Pikmin")
+                .Add(RT + " + " + Y, "Fill flying Onion with squad")
+                .Add("hold " + X + " (0.6s)", "Land/lift Onion");
             sheet.Pad("While Standing Under Onion")
                 .Add(X, "Empty Onion")
                 .Add(Y, "Fill Onion with Squad")
                 .Add(LB, "Call straggler Pikmin")
-                .Add(RB, "Restore health... for a price");
+                .Add(RB, "Restore health... for a price")
+                .Add(A, "Send Onion plucker")
+                .Add(B, "Board Onion (Onion Ride)");
+            sheet.Pad("Riding the Onion")
+                .Add(LS, "Steer the Onion")
+                .Add(RS, "Camera")
+                .Add("click " + LS, "Speed boost (2s)")
+                .Add(A + " / " + B + " / " + X + " / " + Y, "Get out and sneeze out the squad");
 
             // Keyboard actions use the player's RoR2 bindings. F and G are direct
             // keys in Pad.Read, so they remain literal here.
@@ -66,12 +75,19 @@ namespace OlimarTest
                 .Add(jump + " + " + secondary, "Whistle to call Pikmin")
                 .Add(special, "Swarm Pikmin")
                 .Add("hold " + utility + " (0.6s)", "Land/lift Onion")
-                .Add("tap " + utility + " + " + utility, "Dump all Onion Pikmin");
+                .Add("V", "Dump flying Onion's Pikmin")
+                .Add("B", "Fill flying Onion with squad");
             sheet.Keys("While Standing Under Onion")
                 .Add(utility, "Empty Onion")
                 .Add(equipment, "Fill Onion with Squad")
                 .Add("G", "Call straggler Pikmin")
-                .Add("F", "Restore health... for a price");
+                .Add("F", "Restore health... for a price")
+                .Add(primary, "Send Onion plucker")
+                .Add(secondary, "Board Onion (Onion Ride)");
+            sheet.Keys("Riding the Onion")
+                .Add("Move", "Steer the Onion")
+                .Add("Sprint", "Speed boost (2s)")
+                .Add(primary + " / " + secondary + " / " + utility + " / " + equipment, "Get out and sneeze out the squad");
             ControlSheetLayout.SpaceRows(sheet);
             return sheet;
         }

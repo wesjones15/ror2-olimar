@@ -153,7 +153,9 @@ namespace OlimarTest
         /// Locked onto an enemy this tick (RT held).
         public bool LockedOn { get; private set; }
         public bool MenuOpen => menuOnion >= 0;
-        internal bool BlocksEquipment => MenuOpen || pad.EquipmentBlocked;
+        internal bool BlocksEquipment => MenuOpen || RideActive || pad.EquipmentBlocked;
+        /// RoR2's interact press is not his: a ride, or RT + X / RT + Y.
+        internal bool BlocksInteract => RideActive || pad.BlocksInteract;
 
         /// The sim moves the body (Pikmin scheme, a player's Olimar, running on the server,
         /// sim healthy).
@@ -258,7 +260,7 @@ namespace OlimarTest
             sprintPressed |= input && input.sprint.down;
             if (captain < 0) return;
 
-            if (SimMoves && placed && Active)
+            if (SimMoves && placed && Active && !RideActive)
                 smoother.SmoothAt(PikminWorld.Instance.BodyShownTime);
 
             if (cam != null)
@@ -269,10 +271,18 @@ namespace OlimarTest
                 if (pad.topView) cam.ToggleTop();
             }
             pad.recentre = pad.zoom = pad.topView = false;
+            if (RideActive)
+            {
+                RideInput();
+                pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.recallStuck = false;
+                pad.remoteDump = pad.remoteFill = pad.boostPressed = pad.anyFacePressed = false;
+                return;
+            }
             OnionPrompt();
             if (MenuOpen && Time.frameCount > menuOpenedFrame) MenuInput();
-            else if (!MenuOpen) FlyingXInput();
+            else if (!MenuOpen) { FlyingXInput(); RemoteOnionInput(); }
             pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.recallStuck = false;
+            pad.remoteDump = pad.remoteFill = pad.boostPressed = pad.anyFacePressed = false;
 
         }
 
@@ -397,7 +407,16 @@ namespace OlimarTest
                     i.use_cursor = 1;
                 }
                 // Something else moved the body: put the captain where it is now.
-                if (!placed || smoother.MovedElsewhere)
+                if (RideActive)
+                {
+                    // Inside the Onion: the captain goes where it goes, and nothing else happens.
+                    Pose(ref i, rideFeet, Vector3.zero, Yaw());
+                    i.stick_x = i.stick_y = i.swarm_x = i.swarm_y = 0f;
+                    i.throw_ = i.whistle = i.dismiss = i.cycle = i.jump = 0;
+                    i.use_cursor = 0;
+                    putBack = null;
+                }
+                else if (!placed || smoother.MovedElsewhere)
                 {
                     smoother.Reset();
                     if (native) native.ForgetVelocity();
@@ -501,7 +520,7 @@ namespace OlimarTest
             uint thingId = 0;
             var locked = IsAi ? brainTarget : enemyLock.Update(Body,
                 Plugin.Scheme == ControlScheme.Pikmin && Plugin.Camera.Value == CameraMode.Orbit
-                    && pad.lockHeld && !MenuOpen && !Arriving,
+                    && pad.lockHeld && !MenuOpen && !Arriving && !RideActive,
                 pad.cycleTarget, pad.targetDirection, out onThing, out thingId);
             pad.cycleTarget = false;
             LockedOn = locked || onThing;
@@ -648,6 +667,14 @@ namespace OlimarTest
             pad.Ticked();
             Items.Ticked(c);
             if (IsRemote || !SimMoves || !Active) return;
+            if (RideActive)
+            {
+                transform.position = rideFeet + feetToOrigin;
+                smoother.Reset();
+                if (native) native.ForgetVelocity();
+                placed = true;
+                return;
+            }
 
             // Recover at Mario's early clear-void point (or a valid stage zone),
             // preserving long descents onto lower ground and bringing the squad.
@@ -748,12 +775,9 @@ namespace OlimarTest
         {
             var world = PikminWorld.Instance;
             if (!world || !Active) { flyingX.Cancel(); return; }
-            var slot = Body && Body.skillLocator ? Body.skillLocator.utility : null;
             bool flying = world.OnionFlying(DataCaptain);
-            var action = flyingX.Step(Time.unscaledTime, pad.RelocateHeld, flying,
-                realPrompt || InteractPrompt(), slot == null || NativeSkills.Ready(slot, OlimarSkills.Relocate));
-            if (action == FlyingXAction.Release) world.ReleaseFlyingOnion(DataCaptain);
-            else if (action == FlyingXAction.Land) world.CommandOnion(DataCaptain, !flying);
+            var action = flyingX.Step(Time.unscaledTime, pad.RelocateHeld, realPrompt || InteractPrompt());
+            if (action == FlyingXAction.Land) world.CommandOnion(DataCaptain, !flying);
         }
 
         // Show the shortcut popup automatically in the Onion beam. Real RoR2
@@ -819,6 +843,18 @@ namespace OlimarTest
             {
                 pad.recallStuck = false;
                 world.RecallStuckCarriers(DataCaptain);
+                return;
+            }
+            if (pad.cancel)
+            {
+                // B boards the Onion (it is jump outside the beam).
+                pad.cancel = false;
+                if (RideRecentlyEnded) return;
+                if (!world.BeginRide(DataCaptain, out var why))
+                {
+                    menuNote = why;
+                    world.PlaySound(2, Body.footPosition);
+                }
                 return;
             }
             if (pad.confirm)

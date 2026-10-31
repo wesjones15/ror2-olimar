@@ -40,27 +40,20 @@ static class Program
         Check(Total(OnionMenuPolicy.Distribute(15, 3, 4, 8)) == 15, "whole squad returns across colours");
         Check(Total(OnionMenuPolicy.Distribute(100, 3, 4, 8)) == 15, "stale request cannot exceed available Pikmin");
         var flying = new FlyingXPolicy();
-        Check(flying.Step(1f, true, true, false, true) == FlyingXAction.None, "first X waits");
-        Check(flying.Step(1.1f, false, true, false, true) == FlyingXAction.None, "short X does not relocate");
-        Check(flying.Step(1.5f, true, true, false, false) == FlyingXAction.Release, "double tap dumps during cooldown");
+        Check(flying.Step(1f, true, false) == FlyingXAction.None, "hold begins");
+        Check(flying.Step(1.59f, true, false) == FlyingXAction.None, "less than .6s waits");
+        Check(flying.Step(1.61f, true, false) == FlyingXAction.Land, "hold relocates at .6s");
+        Check(flying.Step(3f, true, false) == FlyingXAction.None, "continuing hold cannot fire twice");
+        flying.Step(3.1f, false, false);
+        flying.Step(4f, true, false);
+        Check(flying.Step(4.1f, false, false) == FlyingXAction.None, "a short tap never relocates");
+        flying.Step(5f, true, false);
+        flying.Step(5.1f, false, false);
+        Check(flying.Step(5.2f, true, false) == FlyingXAction.None, "two quick taps no longer dump or relocate");
+        Check(flying.Step(6f, true, false) == FlyingXAction.Land, "the second press only counts as its own hold");
         flying.Cancel();
-        Check(flying.Step(2f, true, true, false, true) == FlyingXAction.None, "hold begins");
-        Check(flying.Step(2.59f, true, true, false, true) == FlyingXAction.None, "less than .6s waits");
-        Check(flying.Step(2.61f, true, true, false, true) == FlyingXAction.Land, "hold lowers at .6s");
-        Check(flying.Step(3f, true, false, false, true) == FlyingXAction.None, "continuing hold cannot raise it again");
-        flying.Cancel();
-        flying.Step(4f, true, false, false, true);
-        Check(flying.Step(4.61f, true, false, false, true) == FlyingXAction.Land, "landed Onion also requires hold");
-        flying.Cancel();
-        flying.Step(5f, true, true, false, false);
-        Check(flying.Step(5.7f, true, true, false, true) == FlyingXAction.None, "cooldown finishing does not claim a held press");
-        flying.Cancel();
-        flying.Step(6f, true, true, false, true);
-        Check(flying.Step(6.7f, true, true, true, true) == FlyingXAction.None, "interact cancels pending relocation");
-        flying.Cancel();
-        flying.Step(7f, true, true, false, true);
-        flying.Step(7.1f, false, true, false, true);
-        Check(flying.Step(8f, false, true, false, true) == FlyingXAction.None, "single tap never becomes a delayed landing");
+        flying.Step(7f, true, false);
+        Check(flying.Step(7.7f, true, true) == FlyingXAction.None, "interact cancels pending relocation");
         Check(PelletDropPolicy.Number(false, false, 80f, .7f) == 1, "small enemy: 1");
         Check(PelletDropPolicy.Number(false, false, 300f, 1.5f) == 5, "medium/large: 5");
         Check(PelletDropPolicy.Number(false, false, 900f, 1f) == 10, "tough enemy: 10");
@@ -72,6 +65,27 @@ static class Program
         Check(OlimarJump.Height(20f, 15f, -30f, 0.04f) > jump, "jump-power items increase height");
         Check(Math.Abs(OlimarJump.Height(15f, 15f, -30f, 0.02f) * 0.02f - jump * 0.04f) < 0.001f,
             "smaller model scale does not reduce world-space jump height");
+        var ride = OnionRidePolicy.Begin();
+        float scale = 0f;
+        for (int i = 0; i < 4 * 30; i++) scale = ride.Step(1f / 30f, 3f, false);
+        Check(!ride.graceOver && ride.activeLeft == OnionRidePolicy.ActiveSeconds && scale == OnionRidePolicy.SpeedScale,
+            "grace holds the active clock while he stays within 10 m for under 5 s");
+        ride.Step(1f / 30f, 10.5f, false);
+        Check(ride.graceOver, "leaving the 10 m circle ends the grace at once");
+        ride.Step(0.5f, 0f, false);
+        Check(Math.Abs(ride.activeLeft - (OnionRidePolicy.ActiveSeconds - 0.5f)) < 0.001f, "returning to the start does not reset or pause the clock");
+        var slow = OnionRidePolicy.Begin();
+        for (int i = 0; i < 5 * 30 + 1; i++) slow.Step(1f / 30f, 0f, false);
+        Check(slow.graceOver, "five seconds ends the grace even standing still");
+        for (int i = 0; i < 10 * 30 + 2; i++) slow.Step(1f / 30f, 0f, false);
+        Check(slow.Expired, "ten active seconds end the ride");
+        var fast = OnionRidePolicy.Begin();
+        Check(fast.Step(1f / 30f, 0f, true) == OnionRidePolicy.BoostScale && fast.Boosting, "stick click boosts to triple speed");
+        float after = 0f;
+        for (int i = 0; i < 2 * 30 + 3; i++) after = fast.Step(1f / 30f, 0f, false);
+        Check(after == OnionRidePolicy.SpeedScale && !fast.Boosting, "the boost lasts two seconds");
+        Check(OnionRidePolicy.PerLeg(7, 0) + OnionRidePolicy.PerLeg(7, 1) + OnionRidePolicy.PerLeg(7, 2) == 7
+              && OnionRidePolicy.PerLeg(6, 2) == 2, "the squad splits across the three legs");
         Console.WriteLine("OnionMenuCheck: ok (count bounds, field cap, mixed colours, reserve, repeated release)");
     }
 }

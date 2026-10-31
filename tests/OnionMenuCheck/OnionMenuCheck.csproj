@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../OlimarTest/OnionMenuPolicy.cs" Link="OnionMenuPolicy.cs" />
+    <Compile Include="../../OlimarTest/OnionRidePolicy.cs" Link="OnionRidePolicy.cs" />
     <Compile Include="../../OlimarTest/FlyingXPolicy.cs" Link="FlyingXPolicy.cs" />
     <Compile Include="../../OlimarTest/OlimarJump.cs" Link="OlimarJump.cs" />
     <Compile Include="../../OlimarTest/PelletDropPolicy.cs" Link="PelletDropPolicy.cs" />

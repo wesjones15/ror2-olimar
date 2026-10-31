@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 55;
+        public const uint AbiVersion = 56;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update_context(IntPtr music,uint song,uint flags,float volume,byte paused,float dt);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
@@ -492,6 +492,8 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_sim_onion_in_reach(IntPtr sim, uint captain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_onion_counts(IntPtr sim, uint onion, uint captain, uint color, out OnionCounts counts);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onion_put_away(IntPtr sim, uint captain, uint onion, uint color, uint n);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onion_cancel_entries(IntPtr sim, uint captain, uint onion);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onion_burst_out(IntPtr sim, uint captain, uint onion, uint color, uint n);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onion_call_out(IntPtr sim, uint captain, uint onion, uint color, uint n);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_store_in_onion(IntPtr sim, uint onion, uint color, uint happa, uint n);
 

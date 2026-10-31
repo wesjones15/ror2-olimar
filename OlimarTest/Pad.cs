@@ -7,9 +7,10 @@ namespace OlimarTest
 {
     // The Pikmin control scheme's input: a GameCube-style pad read by button position through
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
-    // B: jump, LB + B: whistle, X: raise or lower the Onion (interact when a prompt is up), RB: the dismiss strike (a melee blow; it no
-    // longer dismisses the squad), d-pad left or right: next colour to throw, right stick: swarm
-    // (the C-stick), LT: recentre the camera, right stick click: zoom, RT: top view (fixed camera).
+    // B: jump, RT + B: whistle, X: raise or lower the Onion (interact when a prompt is up), RB: the dismiss strike (a melee blow; it no
+    // longer dismisses the squad), d-pad left or right: next colour to throw, RT + right stick: swarm
+    // (the C-stick), LT: recentre the camera, right stick click: zoom, LB: lock on (RB then cycles).
+    // RT is the alternate-command modifier: RT + X dumps and RT + Y fills a flying Onion.
     // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,
     // jump + secondary whistle, utility relocates the Onion, F strikes, special swarm toward the
     // cursor, jump recentre, C zoom, sprint to run, mouse wheel for the next colour.
@@ -42,12 +43,20 @@ namespace OlimarTest
         public bool recentre, zoom, topView;
         // Direct shortcuts while standing in the Onion beam.
         public bool confirm, cancel, releaseAll, returnAll, heal, recallStuck;
+        // RT (the alternate-command modifier) held, and its remote Onion commands: RT + X dumps and RT + Y
+        // fills, away from the beam. Consumed by the driver.
+        public bool modifierHeld, remoteDump, remoteFill;
+        // Ride controls: the left stick click (the boost) and any of A/B/X/Y pressed (the exit).
+        public bool boostPressed, anyFacePressed;
+        /// Y or X was pressed with RT held, so RoR2 mustn't also see an equipment or interact press.
+        public bool BlocksInteract => modifierHeld || swallowInteract;
+        bool swallowInteract;
         public bool usingPad;
         // Throw and whistle stay up until let go (the press that closed a window).
         bool swallowThrow, swallowWhistle, swallowRelocate, swallowEquipment, swallowStrike;
         bool strikeHeld;
         bool relocateHeld, equipmentHeld;
-        public bool EquipmentBlocked => swallowEquipment;
+        public bool EquipmentBlocked => swallowEquipment || (modifierHeld && equipmentHeld) || swallowInteract;
 
         /// `interactPrompt`: RoR2 is showing an interact prompt right now.
         public void Read(Player player, bool interactPrompt)
@@ -61,32 +70,39 @@ namespace OlimarTest
                 swarm = Dead(gp.rightStick.value);
                 swarmToCursor = false;
                 throwNow = gp.a.value;
-                jumpButton.Read(gp.b.value, gp.leftBumper.value);
+                bool rt = gp.rightTrigger.value > 0.6f;
+                modifierHeld = rt;
+                jumpButton.Read(gp.b.value, rt);
                 whistleNow = jumpButton.Whistle;
-                relocateNow = interact.Claim(gp.x.value, interactPrompt);
-                relocateHeld = gp.x.value;
+                // RT + X is the remote dump, never the hold-X relocation.
+                relocateNow = interact.Claim(gp.x.value && !rt, interactPrompt);
+                relocateHeld = gp.x.value && !rt;
                 equipmentHeld = gp.y.value;
                 releaseAll |= gp.x.justPressed;
                 returnAll |= gp.y.justPressed;
+                remoteDump |= rt && gp.x.justPressed;
+                remoteFill |= rt && gp.y.justPressed;
+                boostPressed |= gp.leftStick.press.justPressed;
+                anyFacePressed |= gp.a.justPressed || gp.b.justPressed || gp.x.justPressed || gp.y.justPressed;
+                swallowInteract = rt && (gp.x.value || gp.y.value);
                 cycleNow = gp.dPad.left.value || gp.dPad.right.value;
                 recentre |= Pressed(gp.leftTrigger);
                 zoom |= gp.rightStick.press.justPressed;
-                topView |= Pressed(gp.rightTrigger);
                 strikeNow = gp.rightBumper.value;
                 strikeHeld = gp.rightBumper.value;
                 heal |= gp.rightBumper.justPressed;
                 recallStuck |= gp.leftBumper.justPressed;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
-                    look = gp.leftBumper.value ? Vector2.zero : Dead(gp.rightStick.value);
-                    swarm = gp.leftBumper.value ? Dead(gp.rightStick.value) : Vector2.zero;
+                    look = rt ? Vector2.zero : Dead(gp.rightStick.value);
+                    swarm = rt ? Dead(gp.rightStick.value) : Vector2.zero;
                     recentre = Pressed(gp.leftTrigger);
-                    lockHeld = gp.rightTrigger.value > 0.6f;
+                    lockHeld = gp.leftBumper.value;
                     cycleTarget |= lockHeld && gp.rightBumper.justPressed;
                     targetDirection = Dead(gp.rightStick.value);
                     zoom = gp.rightStick.press.justPressed;
                     topView = false;
-                    // RB cycles targets while RT holds a lock; otherwise it strikes.
+                    // RB cycles targets while LB holds a lock; otherwise it strikes.
                     strikeNow = !lockHeld && gp.rightBumper.value;
                     if (cycleTarget) look = Vector2.zero;
                 }
@@ -100,6 +116,7 @@ namespace OlimarTest
                 swarm = Vector2.zero;
                 look = Vector2.zero;
                 lockHeld = cycleTarget = false;
+                modifierHeld = false;
                 swarmToCursor = player.GetButton(Action.SpecialSkill);
                 throwNow = player.GetButton(Action.PrimarySkill);
                 jumpButton.Read(player.GetButton(Action.SecondarySkill), player.GetButton(Action.Jump));
@@ -107,6 +124,13 @@ namespace OlimarTest
                 relocateNow = player.GetButton(Action.UtilitySkill);
                 relocateHeld = relocateNow;
                 equipmentHeld = player.GetButton(Action.Equipment);
+                // Keyboard: V dumps and B fills the Onion from afar (the pad's RT + X / RT + Y).
+                remoteDump |= UnityEngine.Input.GetKeyDown(KeyCode.V);
+                remoteFill |= UnityEngine.Input.GetKeyDown(KeyCode.B);
+                boostPressed |= player.GetButtonDown(Action.Sprint);
+                anyFacePressed |= player.GetButtonDown(Action.PrimarySkill) || player.GetButtonDown(Action.SecondarySkill)
+                                  || player.GetButtonDown(Action.UtilitySkill) || player.GetButtonDown(Action.Equipment);
+                swallowInteract = UnityEngine.Input.GetKey(KeyCode.V) || UnityEngine.Input.GetKey(KeyCode.B);
                 releaseAll |= player.GetButtonDown(Action.UtilitySkill);
                 returnAll |= player.GetButtonDown(Action.Equipment);
                 strikeNow = UnityEngine.Input.GetKey(KeyCode.F);

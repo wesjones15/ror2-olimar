@@ -18,7 +18,7 @@ namespace OlimarTest
         {
             SkillCard.Request(OlimarSkills.Throw, "OlimarThrow", () => Plugin.AssetsReady, Throw, () => Plugin.AssetsDir);
             SkillCard.Request(OlimarSkills.Whistle, "OlimarWhistle", () => Plugin.AssetsReady, Whistle, () => Plugin.AssetsDir);
-            SkillCard.Request(OlimarSkills.Relocate, "OlimarRelocateOnion", () => Plugin.AssetsReady, Onion, () => Plugin.AssetsDir);
+            SkillCard.Request(OlimarSkills.Ride, "OlimarRelocateOnion", () => Plugin.AssetsReady, Onion, () => Plugin.AssetsDir);
             SkillCard.Request(OlimarSkills.Strike, "OlimarDismissStrike", () => Plugin.AssetsReady, Strike, () => Plugin.AssetsDir);
             SkillCard.Request(OlimarSkills.SetPluckers, "OlimarPluckers", () => Plugin.AssetsReady, Pluckers, () => Plugin.AssetsDir);
         }

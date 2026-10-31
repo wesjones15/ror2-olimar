@@ -229,7 +229,7 @@ namespace OlimarTest
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.DataHandle, ref frame, UnityHost.Scale, d =>
                 (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id)
-                    : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && world.CaptainArriving(d.id)) ||
+                    : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && (world.CaptainArriving(d.id) || world.Riding((int)d.id))) ||
                 d.kind == Native.KindPellet && TekiCorpses.Has(d.id) ||
                 d.kind == Native.KindPellet &&
                 world.Corpses.Pose(d.id, new Vector3(d.pos.x, d.pos.y, d.pos.z) * UnityHost.Scale,

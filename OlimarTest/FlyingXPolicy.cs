@@ -1,18 +1,18 @@
 namespace OlimarTest
 {
-    internal enum FlyingXAction { None, Land, Release }
+    internal enum FlyingXAction { None, Land }
 
-    /// Hold X for relocation; two short presses dump a flying Onion.
+    /// Hold X to raise or lower the Onion. There is no charge or cooldown: the hold is the guard against
+    /// an accidental press. (The double tap that dumped a flying Onion is RT + X now.)
     internal struct FlyingXPolicy
     {
-        const float Window = 0.75f;
         const float HoldSeconds = 0.6f;
-        float deadline, heldAt;
-        bool pending, wasHeld, fired, mayLand;
+        float heldAt;
+        bool wasHeld, fired;
 
-        public void Cancel() { pending = wasHeld = fired = false; }
+        public void Cancel() { wasHeld = fired = false; }
 
-        public FlyingXAction Step(float now, bool held, bool flying, bool interactClaimed, bool canLand)
+        public FlyingXAction Step(float now, bool held, bool interactClaimed)
         {
             if (interactClaimed) { Cancel(); return FlyingXAction.None; }
             if (held && !wasHeld)
@@ -20,27 +20,13 @@ namespace OlimarTest
                 wasHeld = true;
                 fired = false;
                 heldAt = now;
-                mayLand = canLand;
-                if (flying && pending && now <= deadline)
-                {
-                    pending = false;
-                    fired = true;
-                    return FlyingXAction.Release;
-                }
             }
             if (held && !fired && now - heldAt >= HoldSeconds)
             {
                 fired = true;
-                pending = false;
-                return mayLand ? FlyingXAction.Land : FlyingXAction.None;
+                return FlyingXAction.Land;
             }
-            if (!held && wasHeld)
-            {
-                if (!fired) { pending = flying; deadline = now + Window; }
-                wasHeld = false;
-                fired = false;
-            }
-            if (pending && now > deadline) pending = false;
+            if (!held) { wasHeld = false; fired = false; }
             return FlyingXAction.None;
         }
     }

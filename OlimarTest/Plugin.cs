@@ -66,7 +66,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> ReliableSnapshots, LogNet, PerformanceLog;
         // Items (OlimarItems): the shared minion scaling policy and the timers items shorten.
         internal static ConfigEntry<float> ProcInterval, MinionMoveScale, MinionHealScale, ItemEffectScale,
-            CooldownExponent, RelocationRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
+            CooldownExponent, RideRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
             StompPikminDamage, RazorwireInterval;
         // Growth: planted sprouts ripen on a timer, Pikmin grow on kills they fought.
         internal static ConfigEntry<float> SecondsPerStage, FlowerSeconds;
@@ -114,7 +114,7 @@ namespace OlimarTest
             string here = Path.GetDirectoryName(Info.Location);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
             Camera = Config.Bind("Controls", "CameraMode", CameraMode.Orbit,
-                "Orbit: right stick pans, LB + right stick swarms, LT recentres, RT locks, RB cycles targets (or zoom when unlocked). Vanilla uses the fixed camera. Both use B to jump and LB + B to whistle.");
+                "Orbit: right stick pans, RT + right stick swarms, LT recentres, LB locks, LB + RB cycles targets. Vanilla uses the fixed camera. Both use B to jump and RT + B to whistle.");
 
             var assets = Config.Bind("Paths", "AssetsDir", "",
                 "libpikmin's assets/ folder (extracted from your own Pikmin disc). Empty: read " +
@@ -311,9 +311,9 @@ namespace OlimarTest
             CooldownExponent = Config.Bind("Items", "CooldownExponent", 1f,
                 "How strongly cooldown items (Alien Head, Purity) speed up sprouting, seeds after feeding, " +
                 "regrouping, the plucker and emergency Pikmin: times 1 / (cooldown ratio ^ this).");
-            RelocationRecharge = Config.Bind("Items", "RelocationRecharge", 8f,
-                "Seconds for an Onion relocation charge (utility) to come back. Lifting and landing each take one. " +
-                "Hardlight Afterburner adds charges; restart to apply.");
+            RideRecharge = Config.Bind("Items", "RideRecharge", 30f,
+                "Seconds for an Onion Ride charge (utility) to come back, counted from boarding. Cooldown items and " +
+                "extra-charge items (Hardlight Afterburner) apply; restart to apply.");
             AutoPluckDelay = Config.Bind("Items", "AutoPluckDelay", 60f,
                 "Seconds a sprout can stand ready before a Pikmin from the landed Onion comes out to " +
                 "pluck every ready sprout (the special). Below 0: off. Restart to apply to the skill.");
@@ -418,8 +418,9 @@ namespace OlimarTest
             GlyphOverride.Set("OlimarTestBody", () => Scheme == ControlScheme.Pikmin, new Dictionary<SkillSlot, PadButton[]>
             {
                 [SkillSlot.Primary] = new[] { PadButton.A },
-                [SkillSlot.Secondary] = new[] { PadButton.LB, PadButton.B },
-                [SkillSlot.Utility] = new[] { PadButton.X },
+                [SkillSlot.Secondary] = new[] { PadButton.RT, PadButton.B },
+                // Onion Ride: B in the Onion's beam.
+                [SkillSlot.Utility] = new[] { PadButton.B },
                 // The dismiss strike.
                 [SkillSlot.Special] = new[] { PadButton.RB },
             });

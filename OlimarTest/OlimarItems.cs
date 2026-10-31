@@ -463,7 +463,7 @@ namespace OlimarTest
     // Olimar's actions as RoR2 skills (see OlimarItems), made once at content load.
     internal static class OlimarSkills
     {
-        public static NativeSkillDef Throw, Whistle, Relocate, Strike;
+        public static NativeSkillDef Throw, Whistle, Ride, Strike;
         /// The Onion's pluckers: RoR2's passive slot, with no SkillDef of its own.
         public static Action<Sprite> SetPluckers;
 
@@ -476,15 +476,16 @@ namespace OlimarTest
                 Icon(SkillSlot.Primary), 0f, 1, true);
             Whistle = NativeSkills.Make("OlimarWhistle", "OLIMARTEST_WHISTLE_NAME", "OLIMARTEST_WHISTLE_DESC",
                 Icon(SkillSlot.Secondary), 0f, 1, false);
-            Relocate = NativeSkills.Make("OlimarRelocateOnion", "OLIMARTEST_RELOCATE_NAME", "OLIMARTEST_RELOCATE_DESC",
-                Icon(SkillSlot.Utility), Plugin.RelocationRecharge.Value, 1, false);
+            // The Utility slot is Onion Ride's. Raising and lowering the Onion (hold X) costs no charge.
+            Ride = NativeSkills.Make("OlimarOnionRide", "OLIMARTEST_RIDE_NAME", "OLIMARTEST_RIDE_DESC",
+                Icon(SkillSlot.Utility), Plugin.RideRecharge.Value, 1, false);
             // The dismiss strike: RoR2 keeps its cooldown (the sim's is off), so cooldown items
             // work and the HUD shows it.
             Strike = NativeSkills.Make("OlimarDismissStrike", "OLIMARTEST_STRIKE_NAME", "OLIMARTEST_STRIKE_DESC",
                 Icon(SkillSlot.Special), Mathf.Max(0.1f, Plugin.StrikeCooldown.Value), 1, true);
             NativeSkills.SetFamily(body, SkillSlot.Primary, Throw, pack);
             NativeSkills.SetFamily(body, SkillSlot.Secondary, Whistle, pack);
-            NativeSkills.SetFamily(body, SkillSlot.Utility, Relocate, pack);
+            NativeSkills.SetFamily(body, SkillSlot.Utility, Ride, pack);
             NativeSkills.SetFamily(body, SkillSlot.Special, Strike, pack);
             // The Onion's pluckers have no button: the passive, listed with the four skills.
             if (loc)
@@ -503,14 +504,18 @@ namespace OlimarTest
         {
             lang.SetStringByToken("OLIMARTEST_THROW_NAME", "Pikmin Throw");
             lang.SetStringByToken("OLIMARTEST_THROW_DESC",
-                "<style=cIsUtility>Press A</style> to throw a Pikmin at the cursor. <style=cIsUtility>Hold RT</style> to lock on; " +
+                "<style=cIsUtility>Press A</style> to throw a Pikmin at the cursor. <style=cIsUtility>Hold LB</style> to lock on; " +
                 "<style=cIsUtility>D-pad left/right</style> picks its colour.");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_NAME", "Whistle");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
-                "<style=cIsUtility>Hold LB and press B</style> to call nearby Pikmin back.");
-            lang.SetStringByToken("OLIMARTEST_RELOCATE_NAME", "Raise / Lower Onion");
-            lang.SetStringByToken("OLIMARTEST_RELOCATE_DESC",
-                "<style=cIsUtility>Hold X for 0.6 seconds</style> to raise or lower the Onion. Double tap X while flying to dump Pikmin. Under it, Y fills it.");
+                "<style=cIsUtility>Hold RT and press B</style> to call nearby Pikmin back.");
+            lang.SetStringByToken("OLIMARTEST_RIDE_NAME", "Onion Ride");
+            lang.SetStringByToken("OLIMARTEST_RIDE_DESC",
+                "Stand in the Onion's beam and <style=cIsUtility>press B</style> to board it, then steer it with the left stick for " +
+                "<style=cIsDamage>10 seconds</style> (after up to 5 seconds of grace to let your Pikmin climb aboard). " +
+                "<style=cIsUtility>Click the left stick</style> for a 2 second speed boost. <style=cIsUtility>Press A, B, X or Y</style> " +
+                "to get out; your squad is sneezed out with you. The Onion can be hit while you ride. Cooldown: <style=cIsUtility>30 seconds</style>. " +
+                "Hold X for 0.6 seconds to raise or lower the Onion: that is free.");
             lang.SetStringByToken("OLIMARTEST_STRIKE_NAME", "Dismiss Strike");
             lang.SetStringByToken("OLIMARTEST_STRIKE_DESC",
                 "<style=cIsUtility>Press RB</style> to send your Pikmin charging at nearby enemies.");

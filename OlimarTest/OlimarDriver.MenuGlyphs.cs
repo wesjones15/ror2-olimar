@@ -13,7 +13,7 @@ namespace OlimarTest
         // The popup is one uGUI canvas: its background first, its text after, so the text is
         // drawn over the panel (IMGUI always draws over uGUI, which dimmed the glyphs).
         // Laid out for 1080 lines, small, on the right so Olimar stays in view.
-        const float MenuW = 400f, MenuH = 290f, MenuMargin = 56f;
+        const float MenuW = 400f, MenuH = 330f, MenuMargin = 56f;
 
         static RectTransform MenuRect(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax,
             Vector2 pivot, Vector2 position, Vector2 size)
@@ -81,7 +81,7 @@ namespace OlimarTest
                 onionGlyphTitle = MenuGlyphLine(panel, "Onion title", top, new Vector2(0f, -22f),
                     new Vector2(MenuW - 20f, 36f), 24, TextAlignmentOptions.Center);
                 onionGlyphActions = MenuGlyphLine(panel, "Onion shortcuts", top, new Vector2(0f, -66f),
-                    new Vector2(MenuW - 44f, 190f), 20, TextAlignmentOptions.TopLeft);
+                    new Vector2(MenuW - 44f, 230f), 20, TextAlignmentOptions.TopLeft);
                 onionGlyphActions.lineSpacing = 10f;
                 onionGlyphNote = MenuGlyphLine(panel, "Onion note", bottom, new Vector2(0f, 14f),
                     new Vector2(MenuW - 24f, 28f), 15, TextAlignmentOptions.Center);
@@ -94,7 +94,8 @@ namespace OlimarTest
                 MenuGlyph(PadButton.Y, "Y") + "  Fill Onion with squad\n" +
                 MenuGlyph(PadButton.RB, "RB") + "  Heal Olimar from Onion stock\n" +
                 MenuGlyph(PadButton.LB, "LB") + "  Call stuck carriers\n" +
-                (flying ? disabled : "") + MenuGlyph(PadButton.A, "A") + "  Send Onion plucker" + (flying ? enabled : "");
+                (flying ? disabled : "") + MenuGlyph(PadButton.A, "A") + "  Send Onion plucker" + (flying ? enabled : "") + "\n" +
+                MenuGlyph(PadButton.B, "B") + "  Board the Onion (Onion Ride)";
             onionGlyphNote.text = note ?? "";
         }
 
