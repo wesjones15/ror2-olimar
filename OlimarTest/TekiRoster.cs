@@ -79,7 +79,7 @@ namespace OlimarTest
             // The Kogane family are loot bugs: harmless, they pop up near a player, scuttle about, drop something each time
             // they are hit (up to three) and dive away. They cannot be killed (a hit flips them), so they keep endless health,
             // and what they give comes from the strategy, so they leave no corpse.
-            new TekiSpec(27, "FLINT", "Iridescent Flint Beetle", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 10, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
+            new TekiSpec(27, "FLINT", "Iridescent Flint Beetle (Pikmin 2)", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 10, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true, NoCard = true },
             new TekiSpec(28, "GLINT", "Iridescent Glint Beetle", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 1, 20, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
             new TekiSpec(29, "DOODLEBUG", "Doodlebug", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 2, 15, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true },
             // The Bulborb Larva: a chasing biter with almost no health that leaves no corpse.
@@ -138,6 +138,7 @@ namespace OlimarTest
             // it ambles and sits and only strikes at what is within reach.
             new TekiSpec(54, "RANGINGBLOYSTER", "Ranging Bloyster", true, false, Base + "Golem/GolemBody.prefab", Base + "Golem/GolemMaster.prefab", 1, 1000, TekiHull.Golem) { Ported = true },
             new TekiSpec(55, "TOADYBLOYSTER", "Toady Bloyster", true, false, Base + "BeetleGuard/BeetleGuardBody.prefab", Base + "BeetleGuard/BeetleGuardMaster.prefab", 2, 350, TekiHull.Golem) { Ported = true },
+            new TekiSpec(56, "FLINTP1", "Iridescent Flint Beetle", false, false, Dlc1 + "Vermin/VerminBody.prefab", Dlc1 + "Vermin/VerminMaster.prefab", 0, 10, TekiHull.Human) { Ported = true, Hazard = true, NoCorpse = true, NoCard = true },
         };
 
         public static TekiSpec Of(byte kind) => kind < All.Length ? All[kind] : null;

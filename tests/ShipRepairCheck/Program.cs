@@ -8,6 +8,21 @@ static class Program
     static void Check(bool value, string message) { if (!value) throw new Exception(message); }
     static int Main()
     {
+        Check(FlintSpawnPolicy.Encounter(.3f, true, 0, .5f, .12f), "uncommon Ship encounter");
+        Check(!FlintSpawnPolicy.Encounter(.3f, false, 1, .5f, .12f), "other modes are rarer");
+        Check(FlintSpawnPolicy.Encounter(.1f, false, 1, .5f, .12f), "rare Olimar encounter");
+        Check(!FlintSpawnPolicy.Encounter(0f, false, 0, .5f, .12f), "no Olimar outside Ship: no beetle");
+        Check(!FlintSpawnPolicy.Encounter(0f, true, 1, 0f, .12f), "zero chance disables");
+        Check(TekiRoster.Of(56).NoCard && TekiRoster.Of(56).NoCorpse && TekiRoster.Of(56).Hazard, "placed immortal beetle gives no death reward");
+        var digits = new HudDigitChanges();
+        digits.Observe(119, 0f); Check(digits.Direction(0) == 0, "first HUD draw is calm");
+        digits.Observe(120, 1f);
+        Check(digits.Direction(0) == 1 && digits.Direction(1) == 1 && digits.Direction(2) == 0, "only changed decimal places bounce");
+        digits.Observe(120, 1.2f); Check(Math.Abs(digits.Elapsed(0, 1.2f) - .2f) < .0001f, "Repaint doesn't reset/advance animation");
+        digits.Observe(119, 1.3f); Check(digits.Direction(0) == -1 && digits.Direction(1) == -1, "decreases contract");
+        digits.Observe(999, 2f); digits.Observe(1000, 2.1f);
+        Check(digits.Direction(3) == 1 && digits.Elapsed(0, 2.1f) == 0f, "carry and fast updates restart changed places");
+        Console.WriteLine("PASS: Flint encounters and per-digit HUD animation tracking.");
         Check(PosySpawnPolicy.Target(true, 1, 0, 6, 2) == 6, "Ship Repair: common Posies for any survivor");
         Check(PosySpawnPolicy.Target(false, 4, 1, 6, 2) == 2, "Classic: population counts Olimars, not other survivors");
         Check(PosySpawnPolicy.Target(false, 4, 0, 6, 2) == 0, "Classic without Olimar has no Posies");
@@ -196,7 +211,7 @@ static class Program
             Check(!string.IsNullOrEmpty(e.Body) && !string.IsNullOrEmpty(e.Master) && e.Body.EndsWith("Body.prefab") && e.Master.EndsWith("Master.prefab"), "template of " + e.Display);
             Check((e.Weight > 0 || e.NoCard) && e.Cost > 0 && e.Token == e.Token.ToUpperInvariant() && !e.Token.Contains(" "), "numbers and token of " + e.Display);
         }
-        Check(TekiRoster.All.Length == 56 && TekiRoster.Of(56) == null, "fifty-six kinds (Pikmin 1 and Pikmin 2)");
+        Check(TekiRoster.All.Length == 57 && TekiRoster.Of(57) == null, "fifty-seven kinds including P1 Kogane");
         Check(TekiRoster.All.Select(e => e.Token).Distinct().Count() == TekiRoster.All.Length, "tokens are unique");
         int smallest = TekiRoster.All.Where(e => e.Big).Min(e => e.Cost), largest = TekiRoster.All.Where(e => !e.Big).Max(e => e.Cost);
         Check(smallest > largest, "every big enemy costs more than any small one");
@@ -208,9 +223,9 @@ static class Program
         // Hazards cannot be killed. The fixtures are placed by Ship Repair; Pikmin 2's loot bugs, Bomb-rock and Spectralids
         // (hit to flip, set off or scatter, never killed) are drawn like any other enemy.
         Check(TekiRoster.All.Where(e => e.Hazard).Select(e => e.Display).OrderBy(x => x).SequenceEqual(new[] { "Bomb-rock", "Doodlebug", "Fire Geyser", "Gas Pipe",
-            "Iridescent Flint Beetle", "Iridescent Glint Beetle", "Pearly Clamclamp", "Unmarked Spectralid" }), "the enemies that cannot be killed");
+            "Iridescent Flint Beetle", "Iridescent Flint Beetle (Pikmin 2)", "Iridescent Glint Beetle", "Pearly Clamclamp", "Unmarked Spectralid" }), "the enemies that cannot be killed");
         Check(TekiRoster.All.Where(e => e.Hazard && e.Weight == 0).All(e => e.NoCard) && TekiRoster.All.Where(e => e.Hazard && e.NoCard).Select(e => e.Display).OrderBy(x => x)
-            .SequenceEqual(new[] { "Fire Geyser", "Gas Pipe", "Pearly Clamclamp" }), "geysers, gas pipes and shells are placed, not drawn");
+            .SequenceEqual(new[] { "Fire Geyser", "Gas Pipe", "Iridescent Flint Beetle", "Iridescent Flint Beetle (Pikmin 2)", "Pearly Clamclamp" }), "geysers, gas pipes and shells are placed, not drawn");
         Check(TekiRoster.All.Where(e => e.Water).Select(e => e.Display).OrderBy(x => x).SequenceEqual(new[] { "Water Dumple", "Wogpole" }), "the waterborne enemies");
         // Death and soul effects follow the carcass size (BTeki::createDeadEffect / createSoulEffect).
         Check(TekiRules.DeathEffects(2).SequenceEqual(new[] { 61, 62, 63 }) && TekiRules.DeathEffects(0).SequenceEqual(new[] { 55, 56, 57 })

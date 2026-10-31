@@ -61,7 +61,7 @@ namespace OlimarTest
                         frame = reader.F32(),
                         flash = reader.F32(),
                         fade = reader.U8() / 255f,
-                        flags = reader.U8(),
+                        flags = reader.U16(),
                     };
                     Remote[net] = (s, Time.unscaledTime);
                 }
@@ -117,6 +117,14 @@ namespace OlimarTest
         }
 
         static ulong CreatureId(CharacterBody b) => unchecked((ulong)(uint)b.GetInstanceID());
+
+        internal static bool FlintLanded(CharacterBody body)
+        {
+            var b = body ? body.GetComponent<TekiBody>() : null;
+            if (!b || b.kind != TekiCatalog.FlintBeetle) return false;
+            if (handle != IntPtr.Zero && b.aiId >= 0) TekiAiNative.pik_tekis_press(handle, (uint)b.aiId);
+            return true;
+        }
 
         /// One RoR2 step that ran `ticks` sim ticks (server).
         public static void Step(IntPtr sim, int ticks)
@@ -193,6 +201,14 @@ namespace OlimarTest
                     }
                 }
                 float lost = b.aiLastHealth - body.healthComponent.health;
+                // Kogane is truly invulnerable, including lethal host hits. Buddha
+                // holds the last HP; damage is discarded and health resets. Only
+                // FlintLanded (a thrown Pikmin collision) triggers a loot flip.
+                if (b.kind == TekiCatalog.FlintBeetle && body.healthComponent.health < body.maxHealth)
+                {
+                    lost = Mathf.Max(lost, .5f);
+                    body.healthComponent.Networkhealth = body.maxHealth;
+                }
                 b.aiLastHealth = body.healthComponent.health;
                 if ((lost > 0f || b.kind == TekiCatalog.PelletPosy && body.healthComponent.health <= 1f && !b.aiDeathSent) && TekiCatalog.Has(b.kind))
                 {
@@ -202,7 +218,7 @@ namespace OlimarTest
                         b.aiDeathSent = true;
                         TekiAiNative.pik_tekis_damage(h, (uint)b.aiId, 1e6f, -1);
                     }
-                    else if (!b.aiDeathSent) TekiAiNative.pik_tekis_damage(h, (uint)b.aiId, Mathf.Max(amount, 0.5f), -1);
+                    else if (!b.aiDeathSent && b.kind != TekiCatalog.FlintBeetle) TekiAiNative.pik_tekis_damage(h, (uint)b.aiId, Mathf.Max(amount, 0.5f), -1);
                 }
                 // The ground and water under the body, which the strategies jump, fall and land on.
                 {
@@ -377,7 +393,7 @@ namespace OlimarTest
                 w.F32(s.frame);
                 w.F32(s.flash);
                 w.U8((byte)Mathf.Clamp(Mathf.RoundToInt(s.fade * 255f), 0, 255));
-                w.U8((byte)s.flags);
+                w.U16((ushort)s.flags);
             }
             Mp.SendToAll(StateMessage, w.ToArray(), false);
         }

@@ -36,15 +36,19 @@ namespace OlimarTest
             GUI.DrawTextureWithTexCoords(new Rect(x0, y0, x1 - x0, y1 - y0), texture,
                 new Rect(u0, v0, u1 - u0, v1 - v0), true);
 
-        internal static void Digits(Texture2D[] digits, int value, Rect rect, int minDigits = 1)
+        internal static void Digits(Texture2D[] digits, int value, Rect rect, int minDigits = 1, HudDigitChanges changes = null)
         {
+            changes?.Observe(value, Time.unscaledTime);
             string count = Mathf.Max(0, value).ToString().PadLeft(minDigits, '0');
             float cell = Mathf.Min(rect.height * .8f, rect.width / count.Length);
             float x = rect.center.x - count.Length * cell * .5f;
             for (int i = 0; i < count.Length; i++)
             {
                 var texture = digits[count[i] - '0'];
-                if (texture) GUI.DrawTexture(new Rect(x, rect.y + (rect.height - cell) * .5f, cell, cell), texture);
+                int place = count.Length - 1 - i;
+                float scale = changes == null ? 1f : Native.pik_number_change_scale(changes.Direction(place), changes.Elapsed(place, Time.unscaledTime));
+                float size = cell * scale;
+                if (texture) GUI.DrawTexture(new Rect(x + (cell - size) * .5f, rect.center.y - size * .5f, size, size), texture);
                 x += cell;
             }
         }

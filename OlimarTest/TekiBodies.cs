@@ -14,7 +14,7 @@ using UnityEngine.AddressableAssets;
 namespace OlimarTest
 {
     // Pikmin's enemies as RoR2 monsters (TekiRoster lists them): Ship Repair's roster,
-    // plus Pellet Posies near Olimar in Classic. Each is a clone of a
+    // plus Pellet Posies and rare Flint Beetles near Olimar in other modes. Each is a clone of a
     // vanilla monster with its AI, skills, hurt boxes and health, its model drawn by libpikmin's view
     // instead (TekiBody), sized to the Bulborb it carries, and its life and speed from the disc's tekipara. The combat director spawns them from cards added to the stage's monster
     // categories while a Ship Repair run is on. A dead one leaves the disc's corpse pellet (PikminWorld.OnDeath →
@@ -24,6 +24,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> Enabled;
         internal static ConfigEntry<int> BigMinStages;
         internal static ConfigEntry<float> HealthScale, SpeedScale, DamageScale, CarrierScale;
+        internal static ConfigEntry<float> FlintShipChance, FlintOtherChance;
         internal static ConfigEntry<bool> FitSizes;
         internal static ConfigEntry<int> HoneywispsPerPlayer, WaterEnemiesPerPlayer, PosiesPerPlayer, ClassicPosiesPerOlimar, FireGeysersPerStage, GasPipesPerStage;
         internal static ConfigEntry<bool> ClamclampEveryStage;
@@ -58,6 +59,10 @@ namespace OlimarTest
                 "Pellet Posies kept around each Ship Repair player (24 maximum in the stage). Harvested plants are replaced periodically. 0 for none.");
             ClassicPosiesPerOlimar = config.Bind("Enemies", "PelletPosiesClassicPerOlimar", 2,
                 "Pellet Posies kept around each living Olimar in Classic (8 maximum in the stage). No Olimar: no new Posies. 0 for none.");
+            FlintShipChance = config.Bind("Enemies", "FlintBeetleShipChance", .5f,
+                "Per-player chance of a Flint Beetle encounter each Ship Repair stage; at most two. No replacements after burrowing. 0 disables.");
+            FlintOtherChance = config.Bind("Enemies", "FlintBeetleOtherChance", .12f,
+                "Per-Olimar chance of a Flint Beetle encounter each stage outside Ship Repair; at most two. 0 disables.");
             FireGeysersPerStage = config.Bind("Enemies", "FireGeysersPerStage", 2,
                 "Fire Geysers placed about each stage after the first (they erupt now and then and can't be killed). 0 for none.");
             GasPipesPerStage = config.Bind("Enemies", "GasPipesPerStage", 1,
@@ -108,7 +113,7 @@ namespace OlimarTest
                 // A harvested Posy must finish TaiPalmDyingAction before its
                 // body disappears. Keep its last HP for those animation frames;
                 // TekiAi hands the lethal hit to the native strategy instead.
-                if (spec.Kind == TekiCatalog.PelletPosy) cb.bodyFlags |= CharacterBody.BodyFlags.Buddha;
+                if (spec.Kind == TekiCatalog.PelletPosy || spec.Kind == TekiCatalog.FlintBeetle) cb.bodyFlags |= CharacterBody.BodyFlags.Buddha;
                 // The model is hidden (its renderers are switched off each frame), and its hurt boxes ride its
                 // bones, so the animator has to keep running with nothing drawn.
                 foreach (var animator in body.GetComponentsInChildren<Animator>(true))

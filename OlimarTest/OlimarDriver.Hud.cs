@@ -11,6 +11,7 @@ namespace OlimarTest
         // decoded from the player's extracted screen/eng_tex files, never bundled.
         readonly Texture2D[] bottomIcons = new Texture2D[22];
         readonly Texture2D[] bottomDigits = new Texture2D[10];
+        readonly HudDigitChanges freeDigits = new HudDigitChanges(), squadDigits = new HudDigitChanges(), totalDigits = new HudDigitChanges();
         Texture2D lifeCircle;
         int lifeCircleStep = -1;
         float lastLife = 1f, lifeHurtAt;
@@ -147,9 +148,9 @@ namespace OlimarTest
                 bottomLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 19,
                     fontStyle = FontStyle.Bold };
             bottomLabel.normal.textColor = new Color(0.8f, 0.88f, 0.74f);
-            BottomCount(438f, y, "FREE", free, 3);
-            BottomCount(619f, y, "SQUAD", squad, 3);
-            BottomCount(800f, y, "TOTAL", total, 4);
+            BottomCount(438f, y, "FREE", free, 3, freeDigits);
+            BottomCount(619f, y, "SQUAD", squad, 3, squadDigits);
+            BottomCount(800f, y, "TOTAL", total, 4, totalDigits);
             GUI.color = savedColor;
             GUI.matrix = savedMatrix;
         }
@@ -186,11 +187,11 @@ namespace OlimarTest
             GUI.DrawTexture(rect, lifeCircle);
         }
 
-        void BottomCount(float x, float y, string label, int count, int minimumDigits)
+        void BottomCount(float x, float y, string label, int count, int minimumDigits, HudDigitChanges changes)
         {
             GUI.Label(new Rect(x, y + 5f, 165f, 26f), label, bottomLabel);
             PikminUiSkin.Bubble(bottomIcons[21], new Rect(x, y + 33f, 165f, 89f));
-            PikminUiSkin.Digits(bottomDigits, count, new Rect(x + 7f, y + 45f, 151f, 61f), minimumDigits);
+            PikminUiSkin.Digits(bottomDigits, count, new Rect(x + 7f, y + 45f, 151f, 61f), minimumDigits, changes);
         }
     }
 }

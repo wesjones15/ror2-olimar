@@ -10,6 +10,8 @@
     <Compile Include="../../OlimarTest/ShipRepairRace.cs" Link="ShipRepairRace.cs" />
     <Compile Include="../../OlimarTest/TekiRules.cs" Link="TekiRules.cs" />
     <Compile Include="../../OlimarTest/PosySpawnPolicy.cs" Link="PosySpawnPolicy.cs" />
+    <Compile Include="../../OlimarTest/FlintSpawnPolicy.cs" Link="FlintSpawnPolicy.cs" />
+    <Compile Include="../../OlimarTest/HudDigitChanges.cs" Link="HudDigitChanges.cs" />
     <Compile Include="../../OlimarTest/TekiRoster.cs" Link="TekiRoster.cs" />
     <Compile Include="../../OlimarTest/ShipRepairDropPacing.cs" Link="ShipRepairDropPacing.cs" />
     <Compile Include="../../OlimarTest/ShipRepairMusicPolicy.cs" Link="ShipRepairMusicPolicy.cs" />

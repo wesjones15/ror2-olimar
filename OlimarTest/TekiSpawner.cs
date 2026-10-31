@@ -16,6 +16,7 @@ namespace OlimarTest
         Stage stage;
         float stageSince, nextTry, nextWisp, nextWater, nextPlant;
         bool breadbugDone, clamDone;
+        bool flintRolled;
         int geysersPlaced, gasPipesPlaced;
         float nextPosyRefill;
         readonly List<TekiBody> wisps = new List<TekiBody>();
@@ -30,6 +31,7 @@ namespace OlimarTest
                 stage = Stage.instance;
                 stageSince = Time.time;
                 breadbugDone = clamDone = false;
+                flintRolled = false;
                 geysersPlaced = gasPipesPlaced = 0;
                 nextTry = nextWisp = nextWater = nextPlant = Time.time + 6f;
                 nextPosyRefill = Time.time + 6f;
@@ -45,6 +47,19 @@ namespace OlimarTest
             var olimars = players.FindAll(p => p.GetComponent<OlimarDriver>());
             var around = shipMode ? players : olimars;
             if (around.Count == 0) return;
+            if (!flintRolled && TekiCatalog.Has(TekiCatalog.FlintBeetle))
+            {
+                flintRolled = true;
+                int made = 0;
+                foreach (var player in around)
+                {
+                    if (made >= 2) break;
+                    if (!FlintSpawnPolicy.Encounter((float)Run.instance.spawnRng.nextNormalizedFloat, shipMode, olimars.Count,
+                        TekiBodies.FlintShipChance.Value, TekiBodies.FlintOtherChance.Value)) continue;
+                    var at = PointNear(new List<CharacterBody> { player }, false, out _);
+                    if (at.HasValue && TekiBodies.Spawn(TekiCatalog.FlintBeetle, at.Value, Random.Range(0f, 360f))) made++;
+                }
+            }
             // Posies are safe resources in both modes; other placed Pikmin enemies
             // remain Ship Repair fixtures. Fill the initial quota together, then
             // replenish harvested plants at the mode's slower cadence.

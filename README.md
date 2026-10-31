@@ -123,6 +123,15 @@ What works:
   plants every 20 seconds. Classic keeps two per living Olimar (8 cap), replenishing every 60 seconds;
   no Olimar means no new plants. Some spawn as buds or seedlings and grow at the disc's pace.
   Configure `Enemies.PelletPosiesShipPerPlayer` / `PelletPosiesClassicPerOlimar`; these replace the old sparse `PelletPosiesPerPlayer` setting.
+- **Iridescent Flint Beetle**: Pikmin 1's invulnerable, scuttling loot bug, with its original model,
+  textures, walk/flip animations, hit/dust particles and sounds. Landing thrown Pikmin flips it;
+  its eight drops repeat 1 pellet, two nectar blobs, two nectar blobs, 5 pellet. It burrows when
+  exhausted or its appearance timer expires. One stage roll per player: 50% in Ship Repair,
+  12% per living Olimar in other modes, at most two encounters and no refills. Configure
+  `Enemies.FlintBeetleShipChance` / `FlintBeetleOtherChance`.
+  Falling nectar and drinkable puddles now render in the mod with their original models/animations.
+- **HUD numbers**: FREE, SQUAD and TOTAL use Pikmin's half-second per-digit change bounce:
+  changed digits expand on increases and contract on decreases, including decimal carries.
 - **Corpses**: small enemies leave 1 pellets, medium/large 5, tough/elite 10, and bosses 20 (the largest numbered pellet),
   red, yellow or blue at random, with the disc's size, carriers and seeds. Pikmin carry it to the
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.

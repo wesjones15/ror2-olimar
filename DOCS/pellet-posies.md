@@ -59,8 +59,9 @@ removed when the native drop completes. Local RoR2 `HealthComponent.TakeDamagePr
 confirms this flag clamps health to 1. This preserves the plant's fall rather than letting
 the borrowed Beetle death state remove it after a few ticks.
 
-Wire layouts stay unchanged: enemy-state flags bits 8–9 carry the Posy palette; draw-kind
-low byte remains kind and its next byte carries optional material frame + 1.
+Native ABI layouts stay unchanged: enemy-state flags bits 8–9 carry the Posy palette;
+draw-kind low byte remains kind and its next byte carries optional material frame + 1.
+The enemy-state network message preserves 16 flag bits so clients receive this palette.
 
 Validation covers growth, exact effects/sound keys, delayed 1-pellet harvesting, no immature
 drops, distinct rendered palette textures, audible PCM for every sound, native palette

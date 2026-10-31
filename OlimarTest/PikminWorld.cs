@@ -2220,6 +2220,11 @@ namespace OlimarTest
                     var e = events[i];
                     if (e.kind == Native.EventKind.ShipPartCollected) ShipRepairSession.Instance?.Receipt(this, e);
                     if (e.kind == Native.EventKind.Grounded) GroundCreature(e);
+                    // Kogane::collisionCallback: only a thrown Pikmin landing flips
+                    // the beetle. Ordinary damage cannot farm its finite drop table.
+                    if (e.kind == Native.EventKind.Latched && e.has_creature != 0
+                        && bodies.TryGetValue(e.creature, out var flint) && flint && TekiAi.FlintLanded(flint))
+                        Native.pik_sim_shake_off(sim, e.creature);
                     if (e.kind == Native.EventKind.WeighedDown) WeighCreature(e);
                     if (e.kind == Native.EventKind.PoisonedEater) PoisonEater(e);
                     if (e.kind == Native.EventKind.PelletDelivered && onionMinions.TryGetValue(e.b, out var onion)

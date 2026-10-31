@@ -444,6 +444,9 @@ static class Program
         Check(Native.Load(dll, out string err), $"load {dll} {err}");
         if (err != null) return 1;
         Check(Native.pik_tick_hz() == 30, "30 Hz");
+        Check(Math.Abs(Native.pik_number_change_scale(1, 0f) - 1.6f) < .0001f
+            && Math.Abs(Native.pik_number_change_scale(-1, 0f) - .4f) < .0001f
+            && Native.pik_number_change_scale(1, .5f) == 1f, "source HUD number pulse crosses native boundary");
         CheckMatureDeathRecall();
         if (args.Length > 1)
         {
@@ -805,7 +808,7 @@ static class Program
                     }
                 if (!ok) badModels++;
             }
-            Check(models == 19 && badModels == 0, $"{models} models read back ({badModels} bad)");
+            Check(models == 21 && badModels == 0, $"{models} models read back, including nectar ({badModels} bad)");
             var frame = new Native.ViewFrame
             {
                 dt = 1f / 60f, forward = new Native.Vec3(0, 0, 1), up = new Native.Vec3(0, 1, 0), listener = c, volume = 1f,

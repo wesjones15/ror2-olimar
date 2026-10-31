@@ -421,6 +421,7 @@ namespace OlimarTest
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_assets_complete(byte[] dir);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_number_texture(byte[] dir, uint digit, byte shadow, out ViewTexture info, [Out] byte[] rgba, uint len);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern float pik_number_change_scale(int direction, float elapsed);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_damage_suffix_texture(byte[] dir, uint glyph, out ViewTexture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_carry_digit_texture(byte[] dir, out ViewTexture info, [Out] byte[] rgba, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_hud_icon_texture(byte[] dir, uint icon, out ViewTexture info, [Out] byte[] rgba, uint len);
