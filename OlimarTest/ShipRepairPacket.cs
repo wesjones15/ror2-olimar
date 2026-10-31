@@ -9,7 +9,10 @@ namespace OlimarTest
     // makes malformed/truncated messages testable without loading Unity or the game.
     internal sealed class ShipRepairPacket
     {
-        public const byte Protocol = 6, Abi = 52;
+        public const byte Protocol = 6;
+        /// The libpikmin ABI both ends speak: the packet carries it so a mismatched build is refused, and it follows
+        /// Native.cs, so a bump there can never leave it behind (it once did, and Olimar failed to load).
+        public const byte Abi = (byte)Native.AbiVersion;
         // A reliable UNET message may carry at most 1100 bytes; the 0.3.8 packet with 17 named parts was 1103
         // and never reached the clients. Names are looked up from the disc on the receiver and delivered
         // parts are left out, so a state message stays far under that.
