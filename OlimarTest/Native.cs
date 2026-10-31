@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 53;
+        public const uint AbiVersion = 54;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
@@ -171,7 +171,7 @@ namespace OlimarTest
         {
             public const byte Idle = 0, Squad = 1, GoHang = 2, Held = 3, Flying = 4, Attack = 5,
                 Knocked = 6, Carry = 7, Pressed = 8, Swallowed = 9, Dying = 10, Fading = 11,
-                Absorb = 12, GrowUp = 13, Enter = 14, Exit = 15, Dead = 16, Plucker = 17;
+                Absorb = 12, GrowUp = 13, Enter = 14, Exit = 15, Dead = 16, Plucker = 17, Plucked = 18;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -282,6 +282,8 @@ namespace OlimarTest
             BulbShot,
             // a the heaviest Pikmin on a flying creature, b the weight (a Purple counts five), creature the flier.
             WeighedDown,
+            // a the Pikmin: pluck motion start, then its dirt animation key.
+            PluckStarted, PluckBurst,
         }
 
         // a: the Pikmin/pellet/sprout/captain it's about; b: a second id; c: a colour, leaf stage

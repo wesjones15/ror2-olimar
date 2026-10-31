@@ -437,6 +437,47 @@ static class Program
         Native.pik_sim_free(sim);
     }
 
+    static void CheckPlucking(ref Native.Host host)
+    {
+        IntPtr sim = Native.pik_sim_new(null, 9);
+        try
+        {
+            var origin = new Native.Vec3();
+            int captain = Native.pik_sim_add_captain(sim, ref origin);
+            var at = new Native.Vec3(0, 0, 6);
+            Native.pik_sim_plant_sprout(sim, Native.Red, ref at);
+            at.x = 36;
+            Native.pik_sim_plant_sprout(sim, Native.Yellow, ref at);
+            var input = new Native.Input { throw_ = 1 };
+            var events = new Native.Event[32];
+            var pikis = new Native.Piki[2];
+            int starts = 0, bursts = 0, pulled = 0;
+            bool recovery = false;
+            for (int tick = 0; tick < 150; tick++)
+            {
+                Native.pik_sim_set_input(sim, (uint)captain, ref input);
+                Native.pik_sim_advance(sim, ref host, 1f / 30f);
+                uint n = Native.pik_sim_events(sim, events, (uint)events.Length);
+                Native.pik_sim_pikis(sim, pikis, 2);
+                for (int i = 0; i < n; i++)
+                {
+                    if (events[i].kind == Native.EventKind.PluckStarted) starts++;
+                    if (events[i].kind == Native.EventKind.PluckBurst) bursts++;
+                    if (events[i].kind == Native.EventKind.Plucked)
+                    {
+                        pulled++;
+                        recovery |= Array.Exists(pikis, p => p.state == Native.PikiState.Plucked);
+                    }
+                }
+            }
+            Check(starts == 2 && bursts == 2 && pulled == 2, "normal and fast pluck cues each cross ABI once");
+            Check(recovery && Array.TrueForAll(pikis, p => p.state == Native.PikiState.Squad),
+                "Pikmin finishes pluck recovery before joining squad through ABI");
+            Check(Native.pik_sim_poisoned(sim) == 0, "pluck ABI stays healthy");
+        }
+        finally { Native.pik_sim_free(sim); }
+    }
+
     static int Main(string[] args)
     {
         CheckJumpButton();
@@ -463,6 +504,7 @@ static class Program
         if (args.Length > 1) CheckShipRepair(args[1], ref host);
         CheckOnionRevival(ref host);
         CheckUnifiedOnionMenu(ref host);
+        CheckPlucking(ref host);
         // An assets folder as the second argument checks the disc tuning loads too.
         IntPtr sim = Native.pik_sim_new(args.Length > 1 ? Native.CString(args[1]) : null, 7);
         if (args.Length > 1) Check(Native.pik_assets_complete(Native.CString(args[1])) == 1, "assets complete");

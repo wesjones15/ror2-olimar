@@ -135,6 +135,8 @@ What works:
 - **Corpses**: small enemies leave 1 pellets, medium/large 5, tough/elite 10, and bosses 20 (the largest numbered pellet),
   red, yellow or blue at random, with the disc's size, carriers and seeds. Pikmin carry it to the
   Onion, which turns it into seeds; sprouts grow and are plucked with the throw button.
+  Plucking plays the Pikmin's full normal/fast extraction animation, the original dirt
+  cloud and debris, and all three pull sound cues. Onion pluckers share this presentation.
   `Corpses.CarryBodies` (experimental, off) has them carry the enemy's own body instead.
 - **Onion (phase 8)**: one Onion per Olimar stores all three types. Its Red, Yellow or
   Blue appearance is chosen once per run and kept across stages; it has no effect on storage.
