@@ -13,8 +13,9 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 54;
+        public const uint AbiVersion = 55;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update_context(IntPtr music,uint song,uint flags,float volume,byte paused,float dt);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_menu_sound(IntPtr music, uint cue);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_music_free(IntPtr music);
@@ -327,6 +328,7 @@ namespace OlimarTest
         public struct Particle
         {
             public Vec3 c0, c1, c2, c3;
+            public float u0,v0,u1,v1,u2,v2,u3,v3;
             public float r, g, b, a;
             public uint texture;
             /// 1: added to the screen; 0: alpha blended.
@@ -404,6 +406,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_normals(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_colors(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_texture_ids(IntPtr view, out uint count);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_particle_texture_version(IntPtr view,uint id);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_particles(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_view_frame_uvs(IntPtr view, out uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_particle_texture(IntPtr view, uint id, out ViewTexture info, [Out] byte[] rgba, uint len);

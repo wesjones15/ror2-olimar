@@ -49,6 +49,7 @@ namespace OlimarTest
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_teki_models(byte on);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_tekis(IntPtr view, Instance[] list, uint count);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_teki_legs(IntPtr view, TekiAiNative.Legs[] list, uint count);
+        [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_follow_effect(IntPtr view,uint key,uint id,ref Native.Vec3 at,ref Native.Vec3 dir,float scale,byte on);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_spawn_effect(IntPtr view, uint id, ref Native.Vec3 pos);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_spawn_effect_dir(IntPtr view, uint id, ref Native.Vec3 pos, ref Native.Vec3 dir);
         [DllImport(Native.Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_teki_named_sound(IntPtr view, byte[] name, ref Native.Vec3 pos);

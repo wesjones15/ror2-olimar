@@ -183,7 +183,7 @@ namespace OlimarTest
             {
                 id = id,
                 // Low byte kind; next byte is the optional material frame + 1.
-                kind = (uint)kind | (kind == TekiCatalog.PelletPosy ? (((s.flags >> 8) & 3u) + 1u) << 8 : 0u),
+                kind = (uint)kind | (kind == TekiCatalog.PelletPosy ? (((s.flags >> 8) & 3u) + 1u) << 8 : ((s.flags>>8)&255u)<<16),
                 pos = UnityHost.ToSim(body.footPosition),
                 yaw = NetworkServer.active ? s.yaw : UnityHost.Yaw(transform.forward),
                 motion = s.motion,
@@ -406,6 +406,8 @@ namespace OlimarTest
         static readonly List<(int id, Native.Vec3 at, Native.Vec3 dir)> directed = new List<(int, Native.Vec3, Native.Vec3)>();
         static readonly List<(string name, Native.Vec3 at)> sounds = new List<(string, Native.Vec3)>();
 
+        static readonly List<(uint key,int id,Native.Vec3 at,Native.Vec3 dir,float scale,bool on)> following=new List<(uint,int,Native.Vec3,Native.Vec3,float,bool)>();
+        public static void QueueFollow(uint key,int id,Native.Vec3 at,Native.Vec3 dir,float scale,bool on) => following.Add((key,id,at,dir,scale,on));
         /// An effect to play at the next draw.
         public static void Queue(int id, Native.Vec3 at) => effects.Add((id, at));
 
@@ -420,16 +422,18 @@ namespace OlimarTest
 
         public static void Flush(PikminModels models)
         {
-            if (effects.Count == 0 && directed.Count == 0 && sounds.Count == 0) return;
+            if (effects.Count == 0 && directed.Count == 0 && sounds.Count == 0 && following.Count==0) return;
             if (models != null)
             {
                 foreach (var (id, at) in effects) models.SpawnEffect(id, at);
                 foreach (var (id, at, dir) in directed) models.SpawnEffect(id, at, dir);
                 foreach (var (name, at) in sounds) models.PlayNamed(name, at);
+                foreach (var f in following) models.FollowEffect(f.key,f.id,f.at,f.dir,f.scale,f.on);
             }
             effects.Clear();
             directed.Clear();
             sounds.Clear();
+            following.Clear();
         }
 
         public static int Collect(PikminWorld world, float dt, out TekiNative.Instance[] instances)

@@ -14,7 +14,7 @@ namespace OlimarTest
     // wants it at, and shows the motion and frame it is in. The clients get those states over the network.
     internal static class TekiAi
     {
-        const short StateMessage = 0x4F22, EffectMessage = 0x4F21, SoundMessage = 0x4F23, DirEffectMessage = 0x4F24;
+        const short StateMessage = 0x4F22, EffectMessage = 0x4F21, SoundMessage = 0x4F23, DirEffectMessage = 0x4F24, FollowEffectMessage = 0x4F25;
         static IntPtr handle, handleSim;
         static TekiAiNative.Navi[] navis = new TekiAiNative.Navi[8];
         static TekiAiNative.Out[] outs = new TekiAiNative.Out[64];
@@ -47,6 +47,12 @@ namespace OlimarTest
                 string name = reader.Str();
                 var at = new Native.Vec3(reader.F32(), reader.F32(), reader.F32());
                 if (!reader.Failed && !NetworkServer.active) TekiDraw.QueueSound(name, at);
+            });
+            Mp.Register(FollowEffectMessage,null,(from,reader)=> {
+                uint key=reader.U32();int id=reader.U16();bool on=reader.U8()!=0;float scale=reader.F32();
+                var at=new Native.Vec3(reader.F32(),reader.F32(),reader.F32());
+                var dir=new Native.Vec3(reader.F32(),reader.F32(),reader.F32());
+                if (!reader.Failed && !NetworkServer.active) TekiDraw.QueueFollow(key,id,at,dir,scale,on);
             });
             Mp.Register(StateMessage, null, (from, reader) =>
             {
@@ -267,6 +273,15 @@ namespace OlimarTest
         {
             switch (o.kind)
             {
+                case 11: // stable source emitter moved with its owner
+                case 12: // stop emission, retaining live particles for their fade
+                {
+                    bool on=o.kind==11;
+                    TekiDraw.QueueFollow(o.b,(int)o.a,o.pos,o.vel,o.x,on);
+                    var fw=new ByteWriter();fw.U32(o.b);fw.U16((ushort)o.a);fw.U8(on?(byte)1:(byte)0);fw.F32(o.x);
+                    fw.F32(o.pos.x);fw.F32(o.pos.y);fw.F32(o.pos.z);fw.F32(o.vel.x);fw.F32(o.vel.y);fw.F32(o.vel.z);
+                    Mp.SendToAll(FollowEffectMessage,fw.ToArray(),!on);break;
+                }
                 case 1: // an effect, here and on the clients
                     TekiDraw.Queue((int)o.a, o.pos);
                     var w = new ByteWriter();

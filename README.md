@@ -436,3 +436,5 @@ spawn state. He materializes from the Dolphin hatch with the ship recovery effec
 the Pikmin exit the Onion. ABI 27 and snapshot version 3 carry the new Onion lifecycle.
 Install the matching DLL pair together. The Onion trial is staged separately in dist/OnionBalanceTrial;
 in-game acceptance of arrival, enemy targeting, healing and revival remains manual.
+
+Ship Repair now mixes four directed Pikmin 2 overworld scores into its stage soundtrack: 20% on stages 1-2, 35% on stages 3-5 and 50% later. Enemy proximity, carrying work, nearby ship parts and squad presence drive the disc's music layers. P2 data failures fall back to P1. Enemy presentation uses libsms's common JParticle TEV/alpha/sampler runtime and ror2-common's refraction material. Source IDs, viewer commands and verification limits are documented in ../libpikmin/docs/p2-presentations.md. Not yet played in-game.

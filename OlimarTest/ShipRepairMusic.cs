@@ -81,7 +81,7 @@ namespace OlimarTest
             }
             if (stage != current.stageClearCount)
             {
-                song = ShipRepairMusicPolicy.Track(current.seed, current.stageClearCount);
+                song = ShipRepairMusicPolicy.MixedTrack(current.seed, current.stageClearCount);
                 stage = current.stageClearCount;
                 Plugin.Log.LogInfo($"Ship Repair: stage {stage + 1}, disc BGM {song}.");
             }
@@ -95,7 +95,25 @@ namespace OlimarTest
             }
             bool nearby = Plugin.AdaptiveStageMusic.Value && Time.time < enemyUntil;
             float volume = GameSettings.MusicVolume() * Mathf.Clamp(Plugin.StageMusicVolume.Value, 0f, 2f);
-            ownsTrack = Native.pik_music_update(music, song, nearby ? (byte)1 : (byte)0, volume, Time.timeScale == 0f ? (byte)1 : (byte)0) != 0;
+            uint context=nearby ? 1u : 0u;
+            var localBody=LocalUserManager.GetFirstLocalUser()?.cachedBody;
+            if (localBody && Plugin.AdaptiveStageMusic.Value)
+            {
+                if (CharacterBody.readOnlyInstancesList.Any(e=>e.teamComponent && e.teamComponent.teamIndex==TeamIndex.Monster && e.healthComponent && e.healthComponent.alive && Vector3.Distance(e.corePosition,localBody.corePosition)<12f)) context|=2;
+                var world=PikminWorld.Instance;
+                if (world != null) for (int i=0;i<world.PikiCount;i++) {
+                    var p=world.Pikis[i]; if (p.alive==0 || Vector3.Distance(UnityHost.ToUnity(p.pos),localBody.footPosition)>50f) continue;
+                    context|=16;
+                    if (p.state==Native.PikiState.Carry) context|=4;
+                }
+                if (world!=null) for (int i=0;i<world.PelletCount;i++) if (world.Pellets[i].has_ship_part!=0 && Vector3.Distance(UnityHost.ToUnity(world.Pellets[i].pos),localBody.footPosition)<30f) {context|=8;break;}
+            }
+            ownsTrack = Native.pik_music_update_context(music,song,context,volume,Time.timeScale==0f?(byte)1:(byte)0,Time.unscaledDeltaTime)!=0;
+            if (!ownsTrack && song>=0x100) {
+                song=ShipRepairMusicPolicy.Track(current.seed,current.stageClearCount);
+                ownsTrack=Native.pik_music_update_context(music,song,context,volume,Time.timeScale==0f?(byte)1:(byte)0,Time.unscaledDeltaTime)!=0;
+                Plugin.Log.LogInfo("Ship Repair: Pikmin 2 music unavailable; using Pikmin 1 stage music.");
+            }
             if (!ownsTrack) { Stop(); failed = true; Plugin.Log.LogWarning("Pikmin stage music failed; restoring RoR2 music."); }
         }
     }

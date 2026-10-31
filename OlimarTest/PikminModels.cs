@@ -124,6 +124,10 @@ namespace OlimarTest
             if (view != IntPtr.Zero) TekiNative.pik_view_spawn_effect_dir(view, (uint)id, ref at, ref dir);
         }
 
+        public void FollowEffect(uint key,int id,Native.Vec3 at,Native.Vec3 dir,float scale,bool on)
+        {
+            if(view!=IntPtr.Zero) TekiNative.pik_view_follow_effect(view,key,(uint)id,ref at,ref dir,scale,on?(byte)1:(byte)0);
+        }
         /// A sound effect the game's tables know by name (SE_*), from `at` (sim units).
         public void PlayNamed(string name, Native.Vec3 at)
         {

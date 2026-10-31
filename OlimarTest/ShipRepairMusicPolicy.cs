@@ -18,6 +18,13 @@ namespace OlimarTest
             }
             return previous;
         }
+        internal static int Pikmin2Chance(int stage) => stage < 2 ? 20 : stage < 5 ? 35 : 50;
+        internal static uint MixedTrack(ulong seed,int stage)
+        {
+            ulong value=seed ^ unchecked((ulong)(stage+1)*0xD6E8FEB86659FD93UL);
+            value ^= value>>32; value=unchecked(value*0x9E3779B97F4A7C15UL); value ^= value>>29;
+            return value%100 < (ulong)Pikmin2Chance(stage) ? 0x100u+(uint)((value>>8)%4) : Track(seed,stage);
+        }
         internal static bool Explore(bool enabled, bool repair, bool eligible, bool terminal, bool boss) =>
             enabled && repair && eligible && !terminal && !boss;
     }

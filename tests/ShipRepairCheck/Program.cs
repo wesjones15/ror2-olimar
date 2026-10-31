@@ -72,6 +72,14 @@ static class Program
             Check(ShipRepairMusicPolicy.Tracks.Contains(song) && song != previousSong && song == ShipRepairMusicPolicy.Track(123, musicStage), "seeded stage music without consecutive repetition or dependence on join time");
             previousSong = song;
         }
+        Check(ShipRepairMusicPolicy.Pikmin2Chance(0)==20 && ShipRepairMusicPolicy.Pikmin2Chance(2)==35 && ShipRepairMusicPolicy.Pikmin2Chance(5)==50,"Pikmin 2 is less common early and increases later");
+        int earlyP2=0,lateP2=0;
+        for (ulong seed=0;seed<1000;seed++) {
+            uint early=ShipRepairMusicPolicy.MixedTrack(seed,0),late=ShipRepairMusicPolicy.MixedTrack(seed,6);
+            if (early>=0x100) earlyP2++;if(late>=0x100) lateP2++;
+            Check(early==ShipRepairMusicPolicy.MixedTrack(seed,0),"mixed music is deterministic for late joins");
+        }
+        Check(earlyP2>100 && earlyP2<300 && lateP2>400 && lateP2<600,"seeded music distribution keeps early Pikmin 1 majority");
         Check(ShipRepairMusicPolicy.Explore(true, true, true, false, false) &&
             !ShipRepairMusicPolicy.Explore(true, true, true, false, true) &&
             !ShipRepairMusicPolicy.Explore(true, false, true, false, false) &&

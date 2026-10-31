@@ -320,6 +320,10 @@ static class Program
                 {
                     foreach (uint song in new uint[] { 4, 5, 10, 9, 17 })
                         Check(Native.pik_music_update(music, song, 1, 0f, 1) == 1, "stage song, enemy layers and pause cross music ABI: " + song);
+                    for(uint p2song=0x100;p2song<0x104;p2song++) {
+                        Check(Native.pik_music_update_context(music,p2song,31,0f,1,1f/30f)==1,"Pikmin 2 directed song opens through ABI: "+p2song);
+                        Check(Native.pik_music_update_context(music,p2song,16,0f,0,1f/30f)==1,"Pikmin 2 activity layers advance through ABI");
+                    }
                     Check(Native.pik_music_update(music, 99, 0, 0f, 0) == 0 && Native.pik_music_update(music, 4, 0, 0f, 0) == 1,
                         "invalid stage song is rejected without poisoning the music stream");
                     Check(Native.pik_music_update(music, 0, 0, 0f, 0) == 1, "stage music stops for vanilla bosses/results");
