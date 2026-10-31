@@ -1658,6 +1658,8 @@ namespace OlimarTest
                 return;
             }
             if (sim == IntPtr.Zero) return;
+            // Pellets a guest (Mario) carries or has thrown, outside Ship Repair.
+            ShipRepairGuests.TickLoose(this);
             if (corpseUntil > 0f && Time.fixedTime >= corpseUntil)
             {
                 // The downed Olimar's knockdown has played out; drop the models (the run is over).

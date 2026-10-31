@@ -13,13 +13,18 @@ namespace OlimarTest
     /// Dolphin by the teleporter; he takes a ship part from the ground (Takeables, Take), keeps it in his hands
     /// (Hold every frame), and sets it down or throws it (Put, Throw), and it goes into his Dolphin's receiver if
     /// it lands there. Parts are the Pikmin sim's pellets, so everything runs on the server and clients send it
-    /// their requests (ShipRepairGuests).
+    /// their requests (ShipRepairGuests). Every other pellet in a Pikmin world is a takeable too (version 2): a
+    /// guest can pick up, carry, set down and throw the loose pellets of an ordinary run, and the Pikmin carry
+    /// a pellet he sets down to an Onion as usual.
     public static class ShipRepairApi
     {
-        public const int Version = 1;
+        public const int Version = 2;
 
         /// A Ship Repair run is going.
         public static bool Active => ShipRepairMode.Active;
+
+        /// A guest can carry things now: Ship Repair, or a run where a Pikmin world (Olimar's) is up.
+        public static bool CanCarry => ShipRepairGuests.CanCarry;
 
         /// Lets players of the body with this name (its catalog name, "MarioTestBody") choose it for Ship Repair.
         public static void AllowGuest(string bodyName) => ShipRepairGuests.Allow(bodyName);
@@ -98,6 +103,18 @@ namespace OlimarTest
 
         internal static bool AnyGuests => allowed.Count > 0;
 
+        /// Ship Repair, or any run with a Pikmin world whose pellets a guest can reach (the server's sim, or a
+        /// client's replica of it).
+        internal static bool CanCarry
+        {
+            get
+            {
+                if (ShipRepairMode.Active) return true;
+                var w = PikminWorld.Instance;
+                return w && (w.ClientMode || w.SimHandle != IntPtr.Zero);
+            }
+        }
+
         public static void Register(CharacterBody body)
         {
             if (!body || guests.Contains(body)) return;
@@ -123,6 +140,13 @@ namespace OlimarTest
         static CharacterBody BodyOfUser(uint user)
         {
             foreach (var b in guests) if (b && UserOf(b) == user) return b;
+            // A guest whose body started before a Pikmin world was up was never registered: find him by name.
+            foreach (var b in CharacterBody.readOnlyInstancesList)
+            {
+                if (!b || !b.isPlayerControlled || UserOf(b) != user) continue;
+                foreach (var name in allowed)
+                    if (b.name.StartsWith(name, StringComparison.Ordinal)) { Register(b); return b; }
+            }
             return null;
         }
 
@@ -152,7 +176,20 @@ namespace OlimarTest
                         world.RegisterGuest(body, user);
                 }
             }
-            var w = PikminWorld.Instance;
+            TickCarried(PikminWorld.Instance);
+        }
+
+        /// Outside Ship Repair (its session ticks it there): keeps the pellets guests carry where they have them
+        /// and flies the thrown ones. Called each fixed step by the server's Pikmin world.
+        internal static void TickLoose(PikminWorld w)
+        {
+            if (ShipRepairMode.Active || !NetworkServer.active || (held.Count == 0 && flights.Count == 0)) return;
+            guests.RemoveAll(b => !b);
+            TickCarried(w);
+        }
+
+        static void TickCarried(PikminWorld w)
+        {
             if (!w || w.ClientMode || w.SimHandle == IntPtr.Zero) return;
             float now = Time.time;
             List<uint> drop = null;
@@ -267,12 +304,13 @@ namespace OlimarTest
         public static int Takeables(Vector3 at, float radius, uint[] ids, Vector3[] positions, float[] radii)
         {
             var w = PikminWorld.Instance;
-            if (!w || !ShipRepairMode.Active) return 0;
+            if (!w || !CanCarry) return 0;
             int n = 0;
             for (int i = 0; i < w.PelletCount && n < ids.Length; i++)
             {
+                // Every pellet: a ship part, or an ordinary one the Pikmin would carry to an Onion.
                 var p = w.Pellets[i];
-                if (p.has_ship_part == 0 || (p.state != 0 && p.state != 1)) continue;
+                if (p.state != 0 && p.state != 1) continue;
                 var pos = UnityHost.ToUnity(p.pos);
                 float r = p.radius * UnityHost.Scale;
                 if (Vector3.Distance(pos, at) > radius + r) continue;

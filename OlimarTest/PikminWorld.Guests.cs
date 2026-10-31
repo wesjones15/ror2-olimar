@@ -102,11 +102,11 @@ namespace OlimarTest
             return true;
         }
 
-        /// A part by pellet id, from the server's sim or a client's replica.
+        /// A pellet (a ship part or an ordinary one) by id, from the server's sim or a client's replica.
         internal bool TryPart(uint pellet, out Native.Pellet found)
         {
             for (int i = 0; i < PelletCount; i++)
-                if (Pellets[i].id == pellet && Pellets[i].has_ship_part != 0) { found = Pellets[i]; return true; }
+                if (Pellets[i].id == pellet) { found = Pellets[i]; return true; }
             found = default;
             return false;
         }
