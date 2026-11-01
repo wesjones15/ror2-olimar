@@ -100,7 +100,7 @@ namespace OlimarTest
                 strikeNow = gp.rightBumper.value;
                 strikeHeld = gp.rightBumper.value;
                 heal |= gp.rightBumper.justPressed;
-                recallStuck |= lt;
+                recallStuck |= lt && !rt;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
                     look = rt ? Vector2.zero : Dead(gp.rightStick.value);
