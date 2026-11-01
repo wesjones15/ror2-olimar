@@ -43,6 +43,8 @@ namespace OlimarTest
 
         float cooldownHeld = 1f;
         float stomperReadyAt, genesisReadyAt, razorReadyAt, whistleSeenAt = -10f;
+        /// When a Pikmin of this squad was last hurt, for the out-of-danger regen gate.
+        float lastPikminHurtAt = float.NegativeInfinity;
         // Pikmin landing from a stomp, gathered into one blast.
         int stompCount;
         Vector3 stompSum;
@@ -99,8 +101,16 @@ namespace OlimarTest
                 (byte)(ByName.Count(body, "FallBoots") > 0 ? 1 : 0));
             CooldownBoost = SkillCooldown.Boost(Slot(SkillSlot.Primary), Plugin.CooldownExponent.Value, ref cooldownHeld);
 
-            // His regeneration, as a share of his health, regrows theirs.
-            float regen = stats.regenFraction * 100f * Mathf.Max(0f, Plugin.MinionHealScale.Value) * Time.fixedDeltaTime;
+            // A survivor's shape: their own base regeneration (a share of their max health),
+            // doubled by Rejuvenation Rack the way it doubles a survivor's base, plus a share
+            // of his regeneration stat (which already carries Cautious Slug, Titanic Knurl and
+            // level). Out of danger it runs at PikminRegenOutOfCombat, like Cautious Slug.
+            int racks = ByName.Count(body, "IncreaseHealing");
+            float rate = Plugin.PikminRegen.Value * (1f + racks)
+                + stats.regenFraction * Mathf.Max(0f, Plugin.MinionHealScale.Value);
+            if (Time.fixedTime - lastPikminHurtAt > Mathf.Max(0f, Plugin.PikminRegenDelay.Value))
+                rate *= Mathf.Max(0f, Plugin.PikminRegenOutOfCombat.Value);
+            float regen = rate * 100f * Time.fixedDeltaTime;
             if (regen > 0f) Native.pik_sim_heal_squad(sim, captain, regen);
             FlushStomp();
         }
@@ -278,6 +288,7 @@ namespace OlimarTest
         {
             var body = Body;
             if (piki >= world.PikiCount) return;
+            lastPikminHurtAt = Time.fixedTime;
             var p = world.Pikis[piki];
             var at = UnityHost.ToUnity(p.pos) + Vector3.up * 0.3f;
             float scale = Mathf.Max(0f, Plugin.ItemEffectScale.Value);

@@ -1,165 +1,202 @@
-# Pikmin melee balance: a happy medium (2026-11-01)
+# Pikmin melee balance and regeneration: revised proposal (2026-11-01)
 
-The Pikmin survivability pass went too far. This is a proposal to keep the new
-positional melee without letting one swing delete a squad.
+**Status:** implemented 2026-11-01. The defaults below are the live defaults
+(2/4 victims, 0.6 damage scale, 0.3 s window, 3%/s regen, 7 s delay, 2x out of
+danger). Not yet played.
 
-## What changed, and where
+The Oct-31 survivability pass is correct hit detection with the wrong
+consequence, and no way to recover from the consequence. This revision keeps
+positional melee, caps how much of a swing the squad eats, and gives Pikmin the
+same shape of regeneration a survivor has.
 
-| Date | Commit | Effect |
-| --- | --- | --- |
-| 10-30 | `ba06747` | Ground groups of 3+ Pikmin become unkillable RoR2 minions, so enemy AI can target and swing at them (`PikminWorld.Combat.cs::UpdatePikiGroups`, `Plugin.cs::PikiGroupMinion`). |
-| 10-31 | `c9ccca4` | Every Pikmin inside an enemy explosion's real blast takes damage (`PikminWorld.Incoming.cs::EnemyBlast`). |
-| 10-31 | `40efbda` | Every Pikmin inside an `OverlapAttack`'s active box/sphere takes the full swipe, even when no RoR2 body was hit (`PikminWorld.MobMelee.cs::EnemyMelee`, `OverlapDamage.cs`). |
+## The problem, in one paragraph
 
-The last one is the regression. It is correct hit detection with the wrong
-consequence.
+`PikminWorld.MobMelee.cs::EnemyMelee` (commit `40efbda`) gives every Pikmin
+inside an `OverlapAttack`'s active volume the full hit. A Pikmin has
+`PikminHealth (0.5) x Olimar max health` = 110 at level 1, so a tier-1 bite
+(12) is 10.9% each; one swing covering 8 Pikmin removes 87% of a Pikmin's
+health from the squad. Two facts compound it: the group proxy has 1,000,000
+health and regeneration (`Plugin.cs`, so enemies camp it and keep swinging) and
+field Pikmin have no meaningful regeneration, so every point of damage is
+permanent.
 
-## Why it overshot
+## Part 1 - melee
 
-1. **Spread, not magnitude.** `EnemyMelee` calls `pik_sim_attack_piki` for every
-   Pikmin whose body touches the swing volume. A Pikmin has
-   `PikminHealth (0.5) x Olimar max health` = 110 at level 1, so a tier-1 bite
-   (12, the README's own example) is 10.9% each. One swing that covers 8 Pikmin
-   removes 87% of a Pikmin's health from the squad; two swings erase one Pikmin
-   across the board. Before this commit only Pikmin within
-   `PikminHurtRadius` (1.5 m) of an *actual RoR2 hit position* were hurt, so the
-   blast radius, not the attack arc, limited the damage.
-2. **No reaction.** `Sim::attack_piki` only refuses `Knocked`/`Pressed`
-   (`damage.rs`), and the melee path never knocks. Pikmin stand in the arc,
-   keep biting, and take every swing with no stagger, no scatter, and no
-   per-Pikmin immunity window. Pikmin 1's `InteractFlick` (interactBattle.cpp)
-   is exactly the missing behaviour: damage, knockback, and immunity while down.
-3. **The proxy never dies.** `PikiGroupMinion` has 1,000,000 health and
-   regeneration (`Plugin.cs`), so an enemy that acquires a group camps it and
-   keeps swinging. The squad cannot "win" the target and cannot make the enemy
-   retarget Olimar.
-4. **Health is already generous.** 110 health against a 12-damage bite is
-   ~9 bites per Pikmin. The old complaint was "one bite killed every Pikmin"
-   (`281e875`); that was fixed. The new problem is that a bite hits *everyone*.
+Keep the positional test; limit what one swing reaches and how hard it lands.
+Victims are picked **nearest the swing volume first**, so the Pikmin latched on
+the attacker take it and the squad behind them does not.
 
-So the dials are: how many Pikmin a swing catches, how much of it each takes,
-how often one Pikmin can be caught, and whether enemies seek the squad at all.
-
-## The medium
-
-**Principle:** a swipe should cost the Pikmin *biting the attacker*, not the
-squad standing behind them. Latching onto a boss should be a trade, not a
-free win and not a squad wipe. Pikmin 1 delivers attacks to the collision part
-they touch, not to a screen-wide sphere; the new path should behave the same.
-
-Recommended profile (new keys default to these; set them to
-`0 / 1 / 0` to get today's behaviour back):
-
-| Setting | Section | Current | Proposed | Why |
-| --- | --- | --- | --- | --- |
-| `PikminMeleeMaxVictims` (new) | Combat | all in the volume (5-15) | **2** (+2 for champions/elites) | one swing wounds a handful, not the squad |
-| `PikminMeleeDamageScale` (new) | Combat | 1.0 | **0.5** | a swipe costs real health but is not a one-shot |
-| `PikminMeleeIFrames` (new) | Combat | 0 | **0.5 s** | one Pikmin cannot be focus-fired by five mobs in the same frame |
-| `PikminGroupsTargetable` (new) | Combat | on | **on** | keep the Oct-30 counterplay: enemies fight back |
-| `PikminHealth` | Combat | 0.5 | **0.5** | leave the global dial alone; fix melee only |
-
-Victims are chosen **nearest to the swing volume first**. Latched Pikmin sit at
-distance zero, so the two biting the attacker take the hit and the squad behind
-them does not. That is the intended trade.
+| Setting | Section | Current | Proposed |
+| --- | --- | --- | --- |
+| `PikminMeleeMaxVictims` (new) | Combat | all in the volume (5-15) | **2** (+2 for champions/elites) |
+| `PikminMeleeDamageScale` (new) | Combat | 1.0 | **0.6** |
+| `PikminMeleeIFrames` (new) | Combat | 0 | **0.3 s** |
+| `PikminHealth` | Combat | 0.5 | 0.5 (unchanged) |
 
 ### Worked numbers (level 1, Olimar 220, Pikmin 110)
 
 | Swinger | Damage | Current, per swing | Proposed, per swing |
 | --- | --- | --- | --- |
-| Tier-1 melee | 12 | 10.9% of every Pikmin in the arc | 5.5% to at most 2 |
-| Elite (x3) | 36 | 32.7% of every Pikmin in the arc | 16.4% to at most 4 |
-| Boss (x5) | 60 | 54.5% of every Pikmin in the arc | 27.3% to at most 4 |
+| Tier-1 melee | 12 | 10.9% of every Pikmin in the arc | 6.5% to at most 2 |
+| Elite (x3) | 36 | 32.7% of every Pikmin in the arc | 19.6% to at most 4 |
+| Boss (x5) | 60 | 54.5% of every Pikmin in the arc | 32.7% to at most 4 |
 
-With 8 Pikmin in a swing, that is 87% of one Pikmin removed per tier-1 swing
-today versus 11% proposed; a boss swing goes from 436% (four Pikmin erased) to
-109% (one Pikmin wounded). The 20-Pikmin pile on a boss then costs roughly one
-Pikmin per punch instead of the whole squad in two punches.
+With 8 Pikmin in a swing: 87% of one Pikmin per tier-1 swing today versus 13%
+proposed. A boss swing goes from 436% (four Pikmin erased) to 131% (one Pikmin
+wounded), so a 20-Pikmin pile costs roughly one Pikmin per punch instead of the
+squad in two punches.
 
-### Target feel
+The 0.3 s immunity window is the part that stops five mobs focus-firing the
+same front pair in one frame. It is a per-Pikmin deadline, not a running timer
+or a sim change: the hook records `until = now + 0.3` and compares on the next
+hit, exactly like `procReadyAt` (`PikminWorld.cs`) and `nextShake`
+(`PikminWorld.Combat.cs`).
 
-- A normal trash pack costs **0-2 Pikmin**.
-- An elite or champion costs **2-5**.
-- A boss costs **5-12** over the fight, and whistling the squad out stops the
-  bleed.
-- No single swing should ever remove more than about one Pikmin's worth of
-  health from the squad.
+## Part 2 - survivor-style regeneration
 
-If a pack still costs more than that, lower `PikminMeleeDamageScale` before
-touching health. If Pikmin now shrug everything off, raise the cap first, then
-the scale.
+### What survivors actually have
 
-## Dials, in order
+- **Base regen**: Commando has `BaseHealthRegen = 1`, `ScalingHealthRegen =
+  0.2` (RoR2 wiki survivor data). That is 1 hp/s at level 1, +0.2 per level.
+  On 110 health it is ~0.9%/s: slow on its own.
+- **Cautious Slug** (`HealWhileSafe`): +3 hp/s (+3 per stack, +0.6/stack per
+  level) after 7 s out of danger. It is *passive regeneration*, so it lands in
+  `body.regen`; Corpsebloom does not affect it.
+- **Titanic Knurl, level regen, regen buffs**: also in `body.regen`.
+- **Rejuvenation Rack** (`IncreaseHealing`): +100% per stack to all healing and
+  passive regeneration, including the base. It multiplies the regen stat.
+- **Corpsebloom**: +100% healing but caps at 10%/s; it converts direct heals,
+  not the regen stat.
 
-1. **Still too harsh** (squad still melts):
-   - `PikminMeleeMaxVictims` 2 -> 1 for ordinary enemies (keep champion bonus).
-   - `PikminMeleeDamageScale` 0.5 -> 0.35.
-   - `PikminGroupsTargetable` off: enemies stop seeking the squad (the pre-10-30
-     behaviour), so only Pikmin caught in a swing aimed at Olimar are hurt.
-2. **Too soft** (Pikmin ignore bosses again):
-   - `PikminMeleeMaxVictims` 3, `PikminMeleeDamageScale` 0.75,
-     `PikminMeleeIFrames` 0.25.
-   - Keep group aggro on; that is the part that makes bosses fight back.
-3. **Deaths still feel punishing** (recovery, not immunity):
-   - `Combat.PikminSquadRegen` (new, fraction of max health per second) 0.02,
-     applied through the existing `pik_sim_heal_squad` call in
-     `OlimarItems.cs`, gated on no enemy hit for `PikminRegenDelay` (5 s).
-   - Raise the flower seed chance (`Params.piki.piki_leave_seed_chance`, disc
-     0.8 = 20%) to 0.5, so half of flower deaths leave a pluckable sprout.
-     This needs a small FFI setter; it is the cleanest way to make losses
-     recoverable without making Pikmin immortal.
-4. **"They used to take care of close targets"**:
-   - Turn on `Params.ai.auto_attack` (disc `aiconst.bin` p01 is 0; the code
-     default is 1). Idle/squad Pikmin then engage a creature within
-     `idle_attack_search_range` (~4 m) by themselves, using the game's own
-     "Pikmin: auto attack" flag. Needs an FFI setter, like the seed chance.
-   - This pairs with the cap: the squad fights back while the enemy's swipes
-     cost it a couple of Pikmin instead of all of them.
+The repo already has both halves of this pattern: `MinionStats.cs` reads
+`regenFraction = body.regen / body.maxHealth`, and Mario's `RegenWater()`
+isolates the item part with `body.regen - (baseRegen + levelRegen*(level-1))`.
+
+### Why Pikmin currently heal about nothing
+
+`OlimarItems.BeforeStep` already calls `pik_sim_heal_squad(sim, captain,
+stats.regenFraction * 100 * MinionHealScale * dt)`. At level 1 that is
+`1/220 * 100 * 0.5` = 0.23 sim points per second on a 100-point Pikmin, or
+~430 seconds to heal from zero. It is invisible. This is not a missing call; it
+is a missing scale.
+
+### The model
+
+Give Pikmin their own survivor-shaped base, then let his healing items add to
+it exactly as they add to his. The base is 3%/s, about 3x a survivor's own
+base fraction (1/110 = 0.9%/s): a Pikmin has no items of its own and has to
+recover inside a 15-30 s gap between packs, not over a whole stage.
+
+```
+Pikmin base:      PikminRegen (0.03 = 3%/s of a Pikmin's max health)
+                  x (1 + Rejuvenation Rack stacks)     // Rack doubles a survivor's base too
+His items:        body.regen / body.maxHealth x MinionHealScale (0.5)
+                  // body.regen already includes Cautious Slug, Knurl, level, Rack
+Out of danger:    whole rate x PikminRegenOutOfCombat (2) after PikminRegenDelay (7 s)
+Applied:          pik_sim_heal_squad(captain, rate * 100 * dt)  // existing call
+```
+
+`heal_squad` already skips dying and dead Pikmin and heals every Pikmin
+assigned to the captain, including latched ones, so a Pikmin on a boss heals
+during the fight the way a survivor does.
+
+| State (level 1, no items) | Rate | Time to full |
+| --- | --- | --- |
+| In danger | 3.0% + 0.23% = 3.2%/s | ~31 s |
+| Out of danger (7 s) | 6.5%/s | ~15 s |
+| + 1 Cautious Slug | 3.0% + 0.9% = 3.9%/s / 7.8%/s out | ~13 s out |
+| + 1 Rejuvenation Rack | 6.0% + 0.45% = 6.5%/s / 12.9%/s out | ~8 s out |
+
+The rack is the item that makes it feel like a survivor: it doubles the base,
+not just his item share.
+
+### What it does to a fight
+
+| Case | Today | Revised |
+| --- | --- | --- |
+| 5 Beetles vs 10 Pikmin (~4 s) | ~2.2 Pikmin/s, wipe | 0-1 lost; front pair ~25%, full again in ~19 s |
+| Elite or champion | wipe | 2-4 lost, heals between packs |
+| Boss, 20 latched, ~7 punches | ~4.4 Pikmin/punch, wipe | ~1.1/punch, ~7-9 lost over the fight |
+
+Trash becomes "certain damage that heals back"; a boss still costs Pikmin.
+If packs arrive faster than the ~19 s heal, damage accumulates and the front
+line dies - which is the intended tempo.
+
+The existing Onion loop still matters and is unchanged: stored Pikmin are
+counts, and `spawn_piki` brings them out at full health, so dumping and
+recalling the squad is still a free full heal at the cost of a retreat. Pellets
+and seeds still replace deaths. Regeneration is what makes the *field* squad
+recover without a retreat; it does not replace the Onion.
+
+## Settings summary
+
+| Setting | Section | Default | Meaning |
+| --- | --- | --- | --- |
+| `PikminMeleeMaxVictims` | Combat | 2 | Most Pikmin one swing can hurt; +2 for champions/elites. 0 = no cap. |
+| `PikminMeleeDamageScale` | Combat | 0.6 | Share of the swing's damage each victim takes. 1 = current. |
+| `PikminMeleeIFrames` | Combat | 0.3 | Seconds a Pikmin cannot be hit by another swipe. 0 = current. |
+| `PikminRegen` | Combat | 0.03 | Pikmin base regen, share of their max health per second. |
+| `PikminRegenDelay` | Combat | 7 | Seconds without a Pikmin hurt before the out-of-danger rate. |
+| `PikminRegenOutOfCombat` | Combat | 2 | Multiplier on the whole rate out of danger. 1 = off. |
+| `PikminHealth` | Combat | 0.5 | Unchanged; the global pool stays where it is. |
+| `MinionHealScale` | Items | 0.5 | Unchanged; scales his item regen into the Pikmin rate. |
 
 ## Implementation sketch
 
-All host-side except the two optional params.
-
-- `ror2-olimar/OlimarTest/PikminWorld.MobMelee.cs`, `EnemyMelee`:
-  gather candidates into `(distance, Piki)`, sort, take
-  `max(0, MaxVictims) + (champion or elite ? 2 : 0)`, check a
-  `Dictionary<ulong, float> meleeImmuneUntil` keyed by
-  `(generation << 32) | id` against `sample.Now`, then call
-  `pik_sim_attack_piki` with `damage * scale`. Set the immunity stamp on a
-  landed hit. Clear the dictionary in `FreeSim`, next to `incomingMeleeWorld`.
+- `ror2-olimar/OlimarTest/PikminWorld.MobMelee.cs`, `EnemyMelee`: gather
+  candidates as `(distance to the swing volume, Piki)`, sort, take the cap
+  (`MaxVictims + 2` when `attacker.isChampion || attacker.isElite`), skip a
+  Pikmin whose `meleeImmuneUntil[id]` is still in the future, then call
+  `pik_sim_attack_piki(damage * scale)` and set `meleeImmuneUntil[id] = now +
+  iFrames` on a landed hit. Use the same `float[]` grown with `Array.Resize` /
+  `NextPowerOfTwo` as `procReadyAt`, and read `now` from the damage path's own
+  clock (`sample.Now`, `Time.realtimeSinceStartup`, the clock `Swing.TryHit`
+  already uses; switch both to `Time.fixedTime` together if pause-scaled
+  windows are wanted). Clear the array in `FreeSim`.
+  This window gates server-side damage only: clients see the resulting Pikmin
+  health in the snapshot, so it needs no wire-format or replica change.
 - `ror2-common/src/OverlapDamage.cs`, `Sample`: add
-  `float DistanceTo(Vector3 point)` returning the minimum distance to any
-  `Volume` (0 inside), reusing the existing box/sphere maths.
-- `ror2-olimar/OlimarTest/Plugin.cs`: five new `Combat.*` binds; defaults as
-  in the table. `PikminGroupsTargetable` is read in `UpdatePikiGroups` when a
-  group spawns: clear `HurtBox.isBullseye` (keep colliders) when off, so a
-  swing aimed at Olimar still catches the squad but AI does not seek it.
-- `ror2-olimar/tests/IncomingBlastCheck/MeleeChecks.cs`: assert a wide volume
-  over six Pikmin damages only the nearest two; a second swing inside
-  `PikminMeleeIFrames` damages none; after the window it damages again; the
-  scale lands the expected health. Keep the existing "successive swings kill
-  an idle squad" test but drive it past the i-frame window.
-- Optional FFI (ABI bump, `libpikmin-ffi` + `Native.cs` together):
-  `pik_sim_set_seed_chance`, `pik_sim_set_auto_attack`.
+  `float DistanceTo(Vector3 point)` (minimum over the active volumes, 0 inside),
+  reusing the existing box/sphere maths.
+- `ror2-olimar/OlimarTest/Plugin.cs`: the six new `Combat.*` binds above.
+- `ror2-olimar/OlimarTest/OlimarItems.cs`, `BeforeStep`: replace the single
+  `stats.regenFraction` term with the formula above; add
+  `lastPikminHurtAt` (set in `PikiHurt` and in `EnemyMelee`/`EnemyBlast` when
+  they land) for the out-of-danger gate.
+- `ror2-olimar/tests/IncomingBlastCheck/MeleeChecks.cs`: a wide volume over six
+  Pikmin hurts only the nearest two; a second swing inside the immunity window
+  hurts none; after it, it hurts again; the scale lands the expected health.
+  Keep the "successive swings kill an idle squad" test, driving it past the
+  window.
+- `ror2-olimar/tests/NativeCheck` (or a small host test): a wounded squad at
+  3.2%/s heals to full in ~31 s; with a Rack, ~15 s; while latched, it heals at
+  the in-danger rate.
 
-No change to `DamageCoefficient`, `ProcCoefficient`, Pikmin attack power or
-`StrikeDamage`: offence is not the problem, and buffing it would just shorten
-fights.
-
-## Not proposed
-
-- Reverting the `OverlapAttack` hook. Positional hits on native Pikmin are
-  correct and testable; the cap and scale are what is wrong, not the detection.
-- Making Pikmin immune again, or removing group aggro. Both restore the
-  original complaint (a squad that cannot be fought).
-- Changing explosion damage in the same pass. Explosions are telegraphed and
-  rarer; if they still delete squads, add `PikminBlastDamageScale` later.
-  Keep one variable moving at a time.
+No libpikmin or ABI change is required for either part.
 
 ## Playtest
 
-1. One run against tier-1 melee only (no elites). Count Pikmin lost per pack.
-2. One champion/elite encounter. Confirm the squad loses a few, not all.
-3. One boss. Confirm latching costs Pikmin and whistling stops the loss.
-4. Confirm the squad still cannot stand in a boss's face indefinitely.
+1. Tier-1 pack (5 Beetles/Lemurians): expect 0-1 lost and the front pair
+   visibly wounded, then healed by the next pack. If the pack costs 0 and
+   nothing is wounded, lower `PikminMeleeMaxVictims` to 1 or the scale to 0.5.
+2. Elite/champion: 2-4 lost, not a wipe.
+3. Boss with the full pile: ~1 Pikmin per punch, 5-12 over the fight; whistling
+   out stops the bleed.
+4. Idle a wounded squad out of danger: full health in ~20 s. With a Rack,
+   about half that.
+5. Confirm the squad still cannot facetank a boss indefinitely.
 
-Not yet played. The numbers above are the proposal, not a verified result.
+Not yet played. The numbers are the proposal, not a verified result.
+
+## Not in scope
+
+- Reverting the `OverlapAttack` hook. Positional hits are correct; the cap,
+  scale and immunity are the fix.
+- Making Pikmin immune or removing group aggro; both restore the original
+  "cannot be fought" problem.
+- On-hit heals (Medkit, Monster Tooth, Leeching Seed, Harvester's Scythe) for
+  Pikmin. Survivors get those through `HealthComponent.Heal`; extending them to
+  a bodiless sim is a separate item pass. Start with regen; add on-hit heals
+  only if the squad still feels starved.
+- Explosion damage. Keep one variable moving; add `PikminBlastDamageScale`
+  later if blasts still delete squads.

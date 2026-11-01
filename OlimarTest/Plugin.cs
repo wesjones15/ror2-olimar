@@ -54,6 +54,9 @@ namespace OlimarTest
         internal static ConfigEntry<bool> OnionItems, AutoRejoin;
         internal static ConfigEntry<float> OnionHealth, OnionReviveSeconds, OnionPelletHeal;
         internal static ConfigEntry<float> DamageCoefficient, ProcCoefficient, PikminHealth, PikminHurtRadius;
+        internal static ConfigEntry<int> PikminMeleeMaxVictims;
+        internal static ConfigEntry<float> PikminMeleeDamageScale, PikminMeleeIFrames;
+        internal static ConfigEntry<float> PikminRegen, PikminRegenDelay, PikminRegenOutOfCombat;
         internal static ConfigEntry<float> OlimarHealth, OlimarHealthPerLevel, StickDeadzone;
         internal static ConfigEntry<float> LookUpDegrees;
         internal static ConfigEntry<float> OlimarHeight, MetresPerUnit, ThrowReach, ShakeProtection, LockRange;
@@ -271,6 +274,19 @@ namespace OlimarTest
                 "Pikmin's health.");
             PikminHurtRadius = Config.Bind("Combat", "PikminHurtRadius", 1.5f,
                 "Metres around an enemy hit's impact point in which Pikmin are hurt too.");
+            PikminMeleeMaxVictims = Config.Bind("Combat", "PikminMeleeMaxVictims", 2,
+                "Most Pikmin one enemy melee swing can hurt; the ones nearest the swing go first, so " +
+                "the Pikmin latched on the attacker take it. Champions and elites add 2. 0: no cap.");
+            PikminMeleeDamageScale = Config.Bind("Combat", "PikminMeleeDamageScale", 0.6f,
+                "Share of an enemy melee swing's damage each Pikmin it catches takes. 1: the swing's full damage.");
+            PikminMeleeIFrames = Config.Bind("Combat", "PikminMeleeIFrames", 0.3f,
+                "Seconds a Pikmin cannot be hurt by another enemy melee swing after one lands. 0: every swing can hit it.");
+            PikminRegen = Config.Bind("Combat", "PikminRegen", 0.03f,
+                "Pikmin base regeneration as a share of their max health per second, always on. 0: none.");
+            PikminRegenDelay = Config.Bind("Combat", "PikminRegenDelay", 7f,
+                "Seconds after a Pikmin is last hurt before PikminRegenOutOfCombat applies.");
+            PikminRegenOutOfCombat = Config.Bind("Combat", "PikminRegenOutOfCombat", 2f,
+                "Multiplier on Pikmin regeneration once no Pikmin has been hurt for PikminRegenDelay. 1: off.");
             OlimarHealth = Config.Bind("Combat", "OlimarHealth", 220f,
                 "Olimar's base max health (Commando's is 110).");
             OlimarHealthPerLevel = Config.Bind("Combat", "OlimarHealthPerLevel", 66f,

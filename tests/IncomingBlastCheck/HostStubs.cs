@@ -13,6 +13,9 @@ namespace OlimarTest
     static class Plugin
     {
         public static readonly Setting<float> PikminHealth = new Setting<float>(.5f);
+        public static readonly Setting<int> PikminMeleeMaxVictims = new Setting<int>(2);
+        public static readonly Setting<float> PikminMeleeDamageScale = new Setting<float>(.6f);
+        public static readonly Setting<float> PikminMeleeIFrames = new Setting<float>(.3f);
         public static readonly Setting<bool> LogEvents = new Setting<bool>(false);
         public static readonly Logger Log = new Logger();
         public class Logger

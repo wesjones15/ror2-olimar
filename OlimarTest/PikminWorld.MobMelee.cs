@@ -13,6 +13,11 @@ namespace OlimarTest
     {
         static Hook mobMeleeHook, mobMeleeResetHook, mobMeleeClearHook;
         object incomingMeleeWorld = new object();
+        // Per-Pikmin deadlines, the same shape as procReadyAt (PikminWorld.cs) and
+        // nextShake (PikminWorld.Combat.cs): stamped now + iFrames on a landed swipe
+        // and compared on the next one. Host-side only; clients see the health in
+        // the snapshot.
+        float[] meleeImmuneUntil = new float[0];
 
         static void HookMobMelee()
         {
@@ -66,27 +71,61 @@ namespace OlimarTest
             }
             PikiCount = Read(ref Pikis, readPikis ??= (a, n) => Native.pik_sim_pikis(sim, a, n));
             var attacker = sample.Attacker ? sample.Attacker.GetComponent<CharacterBody>() : null;
-            float damage = sample.Damage * (sample.Crit ? (attacker ? attacker.critMultiplier : 2f) : 1f);
+            float damage = sample.Damage * (sample.Crit ? (attacker ? attacker.critMultiplier : 2f) : 1f)
+                * Mathf.Max(0f, Plugin.PikminMeleeDamageScale.Value);
             bool freeze = (sample.Type & DamageType.Freeze2s) != 0;
-            bool touched = false;
-            int hurt = 0;
+            float now = sample.Now;
+            float immunity = Mathf.Max(0f, Plugin.PikminMeleeIFrames.Value);
+            int cap = Mathf.Max(0, Plugin.PikminMeleeMaxVictims.Value);
+            if (cap > 0 && attacker && (attacker.isChampion || attacker.isElite)) cap += 2;
+
+            // A Pikmin 1 attack tests the part it touches, not the whole arc: rank the
+            // Pikmin in the swing by how close they are to its volume, then take the cap.
+            // The ones latched on the attacker are nearest, so they take it and the squad
+            // behind them does not.
+            var candidates = new List<(float rank, int index)>();
             for (int i = 0; i < PikiCount; i++)
             {
                 var p = Pikis[i];
                 if (p.alive == 0 || p.state == Native.PikiState.Dying) continue;
                 var feet = UnityHost.ToUnity(p.pos);
                 float radius = p.size * UnityHost.Scale;
-                if (!sample.Touches(feet + Vector3.up * radius, radius)) continue;
+                var centre = feet + Vector3.up * radius;
+                if (!sample.Touches(centre, radius)) continue;
+                candidates.Add((sample.SquaredDistanceTo(centre), i));
+            }
+            candidates.Sort((a, b) => a.rank.CompareTo(b.rank));
+            int victims = cap <= 0 ? candidates.Count : Mathf.Min(cap, candidates.Count);
+            bool touched = false;
+            int hurt = 0;
+            for (int k = 0; k < victims; k++)
+            {
+                var p = Pikis[candidates[k].index];
+                if (now < Immunity(p.id)) continue;
                 ulong victim = ((ulong)p.generation << 32) | p.id;
-                if (!swing.TryHit(incomingMeleeWorld, victim, sample.Now, sample.Retrigger)) continue;
+                if (!swing.TryHit(incomingMeleeWorld, victim, now, sample.Retrigger)) continue;
                 touched = true;
+                var feet = UnityHost.ToUnity(p.pos);
                 float full = Mathf.Max(1f, Plugin.PikminHealth.Value * NearestOlimarHealth(feet));
-                if (damage > 0f) hurt += Native.pik_sim_attack_piki(sim, p.id, damage / full * 100f);
+                if (damage > 0f && Native.pik_sim_attack_piki(sim, p.id, damage / full * 100f) != 0)
+                {
+                    hurt++;
+                    if (immunity > 0f) SetImmunity(p.id, now + immunity);
+                }
                 if (freeze) Freeze(feet, 0f, sample.Proc);
             }
             if (hurt > 0 && Plugin.LogEvents.Value)
                 Plugin.Log.LogInfo($"Enemy melee hurt {hurt} Pikmin");
             return touched;
+        }
+
+        float Immunity(uint piki) => piki < meleeImmuneUntil.Length ? meleeImmuneUntil[piki] : 0f;
+
+        void SetImmunity(uint piki, float until)
+        {
+            if (piki >= meleeImmuneUntil.Length)
+                Array.Resize(ref meleeImmuneUntil, Mathf.NextPowerOfTwo((int)piki + 1));
+            meleeImmuneUntil[piki] = until;
         }
     }
 }

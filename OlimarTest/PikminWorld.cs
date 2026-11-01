@@ -479,6 +479,7 @@ namespace OlimarTest
         void FreeSim()
         {
             incomingMeleeWorld = new object();
+            meleeImmuneUntil = new float[0];
             creaturesGathered = false;
             if (sim != IntPtr.Zero)
             {

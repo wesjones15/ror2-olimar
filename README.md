@@ -65,8 +65,14 @@ What works:
   Mired Urn are left off it.
 - **Getting hurt**: an enemy's hit on anything also hurts the Pikmin around where it landed.
   A Pikmin's health is `PikminHealth` (half) of Olimar's max health, so it grows with his
-  level and health items. Olimar has twice Commando's health (`OlimarHealth`,
-  `OlimarHealthPerLevel`). Pikmin that fall into a void are lost.
+  level and health items. A melee swing catches at most `PikminMeleeMaxVictims` (2, +2 for
+  champions and elites), nearest the swing first, so the Pikmin on the attacker take it and
+  the squad behind them does not; each takes `PikminMeleeDamageScale` (0.6) of the swing and
+  is then immune to other swipes for `PikminMeleeIFrames` (0.3 s). Pikmin also regenerate like
+  a survivor: `PikminRegen` (3%/s of their health) always, at `PikminRegenOutOfCombat` (2x)
+  after `PikminRegenDelay` (7 s) with no Pikmin hurt, plus a share of Olimar's regeneration
+  (Cautious Slug, Titanic Knurl, level) and doubled by Rejuvenation Rack. Olimar has twice
+  Commando's health (`OlimarHealth`, `OlimarHealthPerLevel`). Pikmin that fall into a void are lost.
 - **Dismiss strike** (`Combat.Strike*`): RoR2 has no captain puzzles, so the dismiss button no longer sends the squad away. It
   plays Olimar's dismissal motion and sound and hits every enemy around him (reach `StrikeReachMetres`, 4 m) for
   `StrikeDamage` (4) times his punch (about 4.5 times his damage stat: two strikes kill a Beetle at the start; the punch, `PunchDamage` 22.5, is about 1.1 times it), then cools down for `StrikeCooldown` (4 s). It takes Olimar's items and attack
@@ -198,9 +204,11 @@ What works:
   and optional terrain line of sight. One explosion applies once per Pikmin, even if several
   RoR2 bodies report hits. Mob swipes and punches using `OverlapAttack` also test their
   active, rotated box or sphere hitboxes against individual Pikmin bodies, even when no
-  RoR2 body was hit. Each Pikmin can be hit once per swing, or at the attack's own retrigger
-  interval; resetting the attack starts a fresh swing. Other direct hits use group targets
-  and the nearby-impact path.
+  RoR2 body was hit. One swing catches at most `PikminMeleeMaxVictims` of the Pikmin in it
+  (nearest first), each takes `PikminMeleeDamageScale` of its damage, and a Pikmin that was
+  just hit is immune for `PikminMeleeIFrames`; each Pikmin can also be hit only once per
+  swing, or at the attack's own retrigger interval, and resetting the attack starts a fresh
+  swing. Other direct hits use group targets and the nearby-impact path.
 - **Stages**: the squad and the Onion's stock keep their colour and leaf/bud/flower stage.
   If Olimar dies while a teammate is alive, his Pikmin abandon their jobs and return to his Onion, which goes dormant.
   Living returners blocked by terrain are stored after 20 seconds; a stage transition also preserves returners inside the Onion.
