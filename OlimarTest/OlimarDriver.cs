@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using RoR2;
 using Ror2Common;
 using UnityEngine;
@@ -1001,6 +1002,48 @@ namespace OlimarTest
         static Stage bannerStage;
         static SceneDef bannerScene;
         static float bannerUntil;
+        static readonly HashSet<GameObject> stockStageHidden = new HashSet<GameObject>();
+
+        /// Deactivates RoR2's own stage card (the scene name and subtitle it draws on stage
+        /// entry) so only the Pikmin-lettering card below is left. It matches the shipped texts
+        /// as well as the usual object names.
+        static void HideStockStageCard(string name, string subtitle)
+        {
+            foreach (var hud in RoR2.UI.HUD.readOnlyInstanceList)
+            {
+                if (!hud) continue;
+                foreach (var text in hud.GetComponentsInChildren<TMPro.TMP_Text>(true))
+                {
+                    if (text && MatchesStockText(text.text, name, subtitle))
+                        HideStock(text.gameObject);
+                }
+                foreach (var text in hud.GetComponentsInChildren<UnityEngine.UI.Text>(true))
+                {
+                    if (text && MatchesStockText(text.text, name, subtitle))
+                        HideStock(text.gameObject);
+                }
+                foreach (var t in hud.GetComponentsInChildren<Transform>(true))
+                {
+                    if (!t) continue;
+                    var n = t.name;
+                    if (n.Equals("SceneName", StringComparison.OrdinalIgnoreCase)
+                        || n.Equals("StageIntro", StringComparison.OrdinalIgnoreCase)
+                        || n.Equals("SceneTitle", StringComparison.OrdinalIgnoreCase)
+                        || n.Equals("StageTitle", StringComparison.OrdinalIgnoreCase))
+                        HideStock(t.gameObject);
+                }
+            }
+        }
+
+        static bool MatchesStockText(string text, string name, string subtitle) =>
+            !string.IsNullOrEmpty(text)
+            && ((!string.IsNullOrEmpty(name) && text.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0)
+                || (!string.IsNullOrEmpty(subtitle) && text.IndexOf(subtitle, StringComparison.OrdinalIgnoreCase) >= 0));
+
+        static void HideStock(GameObject go)
+        {
+            if (go && stockStageHidden.Add(go)) go.SetActive(false);
+        }
 
         void StageEntryBanner()
         {
@@ -1013,6 +1056,8 @@ namespace OlimarTest
                 bannerUntil = Time.unscaledTime + 5f;
             }
             if (!scene || Time.unscaledTime >= bannerUntil) return;
+            HideStockStageCard(Language.GetString(scene.nameToken),
+                string.IsNullOrEmpty(scene.subtitleToken) ? null : Language.GetString(scene.subtitleToken));
             ShipRepairUi.LocationBanner(Language.GetString(scene.nameToken),
                 string.IsNullOrEmpty(scene.subtitleToken) ? null : Language.GetString(scene.subtitleToken),
                 bannerUntil);
