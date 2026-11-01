@@ -32,6 +32,10 @@ namespace OlimarTest
         /// (the core jumps them to a flying leg's midpoint), so the ride never hovers low.
         const float RideHeight = 3.5f;
         const float RideClimbSpeed = 6f;
+        /// How low a called Onion comes for a rescue or heal visit, how fast it tracks him once
+        /// close, and how near his feet it counts as being over him.
+        const float RescueHeight = 1.5f, RescueTrackSpeed = 20f;
+        const float RescueCaptureRadius = 0.75f, RescueCaptureDrop = 0.8f;
         /// Ground nearer than this below the Onion counts as somewhere to put him back.
         const float RideSafeReach = 8f;
 
@@ -95,8 +99,10 @@ namespace OlimarTest
         // When a client first saw a captain riding, for the lift into the Onion.
         readonly Dictionary<int, float> rideSeen = new Dictionary<int, float>();
 
-        /// Olimar presses LB in his Onion's beam (or his called Onion arrives). Spends a skill charge; `why` says what is missing.
-        public bool BeginRide(int captain, out string why)
+        /// Olimar presses LB in his Onion's beam (or his called Onion scoops him up). Spends a skill
+        /// charge; `why` says what is missing. `fromCall` skips the standing-in-the-beam test: the
+        /// called Onion has already locked its beam over him, moving or airborne.
+        public bool BeginRide(int captain, out string why, bool fromCall = false)
         {
             why = null;
             if (ClientMode)
@@ -110,7 +116,7 @@ namespace OlimarTest
             { why = "There is no Onion to board."; return false; }
             if (f.ride != null) return false;
             if (f.dormant) { why = "The Onion is dormant."; return false; }
-            if (OnionInReach(captain) != f.id) { why = "Stand in the Onion's beam to board."; return false; }
+            if (!fromCall && OnionInReach(captain) != f.id) { why = "Stand in the Onion's beam to board."; return false; }
             var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
             // The charge goes at boarding, but its recharge waits for the ride to end (HoldRecharge).
             bool full = slot && slot.stock >= slot.maxStock;
@@ -121,14 +127,16 @@ namespace OlimarTest
             f.ride = ride;
             f.following = f.airborne = true;
             f.menuBeam = f.menuReturning = false;
+            f.summon = f.healSummon = false;
+            f.healVisit = 0f;
             f.releaseWhenReady = false;
             f.filling = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
             f.transitionDuration = 0f;
-            // His squad goes in through the legs, which are out while the Onion hovers low.
+            // His squad goes in through the flying legs while the Onion scoops him up.
             ApplyOnionTransfer(captain, f.id, OnionCommandPacket.ReturnAll, 0);
-            d.RideBegan(f.position);
+            d.RideBegan(f.position, d.HasState ? d.State.face : UnityHost.Yaw(d.Body.transform.forward));
             WriteFlight(f);
             Plugin.Log.LogInfo($"captain {captain}: boarded Onion {f.id}; grace of up to {OnionRidePolicy.GraceSeconds:0} s from {f.position}");
             return true;
@@ -137,7 +145,8 @@ namespace OlimarTest
         /// How fast a called Onion eases in over him once the raise's fast glide has brought it close, and how long it keeps trying.
         const float SummonSpeed = 12f, SummonSeconds = 25f;
 
-        /// RT + LB: calls his Onion to where he stands and boards him when its beam is down; again to call it off.
+        /// RT + LT: calls his Onion to where he stands and boards him when its beam is over him; again
+        /// to call it off. The Onion keeps tracking him while it descends, so he need not stand still.
         public bool ToggleSummon(int captain, out string why)
         {
             why = null;
@@ -150,13 +159,16 @@ namespace OlimarTest
             if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body)
             { why = "There is no Onion to call."; return false; }
             if (f.ride != null) return false;
-            if (f.summon) { f.summon = false; f.healSummon = false; return true; }
+            if (f.healVisit > 0f) { f.healVisit = 0f; f.menuBeam = false; f.summon = false; f.healSummon = false; return true; }
+            if (f.summon) { f.summon = false; f.healSummon = false; f.menuBeam = false; return true; }
             if (f.dormant) { why = "The Onion is dormant."; return false; }
             var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
             // Checked now so a called Onion never flies over for nothing.
             if (slot && !NativeSkills.Ready(slot, OlimarSkills.Ride)) { why = "Onion Ride is recharging."; return false; }
             f.summon = true;
             f.healSummon = false;
+            f.healVisit = 0f;
+            f.menuBeam = f.menuReturning = false;
             f.summonAge = 0f;
             // It comes the way a raised Onion does: a landed one takes off and a far one flies over fast (the raise's
             // 1.8 s glide), free since it is not the ride's charge; then it eases in over him (UpdateSummon).
@@ -186,12 +198,15 @@ namespace OlimarTest
             if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body)
             { why = "There is no Onion to call."; return false; }
             if (f.ride != null) return false;
-            if (f.healSummon) { f.healSummon = false; f.summon = false; return true; }
+            if (f.healVisit > 0f) { f.healVisit = 0f; f.menuBeam = false; f.summon = false; f.healSummon = false; return true; }
+            if (f.healSummon) { f.healSummon = false; f.summon = false; f.menuBeam = false; return true; }
             if (f.dormant) { why = "The Onion is dormant."; return false; }
             // A normal call already on its way just switches to healing.
-            if (f.summon) { f.healSummon = true; return true; }
+            if (f.summon) { f.healSummon = true; f.healVisit = 0f; return true; }
             f.summon = true;
             f.healSummon = true;
+            f.healVisit = 0f;
+            f.menuBeam = f.menuReturning = false;
             f.summonAge = 0f;
             // It comes the way a raised Onion does: a landed one takes off and a far one flies over fast (the raise's
             // 1.8 s glide), free since it is not the ride's charge; then it eases in over him (UpdateSummon).
@@ -207,42 +222,90 @@ namespace OlimarTest
             return true;
         }
 
-        /// While called: fly above him at the following height, then let the beam come down (the menu hover) and
-        /// board when it is. True while this moved the Onion; false lets the usual flight run this step.
+        /// While called: descend over him, locking the beam on him even while he moves, and take him
+        /// as soon as it is over him. RT + RB starts a heal visit instead of boarding. True while
+        /// this moved the Onion; false lets the usual flight run this step.
         bool UpdateSummon(OnionFlight f)
         {
             f.summonAge += Time.fixedDeltaTime;
             if (!driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || f.dormant || !OwnerAlive(f) || f.summonAge > SummonSeconds)
-            { f.summon = false; f.healSummon = false; return false; }
-            if (f.menuReady && OnionInReach(f.captain) == f.id)
             {
-                bool heal = f.healSummon;
                 f.summon = false;
                 f.healSummon = false;
-                if (heal)
-                {
-                    if (!HealFromOnion(f.captain) && Plugin.LogEvents.Value)
-                        Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't heal him");
-                    return true;
-                }
-                if (!BeginRide(f.captain, out var why) && Plugin.LogEvents.Value)
-                    Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't board him: {why}");
-                return true;
+                f.menuBeam = false;
+                return false;
             }
-            // Taking off, or already coming down on him: the usual flight does that.
-            if (f.transitionDuration > 0f || f.menuBeam || f.menuReturning) return false;
+            // A raised or far Onion is still on the raise's fast glide; the normal flight does that.
+            if (f.transitionDuration > 0f) return false;
+
             f.following = f.airborne = true;
             f.filling = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
+            f.menuBeam = true;
+            f.menuReturning = false;
             var feet = d.Body.footPosition;
-            var over = new Vector3(feet.x, UnityHost.Snap(feet).y + RideHeight + 1.5f, feet.z);
-            var flat = new Vector2(over.x - f.position.x, over.z - f.position.z);
-            // Only hand over once its centre is over him: the beam descends from there, and
-            // stopping short would put him at its edge instead of under it.
-            if (flat.magnitude < 0.1f && Mathf.Abs(over.y - f.position.y) < 0.1f) return false;
-            f.position = Vector3.MoveTowards(f.position, over, SummonSpeed * Time.fixedDeltaTime);
+            var target = new Vector3(feet.x, feet.y + RescueHeight, feet.z);
+            float dx = feet.x - f.position.x, dz = feet.z - f.position.z;
+            if (dx * dx + dz * dz > 9f)
+                f.position = Vector3.MoveTowards(f.position, target, SummonSpeed * Time.fixedDeltaTime);
+            else
+                // Close: lock the beam exactly over him and only ease the height, so a moving
+                // (or jumping) Olimar never walks out from under the rescue.
+                f.position = new Vector3(feet.x,
+                    Mathf.MoveTowards(f.position.y, target.y, RescueTrackSpeed * Time.fixedDeltaTime), feet.z);
+
+            var flat = new Vector2(feet.x - f.position.x, feet.z - f.position.z);
+            if (flat.magnitude > RescueCaptureRadius
+                || Mathf.Abs(f.position.y - target.y) > RescueCaptureDrop) return true;
+
+            bool heal = f.healSummon;
+            f.summon = false;
+            f.healSummon = false;
+            if (heal)
+            {
+                if (!HealFromOnion(f.captain, true))
+                {
+                    f.menuBeam = false;
+                    if (Plugin.LogEvents.Value)
+                        Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't heal him");
+                    return true;
+                }
+                // Keep the beam over him while the healing effect plays; the heal VFX follow
+                // him, while each ghost stays where it was spawned (libpikmin-present).
+                f.healVisit = HealingSeconds;
+                return true;
+            }
+            if (!BeginRide(f.captain, out var why, true))
+            {
+                f.menuBeam = false;
+                if (Plugin.LogEvents.Value)
+                    Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't board him: {why}");
+            }
             return true;
+        }
+
+        /// RT + RB's visit: hold the beam over Olimar and follow him until the healing effect ends.
+        void UpdateHealVisit(OnionFlight f)
+        {
+            f.healVisit -= Time.fixedDeltaTime;
+            if (f.healVisit <= 0f || !driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || !OwnerAlive(f))
+            {
+                f.healVisit = 0f;
+                f.menuBeam = false;
+                f.menuReturning = false;
+                return;
+            }
+            f.following = f.airborne = true;
+            f.filling = false;
+            f.pickup = -1;
+            f.pickupDwell = 0f;
+            f.menuBeam = true;
+            f.menuReturning = false;
+            var feet = d.Body.footPosition;
+            // Horizontal position is his exactly; height eases so a jump does not snap the Onion.
+            f.position = new Vector3(feet.x,
+                Mathf.MoveTowards(f.position.y, feet.y + RescueHeight, RescueTrackSpeed * Time.fixedDeltaTime), feet.z);
         }
 
         /// Each physics step of a ride: steer, keep the height, run the clocks, notice the end.

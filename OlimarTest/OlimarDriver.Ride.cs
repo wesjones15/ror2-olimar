@@ -18,6 +18,10 @@ namespace OlimarTest
         int rideStartFrame;
         float rideEndedAt = -10f;
         Vector3 rideFeet;
+        /// The heading he had when the rescue took him; the ride keeps it, so a moving pickup does
+        /// not spin him to some default facing.
+        float rideHeading;
+        bool rideHeadingSet;
 
         /// Flying the Onion now: the server's word, on any machine.
         public bool RideActive => ViewCaptain >= 0 && PikminWorld.Instance && PikminWorld.Instance.Riding(ViewCaptain);
@@ -28,9 +32,11 @@ namespace OlimarTest
         public bool TakeRideBoost() { bool b = rideBoost; rideBoost = false; return b; }
         public bool TakeRideExit() { bool b = rideExit; rideExit = false; return b; }
 
-        internal void RideBegan(Vector3 at)
+        internal void RideBegan(Vector3 at, float heading)
         {
             rideFeet = at;
+            rideHeading = heading;
+            rideHeadingSet = true;
             rideStartFrame = Time.frameCount;
             rideMove = Vector2.zero;
             rideBoost = rideExit = false;
@@ -45,8 +51,23 @@ namespace OlimarTest
             // A remote Olimar's body is placed by his own machine.
             if (IsRemote) return;
             transform.position = at + feetToOrigin;
+            transform.rotation = Quaternion.Euler(0f, rideHeading * Mathf.Rad2Deg, 0f);
+            if (direction) direction.forward = UnityHost.Forward(rideHeading);
             smoother.Reset();
             if (native) native.ForgetVelocity();
+        }
+
+        /// A called Onion can take him while he is moving: remember the heading he had then and
+        /// hold it for the ride instead of letting the take reset it.
+        void KeepRideHeading()
+        {
+            if (!rideHeadingSet)
+            {
+                rideHeading = UnityHost.Yaw(direction ? direction.forward : transform.forward);
+                rideHeadingSet = true;
+            }
+            transform.rotation = Quaternion.Euler(0f, rideHeading * Mathf.Rad2Deg, 0f);
+            if (direction) direction.forward = UnityHost.Forward(rideHeading);
         }
 
         internal void RidePlace(Vector3 at) => rideFeet = at;
@@ -81,6 +102,11 @@ namespace OlimarTest
             rideMove = Vector2.zero;
             rideBoost = rideExit = false;
             transform.position = feet + feetToOrigin;
+            if (rideHeadingSet)
+            {
+                transform.rotation = Quaternion.Euler(0f, rideHeading * Mathf.Rad2Deg, 0f);
+                if (direction) direction.forward = UnityHost.Forward(rideHeading);
+            }
             smoother.Reset();
             if (native) native.ForgetVelocity();
             putBack = feet;
@@ -107,9 +133,14 @@ namespace OlimarTest
             // He is wherever the Onion is (on a client, where the host's Onion is drawn).
             if (world && world.RideOnionFoot(ViewCaptain, out var foot)) rideFeet = foot;
             transform.position = rideFeet + feetToOrigin;
+            if (!IsRemote) KeepRideHeading();
         }
 
-        void RideOver() => rideWas = false;
+        void RideOver()
+        {
+            rideWas = false;
+            rideHeadingSet = false;
+        }
 
         /// The server takes a remote Olimar's ride controls from his packet.
         void ReceiveRide(in PikminInputPacket p)

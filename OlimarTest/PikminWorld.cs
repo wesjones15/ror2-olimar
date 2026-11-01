@@ -112,6 +112,9 @@ namespace OlimarTest
             public bool summon;
             /// Called to Olimar to heal him (RT + RB): the same flight, but heals on arrival instead.
             public bool healSummon;
+            /// Seconds left of the RT + RB visit: the Onion keeps its beam over him and follows
+            /// him while the healing effect plays.
+            public float healVisit;
             public float summonAge;
             public bool dormant;
             /// Dormant because its owner died (it wakes when he is alive again), not from damage.
@@ -1100,6 +1103,7 @@ namespace OlimarTest
                 }
                 if (dolphins.TryGetValue(flight.captain, out var ship) && !ship.complete && !ship.onionDown) continue;
                 if (flight.ride != null) { UpdateRide(flight); continue; }
+                if (flight.healVisit > 0f) { UpdateHealVisit(flight); WriteFlight(flight); continue; }
                 if (flight.summon && UpdateSummon(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionFill(flight)) { WriteFlight(flight); continue; }
                 if (flight.following && UpdateOnionMenuHover(flight)) { WriteFlight(flight); continue; }
@@ -1316,6 +1320,8 @@ namespace OlimarTest
             }
             if (f.dormant || f.ride != null) return false;
             f.summon = false;
+            f.healSummon = false;
+            f.healVisit = 0f;
             f.filling = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
@@ -1534,6 +1540,8 @@ namespace OlimarTest
             }
             if (sim == IntPtr.Zero || !onionOf.TryGetValue(captain, out var f)
                 || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body) return -1;
+            // A heal visit's beam is not the menu: he is moving under it, and it must not open.
+            if (f.healVisit > 0f) return -1;
             return InOnionBeam(d, sim, captain, f.position, f.airborne, f.following, f.menuReady, f.dormant) ? f.id : -1;
         }
 
@@ -1582,10 +1590,21 @@ namespace OlimarTest
             ? remoteInfo.TryGetValue((int)captain, out var info) && info.IsHealing ? info.healingCount : (byte)0
             : healing.TryGetValue((int)captain, out var h) ? h.count : (byte)0;
 
-        public bool HealFromOnion(int captain)
+        /// Heals him from his Onion's stock. `fromCall` is the RT + RB visit: the called Onion's
+        /// beam is already locked over him, so the standing-in-the-beam test is skipped.
+        public bool HealFromOnion(int captain, bool fromCall = false)
         {
-            int onion = OnionInReach(captain);
-            if (onion < 0) return false;
+            int onion;
+            if (fromCall)
+            {
+                if (ClientMode || !onionOf.TryGetValue(captain, out var f)) return false;
+                onion = f.id;
+            }
+            else
+            {
+                onion = OnionInReach(captain);
+                if (onion < 0) return false;
+            }
             if (ClientMode)
             {
                 if (!moverDriver) return false;
@@ -2629,6 +2648,8 @@ namespace OlimarTest
         void GoDormant(OnionFlight f, float seconds, bool ownerDied)
         {
             f.summon = false;
+            f.healSummon = false;
+            f.healVisit = 0f;
             // A ride in progress ends first, while the Onion can still hand its Pikmin back.
             if (f.ride != null) EndRide(f, true);
             f.dormant = true;
@@ -2687,6 +2708,8 @@ namespace OlimarTest
         void LandOnionNow(OnionFlight f)
         {
             f.menuBeam = f.menuReturning = false;
+            f.summon = f.healSummon = false;
+            f.healVisit = 0f;
             var ground = Physics.Raycast(f.position + Vector3.up * 2f, Vector3.down, out var hit, 60f, UnityHost.Mask,
                 QueryTriggerInteraction.Ignore) && hit.normal.y >= 0.5f ? hit.point : UnityHost.Snap(f.position);
             f.landing = ground;

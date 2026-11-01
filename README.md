@@ -160,9 +160,9 @@ What works:
   health), then buds (10%), then flowers (20%). It consumes enough to fill his health or leave one
   unreserved stored Pikmin, leaves the squad and queued exits untouched, and closes the menu.
   **RT + RB** calls the Onion over to do the same heal from anywhere, without opening the menu or
-  boarding: it flies to him, stays airborne and descends low as it does above him.
-  Dolphin recovery effects play at Olimar for two seconds with one Pikmin ghost per sacrifice;
-  the effect and ghost count are replicated to other players.
+  boarding: it descends with its beam locked over him, follows him while he moves, and keeps the beam
+  there for the two-second heal. Dolphin recovery effects follow Olimar, while each Pikmin ghost
+  stays where it was spawned; the effect and ghost count are replicated to other players.
   Raise/lower commands stay on the utility button outside interact prompts, with no movement pages in the menu.
   RT + X dumps a flying Onion's Pikmin from anywhere and RT + Y fills it with the squad (it comes down low to take them). A hovering Onion descends its beam when Olimar stands beneath it and offers the menu;
   Y fills it with the squad, who jump to each leg's midpoint and climb its upper half. Taking-off and landing Onions do not offer the menu.
@@ -240,8 +240,8 @@ position, so your RoR2 binds don't change it:
 | RT + X           | V                   | dump a flying Onion's Pikmin |
 | RT + Y           | B                   | fill a flying Onion with the squad |
 | LT under an Onion | jump               | board the Onion: Onion Ride (below) |
-| hold RT + tap LT | Z                   | call the Onion to you, lower it and board (again to call it off) |
-| hold RT + tap RB | Z + F               | call the Onion to you and heal from it (stays airborne; does not board) |
+| hold RT + tap LT | Z                   | call the Onion, track you while it descends and scoop you up to board (again to call it off) |
+| hold RT + tap RB | Z + F               | call the Onion, beam and follow you while it heals you (stays airborne; does not board) |
 | RB               | F                   | dismiss strike: a melee blow all around him, 4 s cooldown (see below) |
 | d-pad left/right | mouse wheel         | colour to throw: Any (nearest), Red, Yellow, Blue |
 | Y                | equipment           | RoR2's equipment, as usual   |
