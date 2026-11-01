@@ -129,6 +129,7 @@ namespace OlimarTest
             f.menuBeam = f.menuReturning = false;
             f.summon = f.healSummon = false;
             f.healVisit = 0f;
+            f.menuLockout = 0f;
             f.releaseWhenReady = false;
             f.filling = false;
             f.pickup = -1;
@@ -159,8 +160,7 @@ namespace OlimarTest
             if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body)
             { why = "There is no Onion to call."; return false; }
             if (f.ride != null) return false;
-            if (f.healVisit > 0f) { f.healVisit = 0f; f.menuBeam = false; f.summon = false; f.healSummon = false; return true; }
-            if (f.summon) { f.summon = false; f.healSummon = false; f.menuBeam = false; return true; }
+            if (f.healVisit > 0f || f.summon) { ReleaseRescue(f); return true; }
             if (f.dormant) { why = "The Onion is dormant."; return false; }
             var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
             // Checked now so a called Onion never flies over for nothing.
@@ -169,6 +169,7 @@ namespace OlimarTest
             f.healSummon = false;
             f.healVisit = 0f;
             f.menuBeam = f.menuReturning = false;
+            f.menuLockout = 0f;
             f.summonAge = 0f;
             // It comes the way a raised Onion does: a landed one takes off and a far one flies over fast (the raise's
             // 1.8 s glide), free since it is not the ride's charge; then it eases in over him (UpdateSummon).
@@ -198,8 +199,7 @@ namespace OlimarTest
             if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body)
             { why = "There is no Onion to call."; return false; }
             if (f.ride != null) return false;
-            if (f.healVisit > 0f) { f.healVisit = 0f; f.menuBeam = false; f.summon = false; f.healSummon = false; return true; }
-            if (f.healSummon) { f.healSummon = false; f.summon = false; f.menuBeam = false; return true; }
+            if (f.healVisit > 0f || f.healSummon) { ReleaseRescue(f); return true; }
             if (f.dormant) { why = "The Onion is dormant."; return false; }
             // A normal call already on its way just switches to healing.
             if (f.summon) { f.healSummon = true; f.healVisit = 0f; return true; }
@@ -207,6 +207,7 @@ namespace OlimarTest
             f.healSummon = true;
             f.healVisit = 0f;
             f.menuBeam = f.menuReturning = false;
+            f.menuLockout = 0f;
             f.summonAge = 0f;
             // It comes the way a raised Onion does: a landed one takes off and a far one flies over fast (the raise's
             // 1.8 s glide), free since it is not the ride's charge; then it eases in over him (UpdateSummon).
@@ -230,9 +231,7 @@ namespace OlimarTest
             f.summonAge += Time.fixedDeltaTime;
             if (!driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || f.dormant || !OwnerAlive(f) || f.summonAge > SummonSeconds)
             {
-                f.summon = false;
-                f.healSummon = false;
-                f.menuBeam = false;
+                ReleaseRescue(f);
                 return false;
             }
             // A raised or far Onion is still on the raise's fast glide; the normal flight does that.
@@ -266,7 +265,7 @@ namespace OlimarTest
             {
                 if (!HealFromOnion(f.captain, true))
                 {
-                    f.menuBeam = false;
+                    ReleaseRescue(f);
                     if (Plugin.LogEvents.Value)
                         Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't heal him");
                     return true;
@@ -278,7 +277,7 @@ namespace OlimarTest
             }
             if (!BeginRide(f.captain, out var why, true))
             {
-                f.menuBeam = false;
+                ReleaseRescue(f);
                 if (Plugin.LogEvents.Value)
                     Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't board him: {why}");
             }
@@ -291,9 +290,7 @@ namespace OlimarTest
             f.healVisit -= Time.fixedDeltaTime;
             if (f.healVisit <= 0f || !driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || !OwnerAlive(f))
             {
-                f.healVisit = 0f;
-                f.menuBeam = false;
-                f.menuReturning = false;
+                ReleaseRescue(f);
                 return;
             }
             f.following = f.airborne = true;
@@ -306,6 +303,20 @@ namespace OlimarTest
             // Horizontal position is his exactly; height eases so a jump does not snap the Onion.
             f.position = new Vector3(feet.x,
                 Mathf.MoveTowards(f.position.y, feet.y + RescueHeight, RescueTrackSpeed * Time.fixedDeltaTime), feet.z);
+        }
+
+        /// End a rescue or visit: beam off, back to the ordinary follow, and no menu until it has
+        /// carried the Onion away again.
+        void ReleaseRescue(OnionFlight f)
+        {
+            f.summon = f.healSummon = false;
+            f.healVisit = 0f;
+            f.menuBeam = f.menuReturning = false;
+            f.menuLockout = 1.5f;
+            f.following = f.airborne = true;
+            f.filling = false;
+            f.pickup = -1;
+            f.pickupDwell = 0f;
         }
 
         /// Each physics step of a ride: steer, keep the height, run the clocks, notice the end.

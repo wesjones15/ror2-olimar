@@ -115,6 +115,9 @@ namespace OlimarTest
             /// Seconds left of the RT + RB visit: the Onion keeps its beam over him and follows
             /// him while the healing effect plays.
             public float healVisit;
+            /// Seconds before the Onion may offer its menu again after a rescue or visit; the
+            /// normal follow carries it back out of reach meanwhile.
+            public float menuLockout;
             public float summonAge;
             public bool dormant;
             /// Dormant because its owner died (it wakes when he is alive again), not from damage.
@@ -1053,6 +1056,7 @@ namespace OlimarTest
         {
             foreach (var flight in onionOf.Values)
             {
+                if (flight.menuLockout > 0f) flight.menuLockout = Mathf.Max(0f, flight.menuLockout - Time.fixedDeltaTime);
                 if (flight.recallUntil > 0f) RecallToOnion(flight);
                 if (flight.dormant && flight.ownerDeath && OwnerAlive(flight))
                 {
@@ -1188,6 +1192,9 @@ namespace OlimarTest
         {
             if (!driverOf.TryGetValue(flight.captain, out var driver) || !driver || !driver.Body)
                 return false;
+            // A rescue or visit has just released him; let the normal follow carry the Onion
+            // back up/away before its beam can offer the menu again.
+            if (flight.menuLockout > 0f) return false;
             var feet = driver.Body.footPosition;
             if (flight.menuBeam || flight.menuReturning)
             {
@@ -1322,6 +1329,7 @@ namespace OlimarTest
             f.summon = false;
             f.healSummon = false;
             f.healVisit = 0f;
+            f.menuLockout = 0f;
             f.filling = false;
             f.pickup = -1;
             f.pickupDwell = 0f;
@@ -2650,6 +2658,7 @@ namespace OlimarTest
             f.summon = false;
             f.healSummon = false;
             f.healVisit = 0f;
+            f.menuLockout = 0f;
             // A ride in progress ends first, while the Onion can still hand its Pikmin back.
             if (f.ride != null) EndRide(f, true);
             f.dormant = true;
@@ -2710,6 +2719,7 @@ namespace OlimarTest
             f.menuBeam = f.menuReturning = false;
             f.summon = f.healSummon = false;
             f.healVisit = 0f;
+            f.menuLockout = 0f;
             var ground = Physics.Raycast(f.position + Vector3.up * 2f, Vector3.down, out var hit, 60f, UnityHost.Mask,
                 QueryTriggerInteraction.Ignore) && hit.normal.y >= 0.5f ? hit.point : UnityHost.Snap(f.position);
             f.landing = ground;
