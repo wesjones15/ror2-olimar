@@ -11,6 +11,9 @@ param(
     [switch]$NoInstall
 )
 $ErrorActionPreference = "Stop"
+if (-not $NoInstall) {
+    & (Join-Path $PSScriptRoot '../ror2-common/tests/CheckReleaseBranches.ps1') -HostDir $PSScriptRoot -NativeDir $LibPikmin
+}
 & (Join-Path $PSScriptRoot "../ror2-common/tests/CheckOverlapApi.ps1") -RoR2Dir $RoR2Dir
 if ([string]::IsNullOrWhiteSpace($InstallDir)) {
     $InstallDir = [System.IO.Path]::GetFullPath((Join-Path $RoR2Dir "..\..\target"))
