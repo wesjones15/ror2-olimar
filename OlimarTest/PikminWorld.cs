@@ -424,6 +424,7 @@ namespace OlimarTest
                 if (Instance) Instance.OnDamageDealt(r);
             };
             HookBlasts();
+            HookMobMelee();
             HookShots();
         }
 
@@ -477,6 +478,7 @@ namespace OlimarTest
 
         void FreeSim()
         {
+            incomingMeleeWorld = new object();
             creaturesGathered = false;
             if (sim != IntPtr.Zero)
             {
@@ -2497,7 +2499,7 @@ namespace OlimarTest
             if (sim == IntPtr.Zero || !NetworkServer.active || r?.damageInfo == null) return;
             // BlastDamage forwards the whole explosion once, even with zero RoR2 victims.
             // Check before deferring: the blast's report scope ends when Fire returns.
-            if (BlastDamage.CoversReport(r.damageInfo.damageType)) return;
+            if (BlastDamage.CoversReport(r.damageInfo.damageType) || OverlapDamage.CoversReport(r.damageInfo)) return;
             if (stepping)
             {
                 afterStep.Add(() => OnDamageDealt(r));

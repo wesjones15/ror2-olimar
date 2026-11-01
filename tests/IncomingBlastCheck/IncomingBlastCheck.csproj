@@ -5,10 +5,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../OlimarTest/PikminWorld.Incoming.cs" Link="PikminWorld.Incoming.cs" />
+    <Compile Include="../../OlimarTest/PikminWorld.MobMelee.cs" Link="PikminWorld.MobMelee.cs" />
     <Compile Include="../../OlimarTest/Native.cs" Link="Native.cs" />
     <Compile Include="../../../ror2-common/src/BlastDamage.cs" Link="BlastDamage.cs" />
+    <Compile Include="../../../ror2-common/src/OverlapDamage.cs" Link="OverlapDamage.cs" />
     <Compile Include="../../../ror2-common/src/NativeLib.cs" Link="NativeLib.cs" />
     <Compile Include="../../../ror2-common/src/ViewSource.cs" Link="ViewSource.cs" />
     <Compile Include="../../../ror2-common/tests/BlastDamageCheck/HostStubs.cs" Link="BlastHostStubs.cs" />
+    <Compile Include="../../../ror2-common/tests/OverlapDamageCheck/UnityHitboxStubs.cs" Link="UnityHitboxStubs.cs" />
+    <Compile Include="../../../ror2-common/tests/OverlapDamageCheck/HostStubs.cs" Link="OverlapHostStubs.cs" />
   </ItemGroup>
 </Project>

@@ -54,6 +54,7 @@ static class Program
                 "repeated terrain explosions kill the idle squad");
             Check(Read()[2].health == health, "distant Pikmin survive repeated explosions");
             Console.WriteLine("IncomingBlastCheck: ok (actual adapter + native sim: idle squad hurt and killed without RoR2 victims)");
+            MeleeChecks.Run(assets);
             return 0;
         }
         finally { Native.pik_sim_free(sim); }

@@ -196,7 +196,11 @@ What works:
   Enemy explosions also damage each Pikmin in the actual blast area, including projectiles
   that hit terrain without hitting a RoR2 body. Damage follows the blast's distance falloff
   and optional terrain line of sight. One explosion applies once per Pikmin, even if several
-  RoR2 bodies report hits. Direct hits still use the group targets and nearby-impact path.
+  RoR2 bodies report hits. Mob swipes and punches using `OverlapAttack` also test their
+  active, rotated box or sphere hitboxes against individual Pikmin bodies, even when no
+  RoR2 body was hit. Each Pikmin can be hit once per swing, or at the attack's own retrigger
+  interval; resetting the attack starts a fresh swing. Other direct hits use group targets
+  and the nearby-impact path.
 - **Stages**: the squad and the Onion's stock keep their colour and leaf/bud/flower stage.
   If Olimar dies while a teammate is alive, his Pikmin abandon their jobs and return to his Onion, which goes dormant.
   Living returners blocked by terrain are stored after 20 seconds; a stage transition also preserves returners inside the Onion.
@@ -305,6 +309,7 @@ The incoming-explosion regression checks run headless:
 
 ```powershell
 dotnet run -c Release --project ../ror2-common/tests/BlastDamageCheck
+dotnet run -c Release --project ../ror2-common/tests/OverlapDamageCheck
 dotnet run -c Release --project tests/IncomingBlastCheck -- ../libpikmin/target/release/pikmin.dll ../libpikmin/assets
 ```
 
@@ -313,6 +318,10 @@ dotnet run -c Release --project tests/IncomingBlastCheck -- ../libpikmin/target/
 is outside the blast. It also checks overlapping Pikmin, repeated victim reports, terrain
 occlusion, out-of-range survivors and damage deferred during a native sim step. Both DLLs
 must be updated together (ABI 58).
+The same check now exercises the actual mob-melee adapter: repeated active frames and
+overlapping hand hitboxes cannot multiply damage, successive swings kill an idle squad,
+out-of-range Pikmin survive, and queued hits retain the active geometry and damage.
+`build.ps1` checks the game's melee Fire/reset signatures and ignore-list lifecycle before building.
 
 - `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 11).
   `Native.Load` refuses a DLL whose ABI version or struct sizes don't match.
