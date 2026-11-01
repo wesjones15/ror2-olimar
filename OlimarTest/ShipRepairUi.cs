@@ -230,14 +230,13 @@ namespace OlimarTest
             GUI.matrix = old;
         }
 
-        /// The stage-entry card on its own ("DAY N" and the stage name in Pikmin letters),
-        /// for every Olimar stage outside Ship Repair. The RoR2-font location line is not
-        /// repeated; only the Pikmin lettering carries the place name.
-        internal static void LocationBanner(string site, float until)
+        /// The stage-entry card on its own ("DAY N", the stage name in Pikmin letters and its
+        /// subtitle), for every Olimar stage outside Ship Repair.
+        internal static void LocationBanner(string site, string subtitle, float until)
         {
             if (Event.current.type != EventType.Repaint) return;
             var old = GUI.matrix; float width = Begin();
-            Banner(site, null, until, width * .5f);
+            Banner(site, subtitle, until, width * .5f);
             GUI.matrix = old;
         }
 
