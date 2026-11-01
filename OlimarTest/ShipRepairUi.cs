@@ -114,6 +114,8 @@ namespace OlimarTest
 
         static float LocationAdvance(char c, float size, bool lettering)
         {
+            if (lettering && c >= '0' && c <= '9' && digits[c - '0'])
+                return size * 1.15f * digits[c - '0'].width / digits[c - '0'].height;
             if (lettering && titleGlyphs.TryGetValue(c, out var title)) return size * 1.15f * title.width / title.height;
             return size * (c == ' ' ? .35f : .68f);
         }
@@ -134,7 +136,16 @@ namespace OlimarTest
             float x = center - total * .5f;
             foreach (char c in value)
             {
-                if (lettering && titleGlyphs.TryGetValue(c, out var title))
+                if (lettering && c >= '0' && c <= '9' && digits[c - '0'])
+                {
+                    var digit = digits[c - '0'];
+                    float h = size * 1.15f, w = h * digit.width / digit.height;
+                    GUI.color = new Color(.08f, .035f, .01f, color.a);
+                    GUI.DrawTexture(new Rect(x + 2f, y + 2f, w, h), digit);
+                    GUI.color = color;
+                    GUI.DrawTexture(new Rect(x, y, w, h), digit);
+                }
+                else if (lettering && titleGlyphs.TryGetValue(c, out var title))
                 {
                     float h = size * 1.15f, w = h * title.width / title.height;
                     GUI.color = new Color(.08f, .035f, .01f, color.a);
