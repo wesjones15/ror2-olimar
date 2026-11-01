@@ -245,12 +245,13 @@ namespace OlimarTest
             if (string.IsNullOrEmpty(site) || Time.unscaledTime >= until) return;
             float alpha = Mathf.Clamp01(until - Time.unscaledTime);
             float opacity = Mathf.Min(1f, alpha * 1.5f);
-            PikminText("DAY " + (RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1),
-                center, 363f, 26f, 720f, new Color(cream.r, cream.g, cream.b, opacity));
+            // Same bubble/area lettering as the site, but white; the site stays orange.
+            LocationText("DAY " + (RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1),
+                center, 363f, 26f, new Color(1f, 1f, 1f, opacity));
             if (!string.IsNullOrEmpty(site))
                 LocationText(site, center, 401f, 55, new Color(.9f, .53f, .12f, opacity));
             if (!string.IsNullOrEmpty(subtitle))
-                PikminText(subtitle, center, 493f, 26f, 720f, new Color(.92f, .9f, .79f, opacity));
+                LocationText(subtitle, center, 493f, 26f, new Color(1f, 1f, 1f, opacity));
         }
 
         static void Leaderboard(IEnumerable<ShipRepairSession.ResultLine> players, float x, float y, float width, float row, bool competitive)
