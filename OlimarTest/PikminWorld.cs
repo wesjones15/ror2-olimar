@@ -1170,8 +1170,9 @@ namespace OlimarTest
             return true;
         }
 
-        // Hold the Onion over the spot Olimar walked back to. The same ground-height beam
-        // stretch used during pellet suction draws its cone throughout this descent.
+        // Hold the Onion centred over Olimar, descending until its ground-height beam covers
+        // him. The same ground-height beam stretch used during pellet suction draws its cone
+        // throughout this descent.
         bool UpdateOnionMenuHover(OnionFlight flight)
         {
             if (!driverOf.TryGetValue(flight.captain, out var driver) || !driver || !driver.Body)
@@ -1193,7 +1194,12 @@ namespace OlimarTest
                     flight.menuReturning = false;
                 }
                 if (flight.menuBeam)
+                {
+                    // The beam is under the Onion's centre. Keep that centre on him as it
+                    // descends; stopping beside him leaves him at the edge of the beam.
+                    flight.menuGround = new Vector3(feet.x, flight.menuGround.y, feet.z);
                     flight.position = Vector3.MoveTowards(flight.position, flight.menuGround, 3f * Time.fixedDeltaTime);
+                }
                 else
                 {
                     flight.position = Vector3.MoveTowards(flight.position, flight.menuHover, 3f * Time.fixedDeltaTime);
@@ -1205,10 +1211,12 @@ namespace OlimarTest
             if (flight.pickup >= 0 || flight.transitionDuration > 0f) return false;
             var offset = Vector3.ProjectOnPlane(feet - flight.position, Vector3.up);
             if (!OnionMenuPolicy.UnderHover(offset.x, offset.z, false)) return false;
-            if (!Physics.Raycast(flight.position + Vector3.up * 2f, Vector3.down, out var floor,
+            // Ground under him, not under wherever the Onion happened to stop: the descent
+            // (and the ride's boarding check) needs him under the beam.
+            if (!Physics.Raycast(feet + Vector3.up * 2f, Vector3.down, out var floor,
                 30f, UnityHost.Mask, QueryTriggerInteraction.Ignore) || floor.normal.y < 0.5f
                 || Mathf.Abs(feet.y - floor.point.y) >= 1f) return false;
-            flight.menuGround = new Vector3(flight.position.x, floor.point.y, flight.position.z);
+            flight.menuGround = new Vector3(feet.x, floor.point.y, feet.z);
             flight.menuHover = flight.position;
             flight.menuBeam = true;
             flight.position = Vector3.MoveTowards(flight.position, flight.menuGround, 3f * Time.fixedDeltaTime);

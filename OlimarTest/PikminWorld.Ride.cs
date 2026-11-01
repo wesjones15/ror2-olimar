@@ -194,8 +194,9 @@ namespace OlimarTest
             var feet = d.Body.footPosition;
             var over = new Vector3(feet.x, UnityHost.Snap(feet).y + RideHeight + 1.5f, feet.z);
             var flat = new Vector2(over.x - f.position.x, over.z - f.position.z);
-            // Close enough above him: the beam takes over (UpdateOnionMenuHover) once it can.
-            if (flat.magnitude < 0.9f && Mathf.Abs(over.y - f.position.y) < 2.5f) return false;
+            // Only hand over once its centre is over him: the beam descends from there, and
+            // stopping short would put him at its edge instead of under it.
+            if (flat.magnitude < 0.1f && Mathf.Abs(over.y - f.position.y) < 0.1f) return false;
             f.position = Vector3.MoveTowards(f.position, over, SummonSpeed * Time.fixedDeltaTime);
             return true;
         }
