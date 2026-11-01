@@ -14,9 +14,9 @@ namespace OlimarTest
     internal partial class PikminWorld
     {
         /// Colours of the buds, by Pikmin colour index: Blue, Red, Yellow, Purple, White. Pikmin 2's `mBlackWhiteAppearanceRate`
-        /// (Pom parms, fp03) is 0.15 for the two together; the rainbow Candypop Pop is one pick in ten here.
+        /// (Pom parms, fp03) is 0.15 for the two together. The rainbow Pop is opt-in (`Candypop/PopShare`): its
+        /// authored behaviour is to cycle blue, red and yellow, which reads as a bug on an ordinary bud.
         static readonly float[] BulbWeights = { 0.85f / 3f, 0.85f / 3f, 0.85f / 3f, 0.075f, 0.075f };
-        const float PopShare = 0.10f;
 
         /// Adds the five buds' models to a new view's table (before its meshes are built), when the Pikmin 2 enemy files
         /// are extracted. Without them no buds are placed.
@@ -38,11 +38,14 @@ namespace OlimarTest
         static bool bulbModels;
 
         /// Colour for the n-th bud of a stage: the first five are each colour once (in a shuffled order) where the stage has
-        /// enough buds for that, then by Pikmin 2's odds.
+        /// enough buds for that, then by Pikmin 2's odds. The rainbow Pop is opt-in (`Candypop/PopShare`).
         static (uint colour, bool queen) PickBulb(System.Random rng, int n, int total, uint[] firstFive)
         {
-            if (total >= 6 && n < 5) return (firstFive[n], false);
-            if (rng.NextDouble() < PopShare) return ((uint)rng.Next(3), true);
+            // Up to five buds cover the five colours once each: with the default three, that alone puts white and
+            // purple in play instead of leaving them to the 7.5% odds.
+            if (n < Math.Min(5, total)) return (firstFive[n], false);
+            if (Plugin.PopShare.Value > 0f && rng.NextDouble() < Plugin.PopShare.Value)
+                return ((uint)rng.Next(3), true);
             double r = rng.NextDouble(), sum = 0;
             for (uint c = 0; c < BulbWeights.Length; c++)
             {

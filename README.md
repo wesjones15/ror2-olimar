@@ -166,6 +166,9 @@ What works:
   Raise/lower commands stay on the utility button outside interact prompts, with no movement pages in the menu.
   RT + X dumps a flying Onion's Pikmin from anywhere and RT + Y fills it with the squad (it comes down low to take them). A hovering Onion descends its beam when Olimar stands beneath it and offers the menu;
   Y fills it with the squad, who jump to each leg's midpoint and climb its upper half. Taking-off and landing Onions do not offer the menu.
+  Candypop Buds are fixed colours: up to five buds cover blue, red, yellow, purple and white once each, so
+  white and purple are in the mix rather than 7.5% odds. `Candypop/PopShare` (default 0) opts into the rainbow
+  Queen (Pop), whose authored blue/red/yellow cycle is the only colour cycling; 0 keeps every bud fixed.
   Native flying call-outs still slide halfway down a leg, then let go and fall. A hovering Onion
   descends towards nearby pellets before collecting them, and the Pikmin they make stay inside it as leaves instead of being planted. Loose ground pellets are eligible even with no Pikmin alive. Chests and other RoR2 interactions have priority. The old `OnionPerColour` setting
   is ignored. `OnionItems` retains filtered owner-item inheritance: hovering is explicitly
