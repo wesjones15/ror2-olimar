@@ -257,7 +257,7 @@ namespace OlimarTest
             float alpha = Mathf.Clamp01(until - Time.unscaledTime);
             float opacity = Mathf.Min(1f, alpha * 1.5f);
             // Same bubble/area lettering as the site, but white; the site stays orange.
-            LocationText("DAY " + (RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1),
+            LocationText("day " + (RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1),
                 center, 363f, 26f, new Color(1f, 1f, 1f, opacity));
             if (!string.IsNullOrEmpty(site))
                 LocationText(site, center, 401f, 55, new Color(.9f, .53f, .12f, opacity));
