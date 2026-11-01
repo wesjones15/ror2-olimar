@@ -112,10 +112,11 @@ namespace OlimarTest
             LocationText(value, center, y, Mathf.Min(size, maxWidth / (value.Length * .68f)), color, false);
         }
 
+        static float DigitCell(float size) => size * .8f;
+
         static float LocationAdvance(char c, float size, bool lettering)
         {
-            if (lettering && c >= '0' && c <= '9' && digits[c - '0'])
-                return size * 1.15f * digits[c - '0'].width / digits[c - '0'].height;
+            if (lettering && c >= '0' && c <= '9' && digits[c - '0']) return DigitCell(size);
             if (lettering && titleGlyphs.TryGetValue(c, out var title)) return size * 1.15f * title.width / title.height;
             return size * (c == ' ' ? .35f : .68f);
         }
@@ -139,11 +140,14 @@ namespace OlimarTest
                 if (lettering && c >= '0' && c <= '9' && digits[c - '0'])
                 {
                     var digit = digits[c - '0'];
-                    float h = size * 1.15f, w = h * digit.width / digit.height;
+                    // Same cell size PikminUiSkin.Digits uses for every other bubble number,
+                    // bottom-aligned to the lettering instead of drawn at the letter height.
+                    float cell = DigitCell(size);
+                    float top = y + size * 1.15f - cell;
                     GUI.color = new Color(.08f, .035f, .01f, color.a);
-                    GUI.DrawTexture(new Rect(x + 2f, y + 2f, w, h), digit);
+                    GUI.DrawTexture(new Rect(x + 2f, top + 2f, cell, cell), digit);
                     GUI.color = color;
-                    GUI.DrawTexture(new Rect(x, y, w, h), digit);
+                    GUI.DrawTexture(new Rect(x, top, cell, cell), digit);
                 }
                 else if (lettering && titleGlyphs.TryGetValue(c, out var title))
                 {
