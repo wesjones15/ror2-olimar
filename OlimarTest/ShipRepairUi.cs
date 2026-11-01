@@ -230,13 +230,14 @@ namespace OlimarTest
             GUI.matrix = old;
         }
 
-        /// The stage-entry card on its own ("DAY N", the stage name in Pikmin letters and its
-        /// subtitle), for every Olimar stage outside Ship Repair.
-        internal static void LocationBanner(string site, string subtitle, float until)
+        /// The stage-entry card on its own ("DAY N" and the stage subtitle in Pikmin letters),
+        /// for every Olimar stage outside Ship Repair. The stage name is not repeated: the stock
+        /// RoR2 stage card already carries the place location.
+        internal static void LocationBanner(string subtitle, float until)
         {
             if (Event.current.type != EventType.Repaint) return;
             var old = GUI.matrix; float width = Begin();
-            Banner(site, subtitle, until, width * .5f);
+            Banner(null, subtitle, until, width * .5f);
             GUI.matrix = old;
         }
 
@@ -245,11 +246,12 @@ namespace OlimarTest
             if (string.IsNullOrEmpty(site) || Time.unscaledTime >= until) return;
             float alpha = Mathf.Clamp01(until - Time.unscaledTime);
             float opacity = Mathf.Min(1f, alpha * 1.5f);
-            Text("DAY " + (RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1),
-                center, 363f, 26f, new Color(cream.r, cream.g, cream.b, opacity), true);
-            LocationText(site, center, 401f, 55, new Color(.9f, .53f, .12f, opacity));
+            PikminText("DAY " + (RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1),
+                center, 363f, 26f, 720f, new Color(cream.r, cream.g, cream.b, opacity));
+            if (!string.IsNullOrEmpty(site))
+                LocationText(site, center, 401f, 55, new Color(.9f, .53f, .12f, opacity));
             if (!string.IsNullOrEmpty(subtitle))
-                Text(subtitle, center, 493f, 26f, new Color(.92f, .9f, .79f, opacity), true);
+                PikminText(subtitle, center, 493f, 26f, 720f, new Color(.92f, .9f, .79f, opacity));
         }
 
         static void Leaderboard(IEnumerable<ShipRepairSession.ResultLine> players, float x, float y, float width, float row, bool competitive)
