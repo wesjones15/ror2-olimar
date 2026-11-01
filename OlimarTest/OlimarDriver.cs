@@ -465,8 +465,14 @@ namespace OlimarTest
                 {
                     bool padLaunch = native.JumpPadLaunch;
                     var v = UnityHost.ToSim(thrown);
+                    // The motor's own gravity (Physics.gravity times its scale/multiplier) is
+                    // what the pad's authored throw was built for.
+                    float padGravity = Mathf.Abs(Physics.gravity.y) * native.GravityScale / UnityHost.Scale;
                     Native.pik_sim_launch_captain(world.SimHandle, (uint)captain, ref v,
-                        padLaunch ? Mathf.Abs(Physics.gravity.y) / UnityHost.Scale : 0f, B(padLaunch));
+                        padLaunch ? padGravity : 0f, B(padLaunch));
+                    if (padLaunch)
+                        Plugin.Log.LogInfo($"jump pad: {thrown.x:0.##},{thrown.y:0.##},{thrown.z:0.##} m/s " +
+                            $"({v.x:0},{v.y:0},{v.z:0} sim/s); gravity {padGravity:0.#} sim/s^2, motor scale {native.GravityScale:0.##}");
                 }
                 // Walking out of the beam dismisses the shortcut popup.
                 if (MenuOpen)
