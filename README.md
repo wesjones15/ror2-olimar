@@ -193,6 +193,10 @@ What works:
   (`Pikmin.ShakeProtection`). RoR2 enemies also attempt shakes every second, bosses every 0.25 seconds,
   including gaps between skills. Pikmin enemies keep their own strategies. Nearby groups of at least three ground Pikmin
   expose targets to RoR2 AI; hits on these groups hurt the real Pikmin through the existing area-damage path.
+  Enemy explosions also damage each Pikmin in the actual blast area, including projectiles
+  that hit terrain without hitting a RoR2 body. Damage follows the blast's distance falloff
+  and optional terrain line of sight. One explosion applies once per Pikmin, even if several
+  RoR2 bodies report hits. Direct hits still use the group targets and nearby-impact path.
 - **Stages**: the squad and the Onion's stock keep their colour and leaf/bud/flower stage.
   If Olimar dies while a teammate is alive, his Pikmin abandon their jobs and return to his Onion, which goes dormant.
   Living returners blocked by terrain are stored after 20 seconds; a stage transition also preserves returners inside the Onion.
@@ -296,6 +300,19 @@ Raising and lowering the Onion (hold X 0.6 s) is separate, free, and never touch
 Primary throws, secondary whistles, utility lifts or lands the Onion (and strikes, when there is no Onion press to make), special swarms toward the cursor.
 
 ### How it works
+
+The incoming-explosion regression checks run headless:
+
+```powershell
+dotnet run -c Release --project ../ror2-common/tests/BlastDamageCheck
+dotnet run -c Release --project tests/IncomingBlastCheck -- ../libpikmin/target/release/pikmin.dll ../libpikmin/assets
+```
+
+`IncomingBlastCheck` compiles the actual adapter method and `Native.cs`, loads the disc's
+30-HP Pikmin, and verifies that terrain explosions hurt and kill an idle squad while Olimar
+is outside the blast. It also checks overlapping Pikmin, repeated victim reports, terrain
+occlusion, out-of-range survivors and damage deferred during a native sim step. Both DLLs
+must be updated together (ABI 58).
 
 - `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 11).
   `Native.Load` refuses a DLL whose ABI version or struct sizes don't match.

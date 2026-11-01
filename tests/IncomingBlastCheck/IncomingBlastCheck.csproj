@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework>
+    <LangVersion>9.0</LangVersion><AllowUnsafeBlocks>true</AllowUnsafeBlocks><PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../OlimarTest/PikminWorld.Incoming.cs" Link="PikminWorld.Incoming.cs" />
+    <Compile Include="../../OlimarTest/Native.cs" Link="Native.cs" />
+    <Compile Include="../../../ror2-common/src/BlastDamage.cs" Link="BlastDamage.cs" />
+    <Compile Include="../../../ror2-common/src/NativeLib.cs" Link="NativeLib.cs" />
+    <Compile Include="../../../ror2-common/src/ViewSource.cs" Link="ViewSource.cs" />
+    <Compile Include="../../../ror2-common/tests/BlastDamageCheck/HostStubs.cs" Link="BlastHostStubs.cs" />
+  </ItemGroup>
+</Project>

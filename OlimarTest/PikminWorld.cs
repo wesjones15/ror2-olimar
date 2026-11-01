@@ -2495,6 +2495,9 @@ namespace OlimarTest
         {
             if (ShipRepairSession.Instance && ShipRepairSession.Instance.Terminal) return;
             if (sim == IntPtr.Zero || !NetworkServer.active || r?.damageInfo == null) return;
+            // BlastDamage forwards the whole explosion once, even with zero RoR2 victims.
+            // Check before deferring: the blast's report scope ends when Fire returns.
+            if (BlastDamage.CoversReport(r.damageInfo.damageType)) return;
             if (stepping)
             {
                 afterStep.Add(() => OnDamageDealt(r));
@@ -2536,8 +2539,8 @@ namespace OlimarTest
 
         static Hook blastHook;
 
-        // RoR2 freezes only bodies, so its freezing blasts (BlastAttack.Fire with Freeze2s from a
-        // non-player team) are watched here to freeze the Pikmin inside them too.
+        // Native Pikmin have no individual Unity hurtboxes: observe the explosion itself,
+        // including terrain impacts, rather than relying on a report for a RoR2 victim.
         static void HookBlasts()
         {
             if (blastHook != null) return;
@@ -2548,24 +2551,30 @@ namespace OlimarTest
             }
             catch (Exception e)
             {
-                Plugin.Log.LogWarning($"Freezing blasts: hook failed ({e.GetType().Name}: {e.Message}); Pikmin freeze only from direct hits");
+                Plugin.Log.LogWarning($"Pikmin blast damage: hook failed ({e.GetType().Name}: {e.Message}); only hits reported on RoR2 bodies reach Pikmin");
             }
         }
 
         static BlastAttack.Result BlastFired(Func<BlastAttack, BlastAttack.Result> orig, BlastAttack self)
         {
-            var result = orig(self);
+            return BlastDamage.Fire(orig, self, EnemyBlastFired);
+        }
+
+        static void EnemyBlastFired(BlastAttack self)
+        {
             try
             {
-                if (Instance && self != null && (self.damageType & DamageType.Freeze2s) != 0
-                    && self.teamIndex != TeamIndex.Player && self.teamIndex != TeamIndex.None)
-                    Instance.Freeze(self.position, self.radius, self.procCoefficient);
+                if (!Instance) return;
+                var attacker = self.attacker ? self.attacker.GetComponent<CharacterBody>() : null;
+                float damage = self.baseDamage * (self.crit ? (attacker ? attacker.critMultiplier : 2f) : 1f);
+                Instance.EnemyBlast(self.position, self.radius, damage, self.falloffModel,
+                    self.losType != BlastAttack.LoSType.None,
+                    (self.damageType & DamageType.Freeze2s) != 0, self.procCoefficient);
             }
             catch (Exception e)
             {
-                Plugin.Log.LogError($"Freezing blast: {e}");
+                Plugin.Log.LogError($"Pikmin blast damage: {e}");
             }
-            return result;
         }
 
         // Enemies whose attacks are watched (EnemyAttacked).

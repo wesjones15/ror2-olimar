@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 57;
+        public const uint AbiVersion = 58;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_music_new(byte[] assets);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update_context(IntPtr music,uint song,uint flags,float volume,byte paused,float dt);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_music_update(IntPtr music, uint song, byte nearbyEnemy, float volume, byte paused);
@@ -491,6 +491,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_reach(IntPtr sim, uint captain, float scale);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_captain_speed(IntPtr sim, uint captain, float scale);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_attack_pikis_in_sphere(IntPtr sim, ref Vec3 centre, float radius, float damage);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_attack_piki(IntPtr sim, uint id, float damage);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_freeze_pikis_in_sphere(IntPtr sim, ref Vec3 centre, float radius, float seconds);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_kill_piki(IntPtr sim, uint piki);
 
