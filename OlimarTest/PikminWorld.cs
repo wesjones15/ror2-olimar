@@ -118,6 +118,9 @@ namespace OlimarTest
             /// Seconds before the Onion may offer its menu again after a rescue or visit; the
             /// normal follow carries it back out of reach meanwhile.
             public float menuLockout;
+            /// Short grace for a heal that arrived while the captain was still moving/settling:
+            /// keep the beam over him and retry before giving up.
+            public float healRetry;
             public float summonAge;
             public bool dormant;
             /// Dormant because its owner died (it wakes when he is alive again), not from damage.
@@ -1600,31 +1603,39 @@ namespace OlimarTest
 
         /// Heals him from his Onion's stock. `fromCall` is the RT + RB visit: the called Onion's
         /// beam is already locked over him, so the standing-in-the-beam test is skipped.
-        public bool HealFromOnion(int captain, bool fromCall = false)
+        public bool HealFromOnion(int captain, bool fromCall = false) => HealFromOnion(captain, fromCall, out _);
+
+        /// As above; `why` says why a heal did not happen.
+        public bool HealFromOnion(int captain, bool fromCall, out string why)
         {
+            why = null;
             int onion;
             if (fromCall)
             {
-                if (ClientMode || !onionOf.TryGetValue(captain, out var f)) return false;
+                if (ClientMode || !onionOf.TryGetValue(captain, out var f)) { why = "there is no Onion"; return false; }
                 onion = f.id;
             }
             else
             {
                 onion = OnionInReach(captain);
-                if (onion < 0) return false;
+                if (onion < 0) { why = "he is not in the beam"; return false; }
             }
             if (ClientMode)
             {
-                if (!moverDriver) return false;
+                if (!moverDriver) { why = "there is no mover"; return false; }
                 moverDriver.SendOnion(OnionCommandPacket.Heal, 0, 0);
                 return true;
             }
-            if (!driverOf.TryGetValue(captain, out var driver) || !driver || !driver.Active || !driver.Body) return false;
+            // The called Onion has already locked its beam over him; `Active` can still be false
+            // for a frame while a moving/remote body settles, so only the body is required here.
+            if (!driverOf.TryGetValue(captain, out var driver) || !driver || !driver.Body || (!fromCall && !driver.Active))
+            { why = "his body is unavailable"; return false; }
             var hp = driver.Body.healthComponent;
-            if (!hp || !hp.alive || hp.fullHealth <= 0f) return false;
+            if (!hp || !hp.alive || hp.fullHealth <= 0f) { why = "his health is unavailable"; return false; }
             float deficit = Mathf.Clamp01((hp.fullHealth - hp.health) / hp.fullHealth);
+            if (deficit <= 0f) { why = "he is at full health"; return false; }
             float fraction = Native.pik_sim_sacrifice_onion(sim, (uint)onion, deficit, out uint count);
-            if (count == 0) return false;
+            if (count == 0) { why = "the Onion has no unreserved Pikmin"; return false; }
             hp.Heal(fraction * hp.fullHealth, default, true);
             healing[captain] = (Time.time, (byte)Math.Min(count, 255u));
             return true;

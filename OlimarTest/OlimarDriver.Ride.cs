@@ -77,9 +77,9 @@ namespace OlimarTest
 
         internal void RidePlace(Vector3 at) => rideFeet = at;
 
-        /// The ride ended with the Onion at `onion` (on the server): he drops out of the beam onto the ground
-        /// beneath it, or falls if there is none. `safe` is where fall recovery sends him: the last ground the
-        /// ride crossed. A remote Olimar is told, and places himself.
+        /// The ride ended with the Onion at `onion` (on the server): he drops out of the Onion's bottom and
+        /// falls to the ground beneath it. `safe` is where fall recovery sends him: the last ground the
+        /// ride crossed. A remote Olimar is told, and drops himself the same way.
         internal void RideEnded(Vector3 onion, Vector3 safe)
         {
             if (rideProtected && Body)
@@ -88,16 +88,14 @@ namespace OlimarTest
                 if (Body.hurtBoxGroup) Body.hurtBoxGroup.hurtBoxesDeactivatorCounter--;
             }
             rideProtected = false;
-            var feet = Physics.Raycast(onion + Vector3.up * 1f, Vector3.down, out var hit, 60f, UnityHost.Mask,
-                QueryTriggerInteraction.Ignore) && hit.normal.y >= 0.5f ? hit.point : onion;
             if (IsRemote)
             {
                 rideMove = Vector2.zero;
                 rideBoost = rideExit = false;
-                if (Body && Body.netId.Value != 0) PikminNet.SendRideEnd(Body.netId.Value, feet, safe);
+                if (Body && Body.netId.Value != 0) PikminNet.SendRideEnd(Body.netId.Value, onion, safe);
                 return;
             }
-            RideEndedHere(feet, safe);
+            RideEndedHere(onion, safe);
         }
 
         /// Places him out of the Onion on this machine (his own, where his body is moved).

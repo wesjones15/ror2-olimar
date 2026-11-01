@@ -168,6 +168,7 @@ namespace OlimarTest
             f.summon = true;
             f.healSummon = false;
             f.healVisit = 0f;
+            f.healRetry = 0f;
             f.menuBeam = f.menuReturning = false;
             f.menuLockout = 0f;
             f.summonAge = 0f;
@@ -201,11 +202,14 @@ namespace OlimarTest
             if (f.ride != null) return false;
             if (f.healVisit > 0f || f.healSummon) { ReleaseRescue(f); return true; }
             if (f.dormant) { why = "The Onion is dormant."; return false; }
+            if (OnionTotals(f.id, captain, out var stock))
+                Plugin.Log.LogInfo($"captain {captain}: called Onion heal; {stock.in_onion} stored, {stock.in_squad} in the squad");
             // A normal call already on its way just switches to healing.
             if (f.summon) { f.healSummon = true; f.healVisit = 0f; return true; }
             f.summon = true;
             f.healSummon = true;
             f.healVisit = 0f;
+            f.healRetry = 0f;
             f.menuBeam = f.menuReturning = false;
             f.menuLockout = 0f;
             f.summonAge = 0f;
@@ -258,23 +262,37 @@ namespace OlimarTest
             if (flat.magnitude > RescueCaptureRadius
                 || Mathf.Abs(f.position.y - target.y) > RescueCaptureDrop) return true;
 
+            // Put the Onion's core pose at the locked point before spending stock: the heal
+            // needs the Onion in its Hover pose (takes deliveries), not last tick's landing pose.
+            WriteFlight(f);
             bool heal = f.healSummon;
-            f.summon = false;
-            f.healSummon = false;
             if (heal)
             {
-                if (!HealFromOnion(f.captain, true))
+                if (HealFromOnion(f.captain, true, out var healWhy))
                 {
-                    ReleaseRescue(f);
-                    if (Plugin.LogEvents.Value)
-                        Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't heal him");
+                    f.summon = false;
+                    f.healSummon = false;
+                    f.healRetry = 0f;
+                    // Keep the beam over him while the healing effect plays; the heal VFX follow
+                    // him, while each ghost stays where it was spawned (libpikmin-present).
+                    f.healVisit = HealingSeconds;
                     return true;
                 }
-                // Keep the beam over him while the healing effect plays; the heal VFX follow
-                // him, while each ghost stays where it was spawned (libpikmin-present).
-                f.healVisit = HealingSeconds;
+                // A moving/remote body can settle a tick late. Keep the beam locked over him
+                // briefly and retry instead of leaving as soon as it touches down.
+                if (f.healRetry <= 0f) f.healRetry = 0.6f;
+                f.healRetry -= Time.fixedDeltaTime;
+                if (f.healRetry > 0f) return true;
+                f.summon = false;
+                f.healSummon = false;
+                f.healRetry = 0f;
+                ReleaseRescue(f);
+                Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't heal him: {healWhy}");
                 return true;
             }
+            f.summon = false;
+            f.healSummon = false;
+            f.healRetry = 0f;
             if (!BeginRide(f.captain, out var why, true))
             {
                 ReleaseRescue(f);
@@ -311,6 +329,7 @@ namespace OlimarTest
         {
             f.summon = f.healSummon = false;
             f.healVisit = 0f;
+            f.healRetry = 0f;
             f.menuBeam = f.menuReturning = false;
             f.menuLockout = 1.5f;
             f.following = f.airborne = true;
