@@ -499,6 +499,13 @@ namespace OlimarTest
                     Launch(world, padThrown, true);
                     putBack = null;
                 }
+                else if (padFlight)
+                {
+                    // The pad's throw owns him until the sim reports landing. Posing him to
+                    // the body (MovedElsewhere) or taking the motor's stale velocity here is
+                    // what replaced vertical pad arcs with a zero-gravity fall.
+                    putBack = null;
+                }
                 else if (!placed || smoother.MovedElsewhere)
                 {
                     smoother.Reset();
