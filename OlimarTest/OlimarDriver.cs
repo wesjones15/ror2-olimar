@@ -282,14 +282,14 @@ namespace OlimarTest
             if (RideActive)
             {
                 RideInput();
-                pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.recallStuck = false;
+                pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.healSummon = pad.recallStuck = false;
                 pad.remoteDump = pad.remoteFill = pad.boostPressed = pad.anyFacePressed = pad.board = pad.summonPressed = false;
                 return;
             }
             OnionPrompt();
             if (MenuOpen && Time.frameCount > menuOpenedFrame) MenuInput();
             else if (!MenuOpen) { FlyingXInput(); RemoteOnionInput(); }
-            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.recallStuck = false;
+            pad.confirm = pad.cancel = pad.releaseAll = pad.returnAll = pad.heal = pad.healSummon = pad.recallStuck = false;
             pad.remoteDump = pad.remoteFill = pad.boostPressed = pad.anyFacePressed = pad.board = pad.summonPressed = false;
 
         }

@@ -150,12 +150,48 @@ namespace OlimarTest
             if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body)
             { why = "There is no Onion to call."; return false; }
             if (f.ride != null) return false;
-            if (f.summon) { f.summon = false; return true; }
+            if (f.summon) { f.summon = false; f.healSummon = false; return true; }
             if (f.dormant) { why = "The Onion is dormant."; return false; }
             var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
             // Checked now so a called Onion never flies over for nothing.
             if (slot && !NativeSkills.Ready(slot, OlimarSkills.Ride)) { why = "Onion Ride is recharging."; return false; }
             f.summon = true;
+            f.healSummon = false;
+            f.summonAge = 0f;
+            // It comes the way a raised Onion does: a landed one takes off and a far one flies over fast (the raise's
+            // 1.8 s glide), free since it is not the ride's charge; then it eases in over him (UpdateSummon).
+            if (!f.following || !f.airborne) CommandOnion(captain, true);
+            else if (Vector3.Distance(f.position, d.Body.footPosition) > 15f)
+            {
+                f.transitionStart = f.position;
+                f.transitionElapsed = 0f;
+                f.transitionDuration = 1.8f;
+                f.foldFirst = false;
+                WriteFlight(f);
+            }
+            return true;
+        }
+
+        /// RT + RB: the same call as ToggleSummon, but the Onion heals him from its stock on arrival
+        /// instead of boarding. Free: the heal spends stored Pikmin, not the ride's charge.
+        public bool ToggleHealSummon(int captain, out string why)
+        {
+            why = null;
+            if (ClientMode)
+            {
+                if (!moverDriver || !remoteInfo.TryGetValue(captain, out var info) || info.onion < 0) { why = "There is no Onion to call."; return false; }
+                moverDriver.SendOnion(OnionCommandPacket.HealSummon, 0, 0);
+                return true;
+            }
+            if (!onionOf.TryGetValue(captain, out var f) || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body)
+            { why = "There is no Onion to call."; return false; }
+            if (f.ride != null) return false;
+            if (f.healSummon) { f.healSummon = false; f.summon = false; return true; }
+            if (f.dormant) { why = "The Onion is dormant."; return false; }
+            // A normal call already on its way just switches to healing.
+            if (f.summon) { f.healSummon = true; return true; }
+            f.summon = true;
+            f.healSummon = true;
             f.summonAge = 0f;
             // It comes the way a raised Onion does: a landed one takes off and a far one flies over fast (the raise's
             // 1.8 s glide), free since it is not the ride's charge; then it eases in over him (UpdateSummon).
@@ -177,10 +213,18 @@ namespace OlimarTest
         {
             f.summonAge += Time.fixedDeltaTime;
             if (!driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || f.dormant || !OwnerAlive(f) || f.summonAge > SummonSeconds)
-            { f.summon = false; return false; }
+            { f.summon = false; f.healSummon = false; return false; }
             if (f.menuReady && OnionInReach(f.captain) == f.id)
             {
+                bool heal = f.healSummon;
                 f.summon = false;
+                f.healSummon = false;
+                if (heal)
+                {
+                    if (!HealFromOnion(f.captain) && Plugin.LogEvents.Value)
+                        Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't heal him");
+                    return true;
+                }
                 if (!BeginRide(f.captain, out var why) && Plugin.LogEvents.Value)
                     Plugin.Log.LogInfo($"captain {f.captain}: the called Onion couldn't board him: {why}");
                 return true;

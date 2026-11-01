@@ -43,7 +43,7 @@ namespace OlimarTest
         public bool Cycle => cycleNow || cycleTap;
         public bool recentre, zoom, topView;
         // Direct shortcuts while standing in the Onion beam.
-        public bool confirm, cancel, releaseAll, returnAll, heal, recallStuck;
+        public bool confirm, cancel, releaseAll, returnAll, heal, healSummon, recallStuck;
         // RT (the alternate-command modifier) held, and its remote Onion commands: RT + X dumps and RT + Y
         // fills, away from the beam. Consumed by the driver.
         public bool modifierHeld, remoteDump, remoteFill;
@@ -102,6 +102,8 @@ namespace OlimarTest
                 strikeNow = gp.rightBumper.value;
                 strikeHeld = gp.rightBumper.value;
                 heal |= gp.rightBumper.justPressed;
+                // RT + RB calls the Onion over him to heal him, not the strike.
+                if (rt && gp.rightBumper.justPressed) { healSummon = true; swallowStrike = true; }
                 recallStuck |= lb;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
@@ -147,6 +149,13 @@ namespace OlimarTest
                 strikeNow = UnityEngine.Input.GetKey(KeyCode.F);
                 strikeHeld = strikeNow;
                 heal |= UnityEngine.Input.GetKeyDown(KeyCode.F);
+                // Keyboard stand-in for RT + RB: hold Z and tap F.
+                if (UnityEngine.Input.GetKey(KeyCode.Z) && UnityEngine.Input.GetKeyDown(KeyCode.F))
+                {
+                    healSummon = true;
+                    strikeNow = false;
+                    swallowStrike = true;
+                }
                 recallStuck |= UnityEngine.Input.GetKeyDown(KeyCode.G);
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;

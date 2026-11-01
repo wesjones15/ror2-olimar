@@ -108,8 +108,10 @@ namespace OlimarTest
             public bool releaseWhenReady;
             /// Olimar is flying this Onion (PikminWorld.Ride.cs).
             public OnionRide ride;
-            /// Called to Olimar to board him (RT + LB): flies over him, comes down, and boards.
+            /// Called to Olimar to board him (RT + LT): flies over him, comes down, and boards.
             public bool summon;
+            /// Called to Olimar to heal him (RT + RB): the same flight, but heals on arrival instead.
+            public bool healSummon;
             public float summonAge;
             public bool dormant;
             /// Dormant because its owner died (it wakes when he is alive again), not from damage.
@@ -303,6 +305,9 @@ namespace OlimarTest
                     break;
                 case OnionCommandPacket.Summon:
                     ToggleSummon(captain, out _);
+                    break;
+                case OnionCommandPacket.HealSummon:
+                    ToggleHealSummon(captain, out _);
                     break;
                 case OnionCommandPacket.TriggerPlucker:
                     TriggerOnionPlucker(captain);

@@ -161,7 +161,7 @@ namespace OlimarTest
 
         public const byte Follow = 0, Land = 1, CallOut = 2, PutAway = 3;
         public const byte CallOutAny = 4, PutAwayAny = 5, ReleaseAll = 6, ReturnAll = 7;
-        public const byte Heal = 8, ReleaseFlyingAll = 9, TriggerPlucker = 10, RecallStuck = 11, FillFlyingAll = 12, Board = 13, Summon = 14;
+        public const byte Heal = 8, ReleaseFlyingAll = 9, TriggerPlucker = 10, RecallStuck = 11, FillFlyingAll = 12, Board = 13, Summon = 14, HealSummon = 15;
 
         public static byte[] Write(in OnionCommandPacket p)
         {
@@ -182,7 +182,7 @@ namespace OlimarTest
             p.kind = r.U8();
             p.colour = r.U8();
             p.count = r.U32();
-            return !r.Failed && r.Done && p.kind <= Summon;
+            return !r.Failed && r.Done && p.kind <= HealSummon;
         }
     }
 

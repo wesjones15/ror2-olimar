@@ -131,6 +131,15 @@ namespace OlimarTest
                 if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {DataCaptain}: Onion summon refused: {why}");
                 world.PlaySound(2, Body.footPosition);
             }
+            if (pad.healSummon)
+            {
+                pad.healSummon = false;
+                if (!world.ToggleHealSummon(DataCaptain, out var healWhy))
+                {
+                    if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {DataCaptain}: Onion heal call refused: {healWhy}");
+                    world.PlaySound(2, Body.footPosition);
+                }
+            }
         }
     }
 }
