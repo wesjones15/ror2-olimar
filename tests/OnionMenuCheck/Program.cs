@@ -54,11 +54,11 @@ static class Program
         flying.Cancel();
         flying.Step(7f, true, false);
         Check(flying.Step(7.7f, true, true) == FlyingXAction.None, "interact cancels pending relocation");
-        Check(PelletDropPolicy.Number(false, false, 80f, .7f) == 1, "small enemy: 1");
-        Check(PelletDropPolicy.Number(false, false, 300f, 1.5f) == 5, "medium/large: 5");
-        Check(PelletDropPolicy.Number(false, false, 900f, 1f) == 10, "tough enemy: 10");
-        Check(PelletDropPolicy.Number(false, true, 80f, .7f) == 10, "elite: 10");
-        Check(PelletDropPolicy.Number(true, true, 2000f, 3f) == 20, "boss wins over elite: 20");
+        Check(PelletDropPolicy.Number(false, false, PelletDropPolicy.Size.Small) == 1, "ordinary enemy: 1");
+        Check(PelletDropPolicy.Number(false, false, PelletDropPolicy.Size.Large) == 5, "heavy body (Beetle Guard/Golem): 5");
+        Check(PelletDropPolicy.Number(false, false, PelletDropPolicy.Size.Huge) == 10, "bigger than a heavy: 10");
+        Check(PelletDropPolicy.Number(false, true, PelletDropPolicy.Size.Large) == 10, "named boss: 10");
+        Check(PelletDropPolicy.Number(true, true, PelletDropPolicy.Size.Huge) == 20, "stage boss wins: 20");
         float jump = OlimarJump.Height(15f, 15f, -30f, 0.04f);
         Check(jump * 0.04f > 15f * 15f / 60f, "Commando jump height plus ledge clearance");
         Check(OlimarJump.Height(8f, 15f, -30f, 0.04f) == jump, "base Commando height is the minimum");

@@ -2716,6 +2716,15 @@ namespace OlimarTest
             return best >= 0 ? best : 1;
         }
 
+        // The game's own size classes (`HullClassification`): an ordinary enemy uses the Human
+        // hull, a heavy body the Golem's, and anything larger the Beetle Queen's.
+        static PelletDropPolicy.Size PelletSize(HullClassification hull) => hull switch
+        {
+            HullClassification.BeetleQueen => PelletDropPolicy.Size.Huge,
+            HullClassification.Golem => PelletDropPolicy.Size.Large,
+            _ => PelletDropPolicy.Size.Small,
+        };
+
         // A dead enemy leaves a corpse for the Pikmin to carry home (BTeki::dieSoon →
         // becomePellet): a pellet in the sim, drawn as the enemy's own body (Corpses).
         void OnDeath(DamageReport r)
@@ -2767,7 +2776,8 @@ namespace OlimarTest
 
             float r_m = Mathf.Max(0.3f, v.bestFitRadius);
             int weight = Mathf.Clamp(Mathf.RoundToInt(r_m * Plugin.CarriersPerMetre.Value), 1, 20);
-            if (!Plugin.CarryBodies.Value) weight = PelletDropPolicy.Number(v.isChampion, v.isElite, v.baseMaxHealth, r_m);
+            if (!Plugin.CarryBodies.Value)
+                weight = PelletDropPolicy.Number(v.isChampion, v.isBoss, PelletSize(v.hullClassification));
             var at = UnityHost.ToSim(UnityHost.Snap(v.footPosition));
             float yaw = UnityHost.Yaw(v.transform.forward);
             if (!Plugin.CarryBodies.Value)
