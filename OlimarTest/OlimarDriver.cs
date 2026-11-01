@@ -682,6 +682,10 @@ namespace OlimarTest
         /// The sim's pose for the replica's overlay: where the smoothed body's feet are.
         internal Vector3 SmoothedFeet => transform.position - feetToOrigin;
 
+        // The visible captain must use the same position as the camera target. The native
+        // view's independent 30 Hz blend can finish early, or skip ticks at low frame rates.
+        internal bool DrawAtSmoothedFeet => placed && SimMoves && Active && !IsRemote && !RideActive;
+
         // Moved from `from` to `to` since the last tick: if that's a teleport, the squad follows.
         void Teleported(PikminWorld world, Vector3 from, Vector3 to)
         {

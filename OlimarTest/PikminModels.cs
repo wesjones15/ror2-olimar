@@ -218,12 +218,13 @@ namespace OlimarTest
         /// Poses `sim` and moves the objects and particles. `scale` is metres per sim unit; draws
         /// `hide` says no to (pellets standing in for a corpse the host carries itself) aren't
         /// shown.
-        public void Update(IntPtr sim, ref Native.ViewFrame frame, float scale, Func<ViewDraw, bool> hide = null)
+        public void Update(IntPtr sim, ref Native.ViewFrame frame, float scale, Func<ViewDraw, bool> hide = null,
+            Func<ViewDraw, (Vector3, Quaternion)?> place = null)
         {
             if (view == IntPtr.Zero) return;
             Native.pik_view_set_pose_budget(view, ref frame.eye, scale > 0f ? Models.PoseBudgetDistance / scale : 0f);
             Pose(sim, ref frame);
-            Models.Update(scale, null, hide);
+            Models.Update(scale, place, hide);
             particles.Draw(scale);
             LogNewPellets();
         }

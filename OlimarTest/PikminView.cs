@@ -30,6 +30,12 @@ namespace OlimarTest
             if (sound == 6) recallWhistleUntil = Time.unscaledTime + 0.28f;
         }
         readonly Dictionary<int, ViewDraw> drawnCaptains = new Dictionary<int, ViewDraw>();
+        readonly Dictionary<int, Vector3> captainFeet = new Dictionary<int, Vector3>();
+
+        (Vector3, Quaternion)? PlaceCaptain(ViewDraw draw) =>
+            draw.kind == Native.KindCaptain && captainFeet.TryGetValue((int)draw.id, out var feet)
+                ? (feet, new Quaternion(draw.rot_x, draw.rot_y, draw.rot_z, draw.rot_w))
+                : ((Vector3, Quaternion)?)null;
 
         static readonly Color[] PikiColours =
         {
@@ -191,6 +197,10 @@ namespace OlimarTest
                 frame.up = new Native.Vec3(cam.up.x, cam.up.y, cam.up.z);
             }
             var drivers = OlimarDriver.All;
+            captainFeet.Clear();
+            foreach (var d in drivers)
+                if (d.ViewCaptain >= 0 && d.DrawAtSmoothedFeet)
+                    captainFeet[d.ViewCaptain] = d.SmoothedFeet;
             // Olimar beams down from the Dolphin; only the Pikmin exit the Onion.
             foreach (var d in drivers)
                 if (d.ViewCaptain >= 0)
@@ -239,7 +249,7 @@ namespace OlimarTest
                 d.kind == Native.KindPellet && TekiCorpses.Has(d.id) ||
                 d.kind == Native.KindPellet &&
                 world.Corpses.Pose(d.id, new Vector3(d.pos.x, d.pos.y, d.pos.z) * UnityHost.Scale,
-                    new Quaternion(d.rot_x, d.rot_y, d.rot_z, d.rot_w)));
+                    new Quaternion(d.rot_x, d.rot_y, d.rot_z, d.rot_w)), PlaceCaptain);
 
             // Olimar's own model stands in for Commando's wherever it's drawn.
             drawnCaptains.Clear();
@@ -255,7 +265,8 @@ namespace OlimarTest
                 if (d.ViewCaptain >= 0) drawn = drawnCaptains.TryGetValue(d.ViewCaptain, out dr);
                 if (drawn && !d.Arriving)
                     d.PoseItems(models.ViewHandle,
-                        new Vector3(dr.pos.x, dr.pos.y, dr.pos.z) * UnityHost.Scale,
+                        captainFeet.TryGetValue(d.ViewCaptain, out var feet) ? feet
+                            : new Vector3(dr.pos.x, dr.pos.y, dr.pos.z) * UnityHost.Scale,
                         new Quaternion(dr.rot_x, dr.rot_y, dr.rot_z, dr.rot_w), UnityHost.Scale);
                 d.HideBody(d.Arriving || drawn);
             }

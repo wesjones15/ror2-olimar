@@ -308,9 +308,12 @@ Primary throws, secondary whistles, utility lifts or lands the Onion (and strike
   ticks with ror2-common's `StepSmoother`, before RoR2 updates its camera. After a sim tick
   the body stays at the previous position until that frame's blend, so the camera never
   reads ahead of the drawn Olimar. RoR2's own network transform shows that to others.
-  The native view receives `ViewFrame.lag = StepSmoother.LagTicks(RenderAlpha, 1)` on
-  the same 30 Hz clock: positions, facing and sim-driven animation frames blend together.
-  This prevents camera stutter across the scene and model ghosting at high refresh rates.
+  Locally simulated captains and their attached items use those same smoothed feet through
+  the shared `ModelView` placement hook. The native view's separate 30 Hz position blend
+  can finish early and pause; using it against the smoothly moving camera caused a stutter step.
+  The native view still receives `ViewFrame.lag = StepSmoother.LagTicks(RenderAlpha, 1)`
+  for facing and sim-driven animation. Arrival, Onion rides, Aim/VR and remote captains
+  retain their own placement. Viewer reproduction: `captain_smoothing` (model 0, `pikis/nv3Model.mod`).
   The lobby supplies its own sim fraction. Install both DLLs together; older ABIs are incompatible.
 - In the Pikmin scheme, `NativeBody` imports external velocity, applies roots/stuns,
   manages sprint state, and reports native throws/punches for combat and primary-use items.
