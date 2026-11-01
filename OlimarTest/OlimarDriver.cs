@@ -1013,9 +1013,7 @@ namespace OlimarTest
                 bannerUntil = Time.unscaledTime + 5f;
             }
             if (!scene || Time.unscaledTime >= bannerUntil) return;
-            ShipRepairUi.LocationBanner(
-                string.IsNullOrEmpty(scene.subtitleToken) ? null : Language.GetString(scene.subtitleToken),
-                bannerUntil);
+            ShipRepairUi.LocationBanner(Language.GetString(scene.nameToken), bannerUntil);
         }
 
         void OnGUI()
