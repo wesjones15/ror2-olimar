@@ -226,17 +226,30 @@ namespace OlimarTest
             if (treasures >= 0)
                 Text("TREASURES " + treasures + "  +" + ShipRepairTreasures.Format(treasureHundredths), center + 40f, 98f, 20f, new Color(.62f, .9f, 1f), true);
             Leaderboard(players, width - 328f, Mathf.Max(138f, ObjectivesBottom(Screen.height / 1080f)), 305f, 34f, competitive);
-            if (!string.IsNullOrEmpty(site) && Time.unscaledTime < siteUntil)
-            {
-                float alpha = Mathf.Clamp01(siteUntil - Time.unscaledTime);
-                float opacity = Mathf.Min(1f, alpha * 1.5f);
-                Text("DAY " + (RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1),
-                    center, 363f, 26f, new Color(cream.r, cream.g, cream.b, opacity), true);
-                LocationText(site, center, 401f, 55, new Color(.9f, .53f, .12f, opacity));
-                if (!string.IsNullOrEmpty(subtitle))
-                    Text(subtitle, center, 493f, 26f, new Color(.92f, .9f, .79f, opacity), true);
-            }
+            Banner(site, subtitle, siteUntil, center);
             GUI.matrix = old;
+        }
+
+        /// The stage-entry card on its own ("DAY N", the stage name in Pikmin letters and its
+        /// subtitle), for every Olimar stage outside Ship Repair.
+        internal static void LocationBanner(string site, string subtitle, float until)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            var old = GUI.matrix; float width = Begin();
+            Banner(site, subtitle, until, width * .5f);
+            GUI.matrix = old;
+        }
+
+        static void Banner(string site, string subtitle, float until, float center)
+        {
+            if (string.IsNullOrEmpty(site) || Time.unscaledTime >= until) return;
+            float alpha = Mathf.Clamp01(until - Time.unscaledTime);
+            float opacity = Mathf.Min(1f, alpha * 1.5f);
+            Text("DAY " + (RoR2.Run.instance ? RoR2.Run.instance.stageClearCount + 1 : 1),
+                center, 363f, 26f, new Color(cream.r, cream.g, cream.b, opacity), true);
+            LocationText(site, center, 401f, 55, new Color(.9f, .53f, .12f, opacity));
+            if (!string.IsNullOrEmpty(subtitle))
+                Text(subtitle, center, 493f, 26f, new Color(.92f, .9f, .79f, opacity), true);
         }
 
         static void Leaderboard(IEnumerable<ShipRepairSession.ResultLine> players, float x, float y, float width, float row, bool competitive)

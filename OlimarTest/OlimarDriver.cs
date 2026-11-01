@@ -931,6 +931,28 @@ namespace OlimarTest
             return t;
         }
 
+        // Each Olimar stage entry (outside Ship Repair, whose HUD draws its own) opens with the
+        // stage's name in Pikmin 2's area lettering, like the disc's day-intro cards.
+        static Stage bannerStage;
+        static SceneDef bannerScene;
+        static float bannerUntil;
+
+        void StageEntryBanner()
+        {
+            if (ShipRepairMode.Active || localUser == null) return;
+            var scene = SceneCatalog.GetSceneDefForCurrentScene();
+            if (Stage.instance && scene && (Stage.instance != bannerStage || scene != bannerScene))
+            {
+                bannerStage = Stage.instance;
+                bannerScene = scene;
+                bannerUntil = Time.unscaledTime + 5f;
+            }
+            if (!scene || Time.unscaledTime >= bannerUntil) return;
+            ShipRepairUi.LocationBanner(Language.GetString(scene.nameToken),
+                string.IsNullOrEmpty(scene.subtitleToken) ? null : Language.GetString(scene.subtitleToken),
+                bannerUntil);
+        }
+
         void OnGUI()
         {
             // RoR2's pause menu is up: nothing of ours is drawn over it.
@@ -939,6 +961,7 @@ namespace OlimarTest
                 HideMenuGlyphs();
                 return;
             }
+            StageEntryBanner();
             BottomHud();
             if (!MenuOpen || localUser == null || !PikminWorld.Instance)
             {

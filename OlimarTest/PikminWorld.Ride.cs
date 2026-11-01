@@ -165,6 +165,7 @@ namespace OlimarTest
                 f.transitionStart = f.position;
                 f.transitionElapsed = 0f;
                 f.transitionDuration = 1.8f;
+                f.foldFirst = false;
                 WriteFlight(f);
             }
             return true;

@@ -102,6 +102,8 @@ namespace OlimarTest
             public CharacterMaster owner;
             public Vector3 position, landing, transitionStart;
             public float transitionElapsed, transitionDuration;
+            /// Raised from the ground: hold still until the take-off clip has folded the legs in.
+            public bool foldFirst;
             public bool following = true, airborne = true;
             public bool releaseWhenReady;
             /// Olimar is flying this Onion (PikminWorld.Ride.cs).
@@ -1035,6 +1037,10 @@ namespace OlimarTest
             }
         }
 
+        /// Fraction of a ground take-off spent folding the legs before the Onion travels
+        /// (`c_*_t`: they are tucked by about frame 140 of 399).
+        const float LegFold = 0.35f;
+
         void MoveOnions()
         {
             foreach (var flight in onionOf.Values)
@@ -1104,8 +1110,22 @@ namespace OlimarTest
                     {
                         flight.transitionElapsed += Time.fixedDeltaTime;
                         float t = Mathf.Clamp01(flight.transitionElapsed / flight.transitionDuration);
-                        flight.position = Vector3.Lerp(flight.transitionStart, target, Mathf.SmoothStep(0f, 1f, t));
-                        if (t >= 1f) flight.transitionDuration = 0f;
+                        if (flight.foldFirst && t < LegFold)
+                        {
+                            // The take-off clip folds the legs while the Onion is still standing
+                            // (the clip's own rise is stripped by the view), so hold it here.
+                            flight.position = flight.transitionStart;
+                        }
+                        else if (flight.foldFirst)
+                        {
+                            float u = (t - LegFold) / (1f - LegFold);
+                            flight.position = Vector3.Lerp(flight.transitionStart, target, Mathf.SmoothStep(0f, 1f, u));
+                        }
+                        else
+                        {
+                            flight.position = Vector3.Lerp(flight.transitionStart, target, Mathf.SmoothStep(0f, 1f, t));
+                        }
+                        if (t >= 1f) { flight.transitionDuration = 0f; flight.foldFirst = false; }
                     }
                     else
                     {
@@ -1311,6 +1331,9 @@ namespace OlimarTest
             f.transitionStart = f.position;
             f.transitionElapsed = 0f;
             f.transitionDuration = follow ? 1.8f : 2.5f;
+            // Getting up from the ground: the take-off clip folds the legs while the Onion is
+            // still standing, so it must not slide until that is done.
+            f.foldFirst = follow && !f.airborne;
             f.following = follow;
             f.airborne = true;
             WriteFlight(f);
