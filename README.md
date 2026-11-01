@@ -219,7 +219,7 @@ position, so your RoR2 binds don't change it:
 | RT + X           | V                   | dump a flying Onion's Pikmin |
 | RT + Y           | B                   | fill a flying Onion with the squad |
 | LB under an Onion | jump               | board the Onion: Onion Ride (below) |
-| RT + LB          | Z                   | call the Onion to you, lower it and board (again to call it off) |
+| hold RT + tap LT | Z                   | call the Onion to you, lower it and board (again to call it off) |
 | RB               | F                   | dismiss strike: a melee blow all around him, 4 s cooldown (see below) |
 | d-pad left/right | mouse wheel         | colour to throw: Any (nearest), Red, Yellow, Blue |
 | Y                | equipment           | RoR2's equipment, as usual   |
@@ -267,8 +267,8 @@ no animation data is shipped with the mod. Normal locomotion resumes on landing.
 ### Onion Ride
 
 The Utility slot is **Onion Ride**, Olimar's escape and repositioning tool. Stand in the beam of a live Onion
-(landed or hovering) and press **LB** to board, or press **RT + LB** from anywhere: the Onion flies to you the way a raised Onion does (the fast glide, then it eases in), comes down, and boards you.
-LB is the camera recentre everywhere else, and RT + LB never recentres (B is jump even in the beam). It spends a charge; the 30 s
+(landed or hovering) and press **LB** to board, or hold **RT** and tap **LT** from anywhere: the Onion flies to you the way a raised Onion does (the fast glide, then it eases in), comes down, and boards you.
+LB is the camera recentre and the beam's board button; LT locks on only when RT is not held. It spends a charge; the 30 s
 cooldown (`Items.RideRecharge`; cooldown items and Hardlight's extra charges apply) starts when the ride ends.
 Olimar lifts into the Onion with Pikmin 1's bad-ending motion (`cinemas/demo74/navi.anm`, extracted from your
 disc like the rest), the Onion takes off if it was landed, and his squad goes in through its legs as Fill does.

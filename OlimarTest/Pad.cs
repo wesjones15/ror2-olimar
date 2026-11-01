@@ -9,7 +9,8 @@ namespace OlimarTest
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
     // B: jump, RT + B: whistle, X: raise or lower the Onion (interact when a prompt is up), RB: the dismiss strike (a melee blow; it no
     // longer dismisses the squad), d-pad left or right: next colour to throw, RT + right stick: swarm
-    // (the C-stick), LB: recentre the camera (RT + LB calls the Onion; LB in its beam boards), right stick click: zoom, LT: lock on (RB then cycles).
+    // (the C-stick), LB: recentre the camera (LB in its beam boards), right stick click: zoom,
+    // LT: lock on (RB then cycles), RT + tap LT: call the Onion to him.
     // RT is the alternate-command modifier: RT + X dumps and RT + Y fills a flying Onion.
     // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,
     // jump + secondary whistle, utility relocates the Onion, F strikes, special swarm toward the
@@ -46,7 +47,7 @@ namespace OlimarTest
         // RT (the alternate-command modifier) held, and its remote Onion commands: RT + X dumps and RT + Y
         // fills, away from the beam. Consumed by the driver.
         public bool modifierHeld, remoteDump, remoteFill;
-        // LB in an Onion's beam boards it (Onion Ride); RT + LB anywhere calls the Onion to him and boards.
+        // LB in an Onion's beam boards it (Onion Ride); RT + tap LT anywhere calls the Onion to him and boards.
         public bool board, summonPressed;
         // Ride controls: the left stick click (the boost) and any of A/B/X/Y pressed (the exit).
         public bool boostPressed, anyFacePressed;
@@ -88,23 +89,25 @@ namespace OlimarTest
                 anyFacePressed |= gp.a.justPressed || gp.b.justPressed || gp.x.justPressed || gp.y.justPressed;
                 swallowInteract = rt && (gp.x.value || gp.y.value);
                 cycleNow = gp.dPad.left.value || gp.dPad.right.value;
-                // LT holds a lock-on; LB recentres the camera, and with RT held calls the Onion
-                // instead, and in a beam it boards.
+                // LT holds a lock-on; with RT held it is the Onion call instead. LB recentres the
+                // camera (RT + LB is nothing) and boards in a beam.
                 bool lb = gp.leftBumper.justPressed;
+                bool lt = Pressed(gp.leftTrigger);
                 recentre |= lb && !rt;
                 board |= lb;
-                summonPressed |= lb && rt;
+                summonPressed |= lt && rt;
                 zoom |= gp.rightStick.press.justPressed;
                 strikeNow = gp.rightBumper.value;
                 strikeHeld = gp.rightBumper.value;
                 heal |= gp.rightBumper.justPressed;
-                recallStuck |= Pressed(gp.leftTrigger);
+                recallStuck |= lt;
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
                     look = rt ? Vector2.zero : Dead(gp.rightStick.value);
                     swarm = rt ? Dead(gp.rightStick.value) : Vector2.zero;
                     recentre = lb && !rt;
-                    lockHeld = gp.leftTrigger.value > 0.6f;
+                    // RT is the alternate modifier: held, LT calls the Onion instead of locking.
+                    lockHeld = !rt && gp.leftTrigger.value > 0.6f;
                     cycleTarget |= lockHeld && gp.rightBumper.justPressed;
                     targetDirection = Dead(gp.rightStick.value);
                     zoom = gp.rightStick.press.justPressed;

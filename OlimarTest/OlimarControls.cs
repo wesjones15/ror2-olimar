@@ -52,7 +52,7 @@ namespace OlimarTest
                 .Add(RT + " + " + RS, "Swarm Pikmin")
                 .Add(RT + " + " + X, "Dump flying Onion's Pikmin")
                 .Add(RT + " + " + Y, "Fill flying Onion with squad")
-                .Add(RT + " + " + LB, "Call the Onion to you and board it")
+                .Add("hold " + RT + " + tap " + LT, "Call the Onion to you and board it")
                 .Add("hold " + X + " (0.6s)", "Land/lift Onion");
             sheet.Pad("While Standing Under Onion")
                 .Add(X, "Empty Onion")
@@ -95,3 +95,4 @@ namespace OlimarTest
         }
     }
 }
+
