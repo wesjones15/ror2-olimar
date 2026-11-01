@@ -540,9 +540,9 @@ namespace OlimarTest
                 "Captain Olimar's ship has crashed on a strange planet, and his only help is a swarm of Pikmin: loyal little " +
                 "creatures that follow his whistle, fight at his side, and carry whatever he defeats back to the Onion to " +
                 "grow into more of themselves.\n\n" +
-                "< ! > Lead a squad of Red, Yellow and Blue Pikmin.\n" +
-                "< ! > Throw Pikmin onto enemies to latch on and fight, or whistle them back to safety.\n" +
-                "< ! > Defeated enemies are carried to the Onion, which turns them into new Pikmin.\n" +
+                "< ! > Lead a squad of Red, Yellow and Blue Pikmin.\n\n" +
+                "< ! > Throw Pikmin onto enemies to latch on and fight, or whistle them back to safety.\n\n" +
+                "< ! > Defeated enemies are carried to the Onion, which turns them into new Pikmin.\n\n" +
                 "< ! > Sprouts grow from leaf to bud to flower, ready to be plucked and join the squad.");
             lang.SetStringByToken("OLIMARTEST_ONION_NAME", "Onion");
             lang.SetStringByToken("OLIMARTEST_PIKIGROUP_NAME", "Pikmin group");
@@ -724,7 +724,8 @@ namespace OlimarTest
             var display = Prefabs.Clone(commandoDisplay, "OlimarTestDisplay", Plugin.Guid);
             DisplayModel.Attach(display, Plugin.Guid, OlimarDisplay.Get);
             // His portrait, from the same lobby Olimar without the Pikmin beside him.
-            Portrait.Request(body, OlimarDisplay.Get, d => d.kind != Native.KindCaptain, framing: PortraitFraming.ThreeQuarter);
+            Portrait.Request(body, () => OlimarDisplay.Get(OlimarSkin.Olimar), d => d.kind != Native.KindCaptain, framing: PortraitFraming.ThreeQuarter,
+                assetsDir: () => Plugin.AssetsDir);
 
             var survivor = ScriptableObject.CreateInstance<SurvivorDef>();
             survivor.cachedName = "OlimarTest";
@@ -741,6 +742,7 @@ namespace OlimarTest
             // Olimar's own skins in place of the Commando body's.
             OlimarSkinUnlocks.Register(pack);
             OlimarSkin.Register(body);
+            OlimarSkillIcons.RequestSkins(body);
             DisplayModel.BindSkins(display, body);
 
             pack.bodyPrefabs.Add(new[] { body });

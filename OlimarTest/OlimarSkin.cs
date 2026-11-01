@@ -306,7 +306,8 @@ namespace OlimarTest
             {
                 var s = spec;
                 Portrait.Request(body, () => OlimarDisplay.Get(s.Id), tex => s.Def.icon = Sprite(tex),
-                    d => d.kind != Native.KindCaptain, framing: PortraitFraming.ThreeQuarter);
+                    d => d.kind != Native.KindCaptain, framing: PortraitFraming.ThreeQuarter,
+                    assetsDir: () => Plugin.AssetsDir, cacheKey: s.Name);
             }
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using RoR2;
 using Ror2Common;
 using UnityEngine;
 
@@ -16,11 +17,34 @@ namespace OlimarTest
 
         public static void RequestAll()
         {
-            SkillCard.Request(OlimarSkills.Throw, "OlimarThrow", () => Plugin.AssetsReady, Throw, () => Plugin.AssetsDir);
-            SkillCard.Request(OlimarSkills.Whistle, "OlimarWhistle", () => Plugin.AssetsReady, Whistle, () => Plugin.AssetsDir);
+            SkillCard.Request(OlimarSkills.Throw, "OlimarThrow", () => Plugin.AssetsReady, () => Throw(OlimarSkin.Olimar), () => Plugin.AssetsDir);
+            SkillCard.Request(OlimarSkills.Whistle, "OlimarWhistle", () => Plugin.AssetsReady, () => Whistle(OlimarSkin.Olimar), () => Plugin.AssetsDir);
             SkillCard.Request(OlimarSkills.Ride, "OlimarRelocateOnion", () => Plugin.AssetsReady, Onion, () => Plugin.AssetsDir);
-            SkillCard.Request(OlimarSkills.Strike, "OlimarDismissStrike", () => Plugin.AssetsReady, Strike, () => Plugin.AssetsDir);
+            SkillCard.Request(OlimarSkills.Strike, "OlimarDismissStrike", () => Plugin.AssetsReady, () => Strike(OlimarSkin.Olimar), () => Plugin.AssetsDir);
             SkillCard.Request(OlimarSkills.SetPluckers, "OlimarPluckers", () => Plugin.AssetsReady, Pluckers, () => Plugin.AssetsDir);
+        }
+
+        public static void RequestSkins(GameObject body)
+        {
+            var skins = body.GetComponent<ModelLocator>()?.modelTransform?.GetComponent<ModelSkinController>()?.skins;
+            if (skins == null) return;
+            foreach (var spec in OlimarSkin.Specs)
+            {
+                if (spec == null || !spec.Def) continue;
+                int index = Array.IndexOf(skins, spec.Def);
+                if (index < 0) continue;
+                uint skinIndex = (uint)index, nativeSkin = spec.Id;
+                SkinPresentation.Register(body, skinIndex, spec.Token);
+                if (nativeSkin == OlimarSkin.Olimar) continue;
+                void Queue(RoR2.Skills.SkillDef skill, Func<uint, SkillCardStage> build)
+                    => SkillCard.Request(sprite => SkinPresentation.SetIcon(body, skinIndex, skill, sprite),
+                        skill.skillName + "_" + spec.Name, () => Plugin.AssetsReady,
+                        () => build(nativeSkin), () => Plugin.AssetsDir);
+                Queue(OlimarSkills.Throw, Throw);
+                Queue(OlimarSkills.Whistle, Whistle);
+                Queue(OlimarSkills.Strike, Strike);
+                // Onion and sprout artwork contains no captain and remains shared.
+            }
         }
 
         static byte Ground(IntPtr user, ref Native.Vec3 pos, out float height) { height = 0f; return 1; }
@@ -40,10 +64,10 @@ namespace OlimarTest
             return card;
         }
 
-        static SkillCardStage Throw()
+        static SkillCardStage Throw(uint skin)
         {
             var card = Card("Olimar Throw", new Color32(140, 207, 242, 255), 34f, 0.08f);
-            var scene = new Scene(card);
+            var scene = new Scene(card, skin);
             var at = new Native.Vec3(0f, 0f, 12f);
             Native.pik_sim_spawn_piki(scene.Sim, Native.Red, ref at, 0);
             // Same press/release and frame 13 as the approved native viewer capture.
@@ -56,10 +80,10 @@ namespace OlimarTest
             return card;
         }
 
-        static SkillCardStage Whistle()
+        static SkillCardStage Whistle(uint skin)
         {
             var card = Card("Olimar Whistle", new Color32(20, 26, 43, 255), 300f, 0.65f);
-            var scene = new Scene(card);
+            var scene = new Scene(card, skin);
             // NaviWhistle.h: particles 9/10/11 and NaviFue's circle (20).
             scene.Input(new Native.Input { whistle = 1, use_cursor = 1, cursor = new Native.Vec3(0f, 0f, 45f) });
             scene.Step(16, null);
@@ -85,10 +109,10 @@ namespace OlimarTest
             return card;
         }
 
-        static SkillCardStage Strike()
+        static SkillCardStage Strike(uint skin)
         {
             var card = Card("Olimar Dismiss Strike", new Color32(58, 115, 30, 255), 36f, 0.12f);
-            var scene = new Scene(card);
+            var scene = new Scene(card, skin);
             for (int i = 0; i < 12; i++)
             {
                 var at = new Native.Vec3((i % 4) * 10f - 15f, 0f, -38f - (i / 4) * 9f);
@@ -129,7 +153,7 @@ namespace OlimarTest
             public float Scale => UnityHost.Scale;
             public Vector3 Metres(float x, float y, float z) => new Vector3(x, y, z) * Scale;
 
-            public Scene(SkillCardStage card)
+            public Scene(SkillCardStage card, uint skin = OlimarSkin.Olimar)
             {
                 root = card.Root;
                 Sim = Native.pik_sim_new(Native.CString(Plugin.AssetsDir), 0x5eed);
@@ -140,6 +164,9 @@ namespace OlimarTest
                 view = PikminModels.Create(Plugin.AssetsDir, root, false, "Olimar skill portrait");
                 if (view == null) { Native.pik_sim_free(Sim); throw new InvalidOperationException("Portrait models didn't load"); }
                 view.ShowCursors(false);
+                // Same captain/follower skin path as gameplay and character select:
+                // 0 Olimar, 1 Louie, 2 Pianta, 3 Captain Pikachu.
+                view.SetCaptainSkin(0, skin);
             }
 
             public void Input(Native.Input input) => Native.pik_sim_set_input(Sim, 0, ref input);
