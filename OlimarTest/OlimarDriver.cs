@@ -139,6 +139,13 @@ namespace OlimarTest
         Vector3 lastFeet;
         bool lastFeetSet;
 
+        // A jump pad's own throw, recorded from JumpVolume.OnTriggerStay. RoR2 clears the
+        // motor's disableAirControlUntilCollision on the next movement hit, so that flag is
+        // not a reliable marker by the time the input is built.
+        float padLaunchedAt = -100f;
+        Vector3 padLaunchVelocity;
+        bool padFlight;
+
         /// The last tick's captain, for the cursor and whistle drawing.
         public Native.Captain State;
         public bool HasState;
@@ -383,6 +390,32 @@ namespace OlimarTest
 
         float Yaw() => UnityHost.Yaw(direction ? direction.forward : transform.forward);
 
+        /// A pad fired under him (PikminWorld.JumpPads): keep its own throw for the next input.
+        public void NoteJumpPad(JumpVolume pad)
+        {
+            if (!pad || !NetworkServer.active || padFlight) return;
+            var v = pad.alignJumpVelocityToTransform
+                ? pad.transform.up * pad.jumpVelocity.magnitude
+                : pad.jumpVelocity;
+            padLaunchVelocity = v;
+            padLaunchedAt = Time.fixedTime;
+        }
+
+        // Replays a host launch (a pad's own throw, or another external velocity) in the sim.
+        void Launch(PikminWorld world, Vector3 thrown, bool padLaunch)
+        {
+            if (padLaunch) padFlight = true;
+            var v = UnityHost.ToSim(thrown);
+            // The motor's own gravity (Physics.gravity times its scale/multiplier) is what a
+            // pad's authored throw was built for.
+            float padGravity = Mathf.Abs(Physics.gravity.y) * native.GravityScale / UnityHost.Scale;
+            Native.pik_sim_launch_captain(world.SimHandle, (uint)captain, ref v,
+                padLaunch ? padGravity : 0f, B(padLaunch));
+            if (padLaunch)
+                Plugin.Log.LogInfo($"jump pad: {thrown.x:0.##},{thrown.y:0.##},{thrown.z:0.##} m/s " +
+                    $"({v.x:0},{v.y:0},{v.z:0} sim/s); gravity {padGravity:0.#} sim/s^2, motor scale {native.GravityScale:0.##}");
+        }
+
         /// This tick's controls, called by PikminWorld just before it advances the sim.
         public Native.Input BuildInput()
         {
@@ -448,6 +481,24 @@ namespace OlimarTest
                     i.use_cursor = 0;
                     putBack = null;
                 }
+                else if (native && padLaunchedAt >= 0f && Time.fixedTime - padLaunchedAt <= 0.25f)
+                {
+                    // The pad's own throw takes precedence over a smoother reset: posing him
+                    // here would zero the velocity the pad just gave him.
+                    var thrown = padLaunchVelocity;
+                    padLaunchedAt = -1f;
+                    smoother.Reset();
+                    native.ForgetVelocity();
+                    Launch(world, thrown, true);
+                    putBack = null;
+                }
+                else if (native && !padFlight && native.JumpPadLaunch && native.TakeExternalVelocity(out var padThrown, 2f))
+                {
+                    // The same pad, seen through the motor's flag instead of the hook.
+                    smoother.Reset();
+                    Launch(world, padThrown, true);
+                    putBack = null;
+                }
                 else if (!placed || smoother.MovedElsewhere)
                 {
                     smoother.Reset();
@@ -464,15 +515,10 @@ namespace OlimarTest
                 else if (native && native.TakeExternalVelocity(out var thrown, 2f))
                 {
                     bool padLaunch = native.JumpPadLaunch;
-                    var v = UnityHost.ToSim(thrown);
-                    // The motor's own gravity (Physics.gravity times its scale/multiplier) is
-                    // what the pad's authored throw was built for.
-                    float padGravity = Mathf.Abs(Physics.gravity.y) * native.GravityScale / UnityHost.Scale;
-                    Native.pik_sim_launch_captain(world.SimHandle, (uint)captain, ref v,
-                        padLaunch ? padGravity : 0f, B(padLaunch));
-                    if (padLaunch)
-                        Plugin.Log.LogInfo($"jump pad: {thrown.x:0.##},{thrown.y:0.##},{thrown.z:0.##} m/s " +
-                            $"({v.x:0},{v.y:0},{v.z:0} sim/s); gravity {padGravity:0.#} sim/s^2, motor scale {native.GravityScale:0.##}");
+                    // While a pad flight is running, its own repeated trigger reports are not
+                    // new launches. A knock-back during it still lands (padLaunch is false and
+                    // the flight is short).
+                    if (!(padLaunch && padFlight)) Launch(world, thrown, padLaunch);
                 }
                 // Walking out of the beam dismisses the shortcut popup.
                 if (MenuOpen)
@@ -716,6 +762,8 @@ namespace OlimarTest
         {
             State = c;
             HasState = true;
+            // A pad flight ends when he lands; the pad can launch him again after that.
+            if (c.on_ground != 0) { padFlight = false; padLaunchedAt = -1f; }
             pad.Ticked();
             Items.Ticked(c);
             if (IsRemote || !SimMoves || !Active) return;

@@ -269,8 +269,11 @@ gaps while heading to a formation slot, enemy, hand, or carrying slot. They cann
 while lifting or holding an item. Jump height is 40 sim units, using the disc's gravity.
 Routes expire after 15 seconds and are cleared when a Pikmin leaves its squad.
 
-Jump pads use RoR2's full launch velocity and gravity. Squad Pikmin run to Olimar's
-takeoff point and repeat the same arc; ordinary knockback does not launch the squad.
+Jump pads use RoR2's full launch velocity and gravity. The pad's throw is read from
+`JumpVolume.OnTriggerStay` (its own `jumpVelocity`, aligned to the pad's up when asked); RoR2
+clears the motor's `disableAirControlUntilCollision` on the next movement hit, so that flag is
+kept only as a short fallback. Squad Pikmin run to Olimar's takeoff point and repeat the same
+arc; ordinary knockback does not launch the squad.
 The flying Onion follows in the air, easing toward a point 3 metres behind Olimar
 with a 0.65-second response and a speed limit slightly above his run speed.
 
