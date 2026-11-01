@@ -504,14 +504,14 @@ namespace OlimarTest
         {
             lang.SetStringByToken("OLIMARTEST_THROW_NAME", "Pikmin Throw");
             lang.SetStringByToken("OLIMARTEST_THROW_DESC",
-                "<style=cIsUtility>Press A</style> to throw a Pikmin at the cursor. <style=cIsUtility>Hold LB</style> to lock on; " +
+                "<style=cIsUtility>Press A</style> to throw a Pikmin at the cursor. <style=cIsUtility>Hold LT</style> to lock on; " +
                 "<style=cIsUtility>D-pad left/right</style> picks its colour.");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_NAME", "Whistle");
             lang.SetStringByToken("OLIMARTEST_WHISTLE_DESC",
                 "<style=cIsUtility>Hold RT and press B</style> to call nearby Pikmin back.");
             lang.SetStringByToken("OLIMARTEST_RIDE_NAME", "Onion Ride");
             lang.SetStringByToken("OLIMARTEST_RIDE_DESC",
-                "Stand in the Onion's beam and <style=cIsUtility>press LT</style> to board it (or <style=cIsUtility>RT + LT</style> from anywhere to call the Onion to you first), then steer it with the left stick for " +
+                "Stand in the Onion's beam and <style=cIsUtility>press LB</style> to board it (or <style=cIsUtility>RT + LB</style> from anywhere to call the Onion to you first), then steer it with the left stick for " +
                 "<style=cIsDamage>10 seconds</style> (after up to 5 seconds of grace to let your Pikmin climb aboard). " +
                 "<style=cIsUtility>Click the left stick</style> for a 2 second speed boost. <style=cIsUtility>Press A, B, X or Y</style> " +
                 "to get out; your squad is sneezed out with you. The Onion can be hit while you ride. Cooldown: <style=cIsUtility>30 seconds</style>, starting when the ride ends. " +

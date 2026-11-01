@@ -108,7 +108,7 @@ namespace OlimarTest
             public bool releaseWhenReady;
             /// Olimar is flying this Onion (PikminWorld.Ride.cs).
             public OnionRide ride;
-            /// Called to Olimar to board him (RT + LT): flies over him, comes down, and boards.
+            /// Called to Olimar to board him (RT + LB): flies over him, comes down, and boards.
             public bool summon;
             public float summonAge;
             public bool dormant;
@@ -2827,3 +2827,4 @@ namespace OlimarTest
         }
     }
 }
+

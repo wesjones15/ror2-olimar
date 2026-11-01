@@ -5,17 +5,17 @@ decisions below win. Nothing here has been played in game.
 
 ## Controls
 
-On foot: A throw, B jump, RB dismiss strike. **LB** locks on (LB + RB cycles, LB + A throws rapidly at the
+On foot: A throw, B jump, RB dismiss strike. **LT** locks on (LT + RB cycles, LT + A throws rapidly at the
 target). **RT** is the alternate modifier: RT + B whistle, RT + right stick swarm, RT + X dumps and RT + Y fills a
 *flying* Onion (same reach as the old double-tap X, which is gone). Hold X 0.6 s raises or lowers the Onion
 and costs nothing. RT + X / RT + Y also keep RoR2's interact and equipment presses to themselves
 (`OnionMenuEquipment`: hooks on `EquipmentSlot.MyFixedUpdate` and `InteractionDriver.FixedUpdate`).
 
-In an Onion's beam, beam commands win: X dump, Y fill, RB heal, LB call stragglers, A send the plucker,
-**LT board** (Onion Ride; LT is the camera recentre elsewhere, and B stays jump in the beam). Riding: left stick steers, its click boosts, right stick is the camera, A/B/X/Y exit.
+In an Onion's beam, beam commands win: X dump, Y fill, RB heal, LT call stragglers, A send the plucker,
+**LB board** (Onion Ride; LB is the camera recentre elsewhere, and B stays jump in the beam). Riding: left stick steers, its click boosts, right stick is the camera, A/B/X/Y exit.
 
-**RT + LT** calls the Onion to Olimar from anywhere: it flies over like a raised Onion does (the fast 1.8 s glide, then it eases in), comes down its beam, and boards him; RT + LT again calls it off
-(`PikminWorld.ToggleSummon`; refused if the Onion is dormant or the ride has no charge). Holding RT stops LT recentring the camera.
+**RT + LB** calls the Onion to Olimar from anywhere: it flies over like a raised Onion does (the fast 1.8 s glide, then it eases in), comes down its beam, and boards him; RT + LB again calls it off
+(`PikminWorld.ToggleSummon`; refused if the Onion is dormant or the ride has no charge). Holding RT stops LB recentring the camera.
 
 Keyboard (not in the spec; made up): V dump, B fill, Z call the Onion, Utility hold relocate, Jump in the beam boards,
 Sprint boosts, any of Primary/Secondary/Utility/Equipment exits.
@@ -49,3 +49,4 @@ places the client. Same build required on all machines.
 
 Any in-game behaviour; two-machine play; the `InteractionDriver.FixedUpdate` hook name (logs a warning if
 missing); wall sliding of the Onion; whether Pikmin over a pit are all recovered by the squad teleport.
+

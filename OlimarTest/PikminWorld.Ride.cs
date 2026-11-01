@@ -95,7 +95,7 @@ namespace OlimarTest
         // When a client first saw a captain riding, for the lift into the Onion.
         readonly Dictionary<int, float> rideSeen = new Dictionary<int, float>();
 
-        /// Olimar presses LT in his Onion's beam (or his called Onion arrives). Spends a skill charge; `why` says what is missing.
+        /// Olimar presses LB in his Onion's beam (or his called Onion arrives). Spends a skill charge; `why` says what is missing.
         public bool BeginRide(int captain, out string why)
         {
             why = null;
@@ -137,7 +137,7 @@ namespace OlimarTest
         /// How fast a called Onion eases in over him once the raise's fast glide has brought it close, and how long it keeps trying.
         const float SummonSpeed = 12f, SummonSeconds = 25f;
 
-        /// RT + LT: calls his Onion to where he stands and boards him when its beam is down; again to call it off.
+        /// RT + LB: calls his Onion to where he stands and boards him when its beam is down; again to call it off.
         public bool ToggleSummon(int captain, out string why)
         {
             why = null;
@@ -300,3 +300,4 @@ namespace OlimarTest
         }
     }
 }
+

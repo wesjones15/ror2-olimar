@@ -114,7 +114,7 @@ namespace OlimarTest
             string here = Path.GetDirectoryName(Info.Location);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
             Camera = Config.Bind("Controls", "CameraMode", CameraMode.Orbit,
-                "Orbit: right stick pans, RT + right stick swarms, LT recentres, LB locks, LB + RB cycles targets. Vanilla uses the fixed camera. Both use B to jump and RT + B to whistle.");
+                "Orbit: right stick pans, RT + right stick swarms, LB recentres, LT locks, LT + RB cycles targets. Vanilla uses the fixed camera. Both use B to jump and RT + B to whistle.");
 
             var assets = Config.Bind("Paths", "AssetsDir", "",
                 "libpikmin's assets/ folder (extracted from your own Pikmin disc). Empty: read " +
@@ -148,7 +148,7 @@ namespace OlimarTest
                     new AcceptableValueRange<float>(5f, 100f)));
             var scheme = Config.Bind("Controls", "Scheme", ControlScheme.Auto,
                 "Pikmin: the sim moves Olimar, pad buttons by position (A throw/pluck, B jump, RT + B whistle, " +
-                "X dismiss, RT blocks jumping, LT recentres). Keyboard: secondary jumps; hold jump + secondary to whistle. Aim: RoR2 moves the body " +
+                "X dismiss, RT blocks jumping, LB recentres). Keyboard: secondary jumps; hold jump + secondary to whistle. Aim: RoR2 moves the body " +
                 "and the cursor is where you aim (primary throw, secondary whistle, utility " +
                 "dismiss, special swarm). Auto: Aim in VR (VRMod), Pikmin otherwise.");
             StartRed = Config.Bind("Pikmin", "StartRed", 10, "Red Pikmin in the squad at the start of a run.");
@@ -424,8 +424,8 @@ namespace OlimarTest
             {
                 [SkillSlot.Primary] = new[] { PadButton.A },
                 [SkillSlot.Secondary] = new[] { PadButton.RT, PadButton.B },
-                // Onion Ride: LT in the Onion's beam, RT + LT to call it.
-                [SkillSlot.Utility] = new[] { PadButton.RT, PadButton.LT },
+                // Onion Ride: LB in the Onion's beam, RT + LB to call it.
+                [SkillSlot.Utility] = new[] { PadButton.RT, PadButton.LB },
                 // The dismiss strike.
                 [SkillSlot.Special] = new[] { PadButton.RB },
             });
@@ -778,3 +778,4 @@ namespace OlimarTest
         }
     }
 }
+

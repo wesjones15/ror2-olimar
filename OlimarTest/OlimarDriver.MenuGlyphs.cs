@@ -93,9 +93,9 @@ namespace OlimarTest
             onionGlyphActions.text = MenuGlyph(PadButton.X, "X") + "  Dump Onion Pikmin (keep one)\n" +
                 MenuGlyph(PadButton.Y, "Y") + "  Fill Onion with squad\n" +
                 MenuGlyph(PadButton.RB, "RB") + "  Heal Olimar from Onion stock\n" +
-                MenuGlyph(PadButton.LB, "LB") + "  Call stuck carriers\n" +
+                MenuGlyph(PadButton.LT, "LT") + "  Call stuck carriers\n" +
                 (flying ? disabled : "") + MenuGlyph(PadButton.A, "A") + "  Send Onion plucker" + (flying ? enabled : "") + "\n" +
-                MenuGlyph(PadButton.LT, "LT") + "  Board the Onion (Onion Ride)";
+                MenuGlyph(PadButton.LB, "LB") + "  Board the Onion (Onion Ride)";
             onionGlyphNote.text = note ?? "";
         }
 

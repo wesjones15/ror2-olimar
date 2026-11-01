@@ -9,12 +9,12 @@ namespace OlimarTest
     // Rewired's gamepad template, so the player's RoR2 binds don't matter. A: throw/pluck,
     // B: jump, RT + B: whistle, X: raise or lower the Onion (interact when a prompt is up), RB: the dismiss strike (a melee blow; it no
     // longer dismisses the squad), d-pad left or right: next colour to throw, RT + right stick: swarm
-    // (the C-stick), LT: recentre the camera (RT + LT calls the Onion; LT in its beam boards), right stick click: zoom, LB: lock on (RB then cycles).
+    // (the C-stick), LB: recentre the camera (RT + LB calls the Onion; LB in its beam boards), right stick click: zoom, LT: lock on (RB then cycles).
     // RT is the alternate-command modifier: RT + X dumps and RT + Y fills a flying Onion.
     // On keyboard and mouse it falls back to RoR2's actions: move, primary throw, secondary jump,
     // jump + secondary whistle, utility relocates the Onion, F strikes, special swarm toward the
     // cursor, jump recentre, C zoom, sprint to run, mouse wheel for the next colour.
-    // Standing in an Onion's beam shows direct X/Y/RB/LB/A shortcuts; G recalls
+    // Standing in an Onion's beam shows direct X/Y/RB/LT/A shortcuts; G recalls
     // stuck carriers on keyboard.
     //
     // Read every frame; held buttons are latched until the sim has run a tick, so a tap
@@ -46,7 +46,7 @@ namespace OlimarTest
         // RT (the alternate-command modifier) held, and its remote Onion commands: RT + X dumps and RT + Y
         // fills, away from the beam. Consumed by the driver.
         public bool modifierHeld, remoteDump, remoteFill;
-        // LT in an Onion's beam boards it (Onion Ride); RT + LT anywhere calls the Onion to him and boards.
+        // LB in an Onion's beam boards it (Onion Ride); RT + LB anywhere calls the Onion to him and boards.
         public bool board, summonPressed;
         // Ride controls: the left stick click (the boost) and any of A/B/X/Y pressed (the exit).
         public bool boostPressed, anyFacePressed;
@@ -88,27 +88,28 @@ namespace OlimarTest
                 anyFacePressed |= gp.a.justPressed || gp.b.justPressed || gp.x.justPressed || gp.y.justPressed;
                 swallowInteract = rt && (gp.x.value || gp.y.value);
                 cycleNow = gp.dPad.left.value || gp.dPad.right.value;
-                // LT recentres the camera; with RT held it is the Onion summon instead, and in a beam it boards.
-                bool lt = Pressed(gp.leftTrigger);
-                recentre |= lt && !rt;
-                board |= lt;
-                summonPressed |= lt && rt;
+                // LT holds a lock-on; LB recentres the camera, and with RT held calls the Onion
+                // instead, and in a beam it boards.
+                bool lb = gp.leftBumper.justPressed;
+                recentre |= lb && !rt;
+                board |= lb;
+                summonPressed |= lb && rt;
                 zoom |= gp.rightStick.press.justPressed;
                 strikeNow = gp.rightBumper.value;
                 strikeHeld = gp.rightBumper.value;
                 heal |= gp.rightBumper.justPressed;
-                recallStuck |= gp.leftBumper.justPressed;
+                recallStuck |= Pressed(gp.leftTrigger);
                 if (Plugin.Camera.Value == CameraMode.Orbit)
                 {
                     look = rt ? Vector2.zero : Dead(gp.rightStick.value);
                     swarm = rt ? Dead(gp.rightStick.value) : Vector2.zero;
-                    recentre = lt && !rt;
-                    lockHeld = gp.leftBumper.value;
+                    recentre = lb && !rt;
+                    lockHeld = gp.leftTrigger.value > 0.6f;
                     cycleTarget |= lockHeld && gp.rightBumper.justPressed;
                     targetDirection = Dead(gp.rightStick.value);
                     zoom = gp.rightStick.press.justPressed;
                     topView = false;
-                    // RB cycles targets while LB holds a lock; otherwise it strikes.
+                    // RB cycles targets while LT holds a lock; otherwise it strikes.
                     strikeNow = !lockHeld && gp.rightBumper.value;
                     if (cycleTarget) look = Vector2.zero;
                 }
@@ -146,7 +147,7 @@ namespace OlimarTest
                 // A wheel notch is a press for this frame.
                 cycleNow = UnityEngine.Input.mouseScrollDelta.y != 0f;
                 recentre |= player.GetButtonDown(Action.Jump);
-                // Keyboard: Jump in a beam boards (as LT does) and Z calls the Onion to him.
+                // Keyboard: Jump in a beam boards (as LB does) and Z calls the Onion to him.
                 board |= player.GetButtonDown(Action.Jump);
                 summonPressed |= UnityEngine.Input.GetKeyDown(KeyCode.Z);
                 zoom |= UnityEngine.Input.GetKeyDown(KeyCode.C);
@@ -225,3 +226,6 @@ namespace OlimarTest
         }
     }
 }
+
+
+
