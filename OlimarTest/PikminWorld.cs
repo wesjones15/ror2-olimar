@@ -123,7 +123,6 @@ namespace OlimarTest
             public int pickup = -1;
             public float pickupDwell;
             public bool filling;
-            public Vector3 fillGround;
             // The owner walked back beneath a hovering Onion. It holds this spot while its
             // beam descends, then rises to the saved hover height when he walks away.
             public bool menuBeam, menuReturning;
@@ -987,12 +986,9 @@ namespace OlimarTest
             if (flight.dormant) return;
             var pos = UnityHost.ToSim(flight.position);
             Native.pik_sim_set_onion_pose(sim, (uint)flight.id, ref pos, flight.airborne ? (byte)1 : (byte)0);
-            // GoalItem::startTakeoff's colour + 6, frame zero: keep the legs
-            // extended for entry while hovering low. Normal flight folds them.
-            // A ride never does this: it keeps the flying pose throughout (see UpdateRide).
-            if (flight.airborne && flight.filling && flight.ride == null)
-                Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, 0, 0f);
-            else if (flight.airborne && flight.transitionDuration > 0f)
+            // The raise/lower clip at this transition's progress: the legs unfold as it rises and
+            // fold back in as it comes down.
+            if (flight.airborne && flight.transitionDuration > 0f)
                 Native.pik_sim_set_onion_flight_motion(sim, (uint)flight.id, flight.following ? (byte)0 : (byte)1,
                     Mathf.Clamp01(flight.transitionElapsed / flight.transitionDuration));
             if (onionMinions.TryGetValue(flight.id, out var minion))
@@ -1154,8 +1150,10 @@ namespace OlimarTest
         // of its beam touches the ground.
         const float PickupHeight = 0f;
 
-        // Returning Pikmin have priority over trailing Olimar or collecting a
-        // pellet. Hold the entry spot low even if Olimar leaves the menu beam.
+        // Returning Pikmin have priority over trailing Olimar or collecting a pellet. A flying
+        // Onion keeps its height and its flight pose: the core's hover entry jumps Pikmin to the
+        // middle of a flying leg, so it no longer descends (or drops to the landed, legs-out
+        // pose) to take them in.
         bool UpdateOnionFill(OnionFlight flight)
         {
             if (Native.pik_sim_onion_returning_count(sim, (uint)flight.id) == 0)
@@ -1163,18 +1161,10 @@ namespace OlimarTest
                 flight.filling = false;
                 return false;
             }
-            if (!flight.filling)
-            {
-                flight.fillGround = UnityHost.Snap(flight.position) + Vector3.up * PickupHeight;
-                flight.filling = true;
-            }
+            flight.filling = true;
             flight.pickup = -1;
             flight.pickupDwell = 0f;
             flight.transitionDuration = 0f;
-            // Same descent speed and pod-clearance ray as loose pellet pickup.
-            if (!Physics.Linecast(flight.position + Vector3.up * 4.4f, flight.fillGround + Vector3.up * 4.4f,
-                UnityHost.Mask, QueryTriggerInteraction.Ignore))
-                flight.position = Vector3.MoveTowards(flight.position, flight.fillGround, 3f * Time.fixedDeltaTime);
             return true;
         }
 
