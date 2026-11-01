@@ -11,11 +11,11 @@ target). **RT** is the alternate modifier: RT + B whistle, RT + right stick swar
 and costs nothing. RT + X / RT + Y also keep RoR2's interact and equipment presses to themselves
 (`OnionMenuEquipment`: hooks on `EquipmentSlot.MyFixedUpdate` and `InteractionDriver.FixedUpdate`).
 
-In an Onion's beam, beam commands win: X dump, Y fill, RB heal, LT call stragglers, A send the plucker,
-**LB board** (Onion Ride; LB is the camera recentre elsewhere, and B stays jump in the beam). Riding: left stick steers, its click boosts, right stick is the camera, A/B/X/Y exit.
+In an Onion's beam, beam commands win: X dump, Y fill, RB heal, LB call stragglers, A send the plucker,
+**LT board** (Onion Ride; LT is the lock-on out of the beam and LB the camera recentre, and B stays jump in the beam). Riding: left stick steers, its click boosts, right stick is the camera, A/B/X/Y exit.
 
 **Hold RT + tap LT** calls the Onion to Olimar from anywhere: it flies over like a raised Onion does (the fast 1.8 s glide, then it eases in), comes down its beam, and boards him; the same again calls it off
-(`PikminWorld.ToggleSummon`; refused if the Onion is dormant or the ride has no charge). LT locks on only while RT is not held, and holding RT stops LB recentring the camera.
+(`PikminWorld.ToggleSummon`; refused if the Onion is dormant or the ride has no charge). The tap must be fresh: if LT is already down for a lock-on when RT goes down, the call does not fire (RT's whistle, swarm and dump/fill still do). Release LT and tap it again while RT is held, and it fires as if RT had been pressed first. Holding RT stops LB recentring the camera.
 
 Keyboard (not in the spec; made up): V dump, B fill, Z call the Onion, Utility hold relocate, Jump in the beam boards,
 Sprint boosts, any of Primary/Secondary/Utility/Equipment exits.

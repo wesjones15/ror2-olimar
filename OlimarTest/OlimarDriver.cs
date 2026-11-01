@@ -893,7 +893,7 @@ namespace OlimarTest
             }
             if (pad.board || pad.summonPressed)
             {
-                // LB boards the Onion.
+                // LT boards the Onion.
                 pad.board = pad.summonPressed = false;
                 if (RideRecentlyEnded) return;
                 if (!world.BeginRide(DataCaptain, out var why))

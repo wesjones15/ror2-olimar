@@ -57,10 +57,10 @@ namespace OlimarTest
             sheet.Pad("While Standing Under Onion")
                 .Add(X, "Empty Onion")
                 .Add(Y, "Fill Onion with Squad")
-                .Add(LT, "Call straggler Pikmin")
+                .Add(LB, "Call straggler Pikmin")
                 .Add(RB, "Restore health... for a price")
                 .Add(A, "Send Onion plucker")
-                .Add(LB, "Board Onion (Onion Ride)");
+                .Add(LT, "Board Onion (Onion Ride)");
             sheet.Pad("Riding the Onion")
                 .Add(LS, "Steer the Onion")
                 .Add(RS, "Camera")
