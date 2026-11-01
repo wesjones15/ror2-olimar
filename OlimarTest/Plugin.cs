@@ -281,16 +281,29 @@ namespace OlimarTest
             PikminMeleeMaxVictims = Config.Bind("Combat", "PikminMeleeMaxVictims", 2,
                 "Most Pikmin one enemy melee swing can hurt; the ones nearest the swing go first, so " +
                 "the Pikmin latched on the attacker take it. Champions and elites add 2. 0: no cap.");
-            PikminMeleeDamageScale = Config.Bind("Combat", "PikminMeleeDamageScale", 0.6f,
+            PikminMeleeDamageScale = Config.Bind("Combat", "PikminMeleeDamageScale", 2f,
                 "Share of an enemy melee swing's damage each Pikmin it catches takes. 1: the swing's full damage.");
             PikminMeleeIFrames = Config.Bind("Combat", "PikminMeleeIFrames", 0.3f,
                 "Seconds a Pikmin cannot be hurt by another enemy melee swing after one lands. 0: every swing can hit it.");
-            PikminRegen = Config.Bind("Combat", "PikminRegen", 0.03f,
+            PikminRegen = Config.Bind("Combat", "PikminRegen", 0.04f,
                 "Pikmin base regeneration as a share of their max health per second, always on. 0: none.");
-            PikminRegenDelay = Config.Bind("Combat", "PikminRegenDelay", 7f,
+            PikminRegenDelay = Config.Bind("Combat", "PikminRegenDelay", 6f,
                 "Seconds after a Pikmin is last hurt before PikminRegenOutOfCombat applies.");
-            PikminRegenOutOfCombat = Config.Bind("Combat", "PikminRegenOutOfCombat", 2f,
+            PikminRegenOutOfCombat = Config.Bind("Combat", "PikminRegenOutOfCombat", 3f,
                 "Multiplier on Pikmin regeneration once no Pikmin has been hurt for PikminRegenDelay. 1: off.");
+            var balanceRevision = Config.Bind("Combat", "BalanceRevision", 0,
+                "Internal. Bumped when the shipped Pikmin balance defaults are retuned; older configs migrate once.");
+            if (balanceRevision.Value < 1)
+            {
+                // 2026-11-02 retune: ~5-6 melee hits on a full Pikmin at stage 1, with the
+                // recovery moved out of combat (12%/s after 6 s).
+                PikminMeleeDamageScale.Value = 2f;
+                PikminRegen.Value = 0.04f;
+                PikminRegenDelay.Value = 6f;
+                PikminRegenOutOfCombat.Value = 3f;
+                balanceRevision.Value = 1;
+                Config.Save();
+            }
             OlimarHealth = Config.Bind("Combat", "OlimarHealth", 220f,
                 "Olimar's base max health (Commando's is 110).");
             OlimarHealthPerLevel = Config.Bind("Combat", "OlimarHealthPerLevel", 66f,

@@ -67,10 +67,10 @@ What works:
   A Pikmin's health is `PikminHealth` (half) of Olimar's max health, so it grows with his
   level and health items. A melee swing catches at most `PikminMeleeMaxVictims` (2, +2 for
   champions and elites), nearest the swing first, so the Pikmin on the attacker take it and
-  the squad behind them does not; each takes `PikminMeleeDamageScale` (0.6) of the swing and
+  the squad behind them does not; each takes `PikminMeleeDamageScale` (2.0) of the swing and
   is then immune to other swipes for `PikminMeleeIFrames` (0.3 s). Pikmin also regenerate like
-  a survivor: `PikminRegen` (3%/s of their health) always, at `PikminRegenOutOfCombat` (2x)
-  after `PikminRegenDelay` (7 s) with no Pikmin hurt, plus a share of Olimar's regeneration
+  a survivor: `PikminRegen` (4%/s of their health) always, at `PikminRegenOutOfCombat` (3x)
+  after `PikminRegenDelay` (6 s) with no Pikmin hurt, plus a share of Olimar's regeneration
   (Cautious Slug, Titanic Knurl, level) and doubled by Rejuvenation Rack. Olimar has twice
   Commando's health (`OlimarHealth`, `OlimarHealthPerLevel`). Pikmin that fall into a void are lost.
 - **Dismiss strike** (`Combat.Strike*`): RoR2 has no captain puzzles, so the dismiss button no longer sends the squad away. It
