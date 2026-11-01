@@ -337,7 +337,7 @@ namespace OlimarTest
                 "Goobo Jr.'s Olimar gets a temporary copy of his squad; its deliveries go to the real Onion.");
             GummyClones = Config.Bind("Look", "GummyClones", true,
                 "Goobo Jr.'s Olimar is drawn in RoR2's gummy clone material.");
-            ItemDisplays = Config.Bind("Look", "ItemDisplays", true,
+            ItemDisplays = Config.Bind("Look", "ItemDisplays", false,
                 "Draw RoR2's cosmetic item displays on the captain: glasses, syringes, crowns and the rest " +
                 "follow the drawn body (Olimar, Louie, the Pianta or Captain Pikachu) instead of being hidden " +
                 "with Commando. Off: hidden, as before.");
