@@ -29,6 +29,11 @@ namespace OlimarTest
         /// The left stick in ground-plane directions, camera-relative.
         public Vector2 RideMove => rideMove;
 
+        /// Reads the stick for the ride directly. The driver's Update also does this, but the
+        /// Onion must take the stick on the same fixed step it scoops him, before the next
+        /// render frame, and a client may not have been told it is riding yet.
+        public Vector2 PollRideMove() => cam != null ? cam.StickToWorld(pad.move) : pad.move;
+
         public bool TakeRideBoost() { bool b = rideBoost; rideBoost = false; return b; }
         public bool TakeRideExit() { bool b = rideExit; rideExit = false; return b; }
 
@@ -38,7 +43,7 @@ namespace OlimarTest
             rideHeading = heading;
             rideHeadingSet = true;
             rideStartFrame = Time.frameCount;
-            rideMove = Vector2.zero;
+            rideMove = IsRemote ? Vector2.zero : PollRideMove();
             rideBoost = rideExit = false;
             CloseMenu();
             flyingX.Cancel();
@@ -127,7 +132,7 @@ namespace OlimarTest
             if (!rideWas) rideStartFrame = Time.frameCount;
             rideWas = true;
             if (MenuOpen) CloseMenu();
-            rideMove = cam != null ? cam.StickToWorld(pad.move) : pad.move;
+            rideMove = PollRideMove();
             if (pad.boostPressed) rideBoost = true;
             if (pad.anyFacePressed && Time.frameCount > rideStartFrame) rideExit = true;
             // He is wherever the Onion is (on a client, where the host's Onion is drawn).

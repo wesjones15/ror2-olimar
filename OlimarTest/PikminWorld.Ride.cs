@@ -335,7 +335,9 @@ namespace OlimarTest
             if (r.policy.Expired) { EndRide(f); return; }
 
             // Steer on the ground plane at twice his walking speed (three times while boosting).
-            var stick = d.RideMove;
+            // Read the local stick here directly: the boarding lift must not stop the Onion
+            // waiting for the driver's next render frame (or for a client to be told it rides).
+            var stick = !d.IsRemote && !d.IsAi ? d.PollRideMove() : d.RideMove;
             float speed = Mathf.Max(5f, d.Body.moveSpeed) * scale;
             var step = new Vector3(stick.x, 0f, stick.y) * (speed * dt);
             if (step.sqrMagnitude > 1e-8f)
