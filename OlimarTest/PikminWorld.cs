@@ -2267,6 +2267,13 @@ namespace OlimarTest
         void ReadBack()
         {
             PikiCount = Read(ref Pikis, readPikis ??= (a, n) => Native.pik_sim_pikis(sim, a, n));
+            for (int i = 0; i < PikiCount; i++)
+            {
+                var p = Pikis[i];
+                bool wet = p.color == 0 && p.alive != 0 && p.on_ground != 0
+                    && StageWater.Contains(UnityHost.ToUnity(p.pos), Mathf.Max(0.2f, p.size * UnityHost.Scale));
+                if (wet) blueWet.Add(p.id); else blueWet.Remove(p.id);
+            }
             if (pikiGenerations.Length < Pikis.Length) Array.Resize(ref pikiGenerations, Pikis.Length);
             for (int i = 0; i < PikiCount; i++)
             {
@@ -2368,6 +2375,8 @@ namespace OlimarTest
             switch (e.kind)
             {
                 case Native.EventKind.Thrown:
+                    if (e.a < PikiCount && Pikis[e.a].color == 0 && blueWet.Contains(e.a))
+                        blueWetUntil[e.a] = Time.fixedTime + 5f;
                     if (driverOf.TryGetValue(e.b, out var thrower) && thrower && thrower.HasState)
                         thrownAt[e.a] = UnityHost.ToUnity(thrower.State.cursor_world);
                     return;
@@ -2439,6 +2448,8 @@ namespace OlimarTest
         // RoR2 → sim
 
         readonly Dictionary<int, float> whitePoisonUntil = new Dictionary<int, float>();
+        readonly HashSet<uint> blueWet = new HashSet<uint>();
+        readonly Dictionary<uint, float> blueWetUntil = new Dictionary<uint, float>();
 
         static byte Damage(IntPtr user, ulong creature, float amount, int part, uint source, uint sourceId)
         {
@@ -2479,6 +2490,10 @@ namespace OlimarTest
                 && ((victim.characterMotor && !victim.characterMotor.isGrounded)
                     || (victim.bodyFlags & CharacterBody.BodyFlags.Mechanical) != 0))
                 colourBonus = 1.5f;
+            // Blue thrown out of stage water carries that water's boost for a moment.
+            if (piki && pk.color == 0 && blueWetUntil.TryGetValue(sourceId, out float wetUntil)
+                && wetUntil > Time.fixedTime)
+                colourBonus *= 1.5f;
             // Each Pikmin procs at most once per Items.ProcInterval, on its own clock.
             float proc = Plugin.ProcCoefficient.Value;
             if (piki && !ProcReady(sourceId)) proc = 0f;

@@ -110,7 +110,8 @@ namespace OlimarTest
                 touched = true;
                 var feet = UnityHost.ToUnity(p.pos);
                 float full = Mathf.Max(1f, Plugin.PikminHealth.Value * NearestOlimarHealth(feet));
-                if (damage > 0f && Native.pik_sim_attack_piki(sim, p.id, damage / full * 100f) != 0)
+                if (damage > 0f && Native.pik_sim_attack_piki(sim, p.id,
+                    damage / full * 100f * (p.color == 0 && StageWater.Contains(feet, Mathf.Max(0.2f, p.size * UnityHost.Scale)) ? 0.6f : 1f)) != 0)
                 {
                     hurt++;
                     if (immunity > 0f) SetImmunity(p.id, now + immunity);

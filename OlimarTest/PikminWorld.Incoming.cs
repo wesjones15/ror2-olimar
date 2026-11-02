@@ -37,7 +37,8 @@ namespace OlimarTest
                 if (lineOfSight && Physics.Linecast(centre, at + Vector3.up * size,
                     UnityHost.Mask, QueryTriggerInteraction.Ignore)) continue;
                 if (damage > 0f)
-                    hurt += Native.pik_sim_attack_piki(sim, p.id, damage * fraction / full * 100f);
+                    hurt += Native.pik_sim_attack_piki(sim, p.id, damage * fraction / full * 100f
+                        * (p.color == 0 && StageWater.Contains(at, Mathf.Max(0.2f, size)) ? 0.6f : 1f));
             }
             if (hurt > 0 && Plugin.LogEvents.Value)
                 Plugin.Log.LogInfo($"Enemy blast hurt {hurt} Pikmin (radius {radius:0.##} m)");
