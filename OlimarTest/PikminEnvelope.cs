@@ -44,11 +44,14 @@ namespace OlimarTest
     internal static class PikminEnvelope
     {
         /// Bumped whenever a wire format changes; a message with another number is ignored.
-        public const byte Protocol = 11;
+        public const byte Protocol = 12;
         /// pikmin.dll's ABI (Native.AbiVersion), compared so a mismatched build is refused.
         public static byte Abi = 52;
+        /// pikmin.dll's replica snapshot format (Native.SnapshotVersion), compared so a snapshot
+        /// whose nested encoding changed is refused instead of silently failing to decode.
+        public static byte Snapshot = 1;
 
-        public enum Status { Ok, Corrupt, WrongProtocol, WrongAbi }
+        public enum Status { Ok, Corrupt, WrongProtocol, WrongAbi, WrongSnapshot }
 
         /// `epoch` counts the server's sims (a new stage starts a new one); `snapshot` is
         /// pik_sim_snapshot's bytes.
@@ -57,6 +60,7 @@ namespace OlimarTest
             var w = new ByteWriter(16 + captains.Count * 12 + snapshotLength);
             w.U8(Protocol);
             w.U8(Abi);
+            w.U8(Snapshot);
             w.U32(epoch);
             w.U8((byte)captains.Count);
             foreach (var c in captains)
@@ -79,12 +83,18 @@ namespace OlimarTest
             snapshot = null;
             theirs = r.U8();
             byte abi = r.U8();
+            byte snapVersion = r.U8();
             if (r.Failed) return Status.Corrupt;
             if (theirs != Protocol) return Status.WrongProtocol;
             if (abi != Abi)
             {
                 theirs = abi;
                 return Status.WrongAbi;
+            }
+            if (snapVersion != Snapshot)
+            {
+                theirs = snapVersion;
+                return Status.WrongSnapshot;
             }
             epoch = r.U32();
             int n = r.U8();

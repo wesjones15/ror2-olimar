@@ -663,6 +663,26 @@ namespace OlimarTest
                 return i;
             }
             var p = remotePacket;
+            // A jump pad fires on the server for a client's body too (NoteJumpPad), but this path
+            // used to send only the pose, so the host sim followed the arc instead of running it
+            // and the squad never got the pad's launch. Apply the recorded throw here exactly as
+            // BuildInput does for a host Olimar.
+            bool padLaunched = false;
+            if (native && padLaunchedAt >= 0f && Time.fixedTime - padLaunchedAt <= 0.25f)
+            {
+                var thrown = padLaunchVelocity;
+                padLaunchedAt = -1f;
+                smoother.Reset();
+                native.ForgetVelocity();
+                Launch(world, thrown, true);
+                padLaunched = true;
+            }
+            else if (native && !padFlight && native.JumpPadLaunch && native.TakeExternalVelocity(out var padThrown, 2f))
+            {
+                smoother.Reset();
+                Launch(world, padThrown, true);
+                padLaunched = true;
+            }
             i.use_pose = 1;
             i.pose_pos = new Native.Vec3(p.px, p.py, p.pz);
             i.pose_vel = new Native.Vec3(p.vx, p.vy, p.vz);
@@ -689,8 +709,9 @@ namespace OlimarTest
             Native.pik_sim_set_lock_target(world.SimHandle, (uint)captain, creature, B(creature != 0));
             Native.pik_sim_set_lock_pellet(world.SimHandle, (uint)captain, p.lockPellet - 1, B(p.lockPellet != 0));
             // A teleport (anything that moves him far between ticks) brings his squad with him.
+            // A pad throw is not a teleport: the sim now owns the arc and the launch cue.
             var at = UnityHost.ToUnity(i.pose_pos);
-            if (lastFeetSet) Teleported(world, lastFeet, at);
+            if (!padLaunched && lastFeetSet) Teleported(world, lastFeet, at);
             lastFeet = at;
             lastFeetSet = true;
             if (hold == NativeBody.Hold.All) i.throw_ = i.whistle = i.dismiss = i.cycle = 0;

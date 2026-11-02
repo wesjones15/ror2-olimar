@@ -23,6 +23,7 @@ namespace OlimarTest
         public static void Register()
         {
             PikminEnvelope.Abi = (byte)Native.AbiVersion;
+            PikminEnvelope.Snapshot = Native.SnapshotVersion;
             Mp.Register(SnapshotMsg, null, OnSnapshot);
             Mp.Register(InputMsg, OnInput, null);
             Mp.Register(OnionMsg, OnOnion, null);
@@ -90,7 +91,9 @@ namespace OlimarTest
                     warned = true;
                     Plugin.Log.LogWarning(status == PikminEnvelope.Status.WrongAbi
                         ? $"The host's Pikmin run libpikmin ABI {theirs}, this plugin {Native.AbiVersion}: install the same Olimar release as the host. You won't see their Pikmin."
-                        : $"The host's Pikmin use network protocol {theirs}, this plugin {PikminEnvelope.Protocol}: install the same Olimar release as the host. You won't see their Pikmin.");
+                        : status == PikminEnvelope.Status.WrongSnapshot
+                            ? $"The host's Pikmin use snapshot format {theirs}, this plugin {Native.SnapshotVersion}: install the same Olimar release as the host. You won't see their Pikmin."
+                            : $"The host's Pikmin use network protocol {theirs}, this plugin {PikminEnvelope.Protocol}: install the same Olimar release as the host. You won't see their Pikmin.");
                 }
                 return;
             }

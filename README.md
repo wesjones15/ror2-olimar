@@ -334,13 +334,13 @@ dotnet run -c Release --project tests/IncomingBlastCheck -- ../libpikmin/target/
 30-HP Pikmin, and verifies that terrain explosions hurt and kill an idle squad while Olimar
 is outside the blast. It also checks overlapping Pikmin, repeated victim reports, terrain
 occlusion, out-of-range survivors and damage deferred during a native sim step. Both DLLs
-must be updated together (ABI 58).
+must be updated together (ABI 59, snapshot 14).
 The same check now exercises the actual mob-melee adapter: repeated active frames and
 overlapping hand hitboxes cannot multiply damage, successive swings kill an idle squad,
 out-of-range Pikmin survive, and queued hits retain the active geometry and damage.
 `build.ps1` checks the game's melee Fire/reset signatures and ignore-list lifecycle before building.
 
-- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 11).
+- `pikmin.dll` is `libpikmin/crates/libpikmin-ffi`, the sim behind a C ABI (`pik_*`, ABI 59, snapshot 14).
   `Native.Load` refuses a DLL whose ABI version or struct sizes don't match.
 - `PikminWorld` owns the sim on the server, one per stage. Each `FixedUpdate` it passes every
   captain's input and RoR2's enemies, advances the 30 Hz clock, and reads back Pikmin,

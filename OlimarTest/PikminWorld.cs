@@ -2267,13 +2267,16 @@ namespace OlimarTest
         void ReadBack()
         {
             PikiCount = Read(ref Pikis, readPikis ??= (a, n) => Native.pik_sim_pikis(sim, a, n));
-            for (int i = 0; i < PikiCount; i++)
-            {
-                var p = Pikis[i];
-                bool wet = p.color == 0 && p.alive != 0 && p.on_ground != 0
-                    && StageWater.Contains(UnityHost.ToUnity(p.pos), Mathf.Max(0.2f, p.size * UnityHost.Scale));
-                if (wet) blueWet.Add(p.id); else blueWet.Remove(p.id);
-            }
+            // The water shield and wet throw bonus are the server's: its sim deals the damage.
+            // A client's replica would only pay for a physics query per blue Pikmin per frame.
+            if (NetworkServer.active)
+                for (int i = 0; i < PikiCount; i++)
+                {
+                    var p = Pikis[i];
+                    bool wet = p.color == 0 && p.alive != 0 && p.on_ground != 0
+                        && StageWater.Contains(UnityHost.ToUnity(p.pos), Mathf.Max(0.2f, p.size * UnityHost.Scale));
+                    if (wet) blueWet.Add(p.id); else blueWet.Remove(p.id);
+                }
             if (pikiGenerations.Length < Pikis.Length) Array.Resize(ref pikiGenerations, Pikis.Length);
             for (int i = 0; i < PikiCount; i++)
             {
@@ -2375,7 +2378,8 @@ namespace OlimarTest
             switch (e.kind)
             {
                 case Native.EventKind.Thrown:
-                    if (e.a < PikiCount && Pikis[e.a].color == 0 && blueWet.Contains(e.a))
+                    // The wet throw bonus is the server's damage path; a client only needs the view.
+                    if (NetworkServer.active && e.a < PikiCount && Pikis[e.a].color == 0 && blueWet.Contains(e.a))
                         blueWetUntil[e.a] = Time.fixedTime + 5f;
                     if (driverOf.TryGetValue(e.b, out var thrower) && thrower && thrower.HasState)
                         thrownAt[e.a] = UnityHost.ToUnity(thrower.State.cursor_world);
