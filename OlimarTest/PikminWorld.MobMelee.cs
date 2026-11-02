@@ -74,6 +74,7 @@ namespace OlimarTest
             float damage = sample.Damage * (sample.Crit ? (attacker ? attacker.critMultiplier : 2f) : 1f)
                 * Mathf.Max(0f, Plugin.PikminMeleeDamageScale.Value);
             bool freeze = (sample.Type & DamageType.Freeze2s) != 0;
+            bool fire = (sample.Type & DamageType.IgniteOnHit) != 0;
             float now = sample.Now;
             float immunity = Mathf.Max(0f, Plugin.PikminMeleeIFrames.Value);
             int cap = Mathf.Max(0, Plugin.PikminMeleeMaxVictims.Value);
@@ -102,6 +103,8 @@ namespace OlimarTest
             {
                 var p = Pikis[candidates[k].index];
                 if (now < Immunity(p.id)) continue;
+                // Fire trails/breaths arrive as OverlapAttacks with IgniteOnHit. Red is fireproof.
+                if (fire && p.color == 1) continue;
                 ulong victim = ((ulong)p.generation << 32) | p.id;
                 if (!swing.TryHit(incomingMeleeWorld, victim, now, sample.Retrigger)) continue;
                 touched = true;
