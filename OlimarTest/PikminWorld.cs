@@ -2469,6 +2469,14 @@ namespace OlimarTest
             }
             bool piki = source == Native.SourcePiki && sourceId < PikiCount;
             bool strike = source == Native.SourceStrike;
+            var pk = piki ? Pikis[sourceId] : default;
+            // Yellow hits flyers and machines harder. Flying means off the ground (a flier or a
+            // jumper); machines are RoR2's Mechanical bodies.
+            float colourBonus = 1f;
+            if (piki && pk.color == 2
+                && ((victim.characterMotor && !victim.characterMotor.isGrounded)
+                    || (victim.bodyFlags & CharacterBody.BodyFlags.Mechanical) != 0))
+                colourBonus = 1.5f;
             // Each Pikmin procs at most once per Items.ProcInterval, on its own clock.
             float proc = Plugin.ProcCoefficient.Value;
             if (piki && !ProcReady(sourceId)) proc = 0f;
@@ -2480,7 +2488,7 @@ namespace OlimarTest
             type.damageSource = strike ? DamageSource.Special : DamageSource.Primary;
             var spec = new NativeHitSpec
             {
-                coefficient = amount * Plugin.DamageCoefficient.Value,
+                coefficient = amount * Plugin.DamageCoefficient.Value * colourBonus,
                 position = at,
                 procCoefficient = proc,
                 damageType = type,
@@ -2491,6 +2499,11 @@ namespace OlimarTest
                 ? MinionHit.Deal(attacker, MinionOf(Pikis[sourceId]), health, spec)
                 : NativeHit.Deal(attacker, health, spec);
             if (landed && piki && proc > 0f) affixes.OnHit(sourceId, attacker, health, proc);
+            // White poison: a White Pikmin's hit applies RoR2's poison DoT.
+            if (landed && piki && pk.color == 4 && victim.mainHurtBox)
+                DotController.InflictDot(victim.gameObject,
+                    attacker ? attacker.gameObject : victim.gameObject, victim.mainHurtBox,
+                    default(ProcChainMask), DotController.DotIndex.Poison, 4f, 1f);
             // A kill with the strike gives it back.
             if (landed && strike && !health.alive && Plugin.StrikeKillReset.Value
                 && driverOf.TryGetValue((int)sourceId, out var striker) && striker)
