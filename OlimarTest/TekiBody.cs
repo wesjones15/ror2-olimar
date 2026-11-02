@@ -184,7 +184,7 @@ namespace OlimarTest
                 id = id,
                 // Low byte kind; next byte is the optional material frame + 1.
                 kind = (uint)kind | (kind == TekiCatalog.PelletPosy ? (((s.flags >> 8) & 3u) + 1u) << 8 : ((s.flags>>8)&255u)<<16),
-                pos = UnityHost.ToSim(body.footPosition),
+                pos = s.pos,
                 yaw = NetworkServer.active ? s.yaw : UnityHost.Yaw(transform.forward),
                 motion = s.motion,
                 frame = s.frame,
