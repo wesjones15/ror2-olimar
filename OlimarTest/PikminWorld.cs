@@ -2438,6 +2438,8 @@ namespace OlimarTest
         // ------------------------------------------------------------------------------------
         // RoR2 → sim
 
+        readonly Dictionary<int, float> whitePoisonUntil = new Dictionary<int, float>();
+
         static byte Damage(IntPtr user, ulong creature, float amount, int part, uint source, uint sourceId)
         {
             try
@@ -2499,11 +2501,25 @@ namespace OlimarTest
                 ? MinionHit.Deal(attacker, MinionOf(Pikis[sourceId]), health, spec)
                 : NativeHit.Deal(attacker, health, spec);
             if (landed && piki && proc > 0f) affixes.OnHit(sourceId, attacker, health, proc);
-            // White poison: a White Pikmin's hit applies RoR2's poison DoT.
+            // White poison stacks duration, not per-tick damage: refresh the same RoR2 Poison
+            // with the remaining time plus 4 s. The tiny multiplier only makes RoR2 accept the
+            // refresh; the first application carries the real damage.
             if (landed && piki && pk.color == 4 && victim.mainHurtBox)
+            {
+                int key = victim.gameObject.GetInstanceID();
+                float now = Time.fixedTime;
+                float remaining = whitePoisonUntil.TryGetValue(key, out float until)
+                    ? Mathf.Max(0f, until - now) : 0f;
+                float duration = remaining + 4f;
+                whitePoisonUntil[key] = now + duration;
+                if (whitePoisonUntil.Count > 128)
+                    foreach (var pair in new List<KeyValuePair<int, float>>(whitePoisonUntil))
+                        if (pair.Value <= now) whitePoisonUntil.Remove(pair.Key);
                 DotController.InflictDot(victim.gameObject,
                     attacker ? attacker.gameObject : victim.gameObject, victim.mainHurtBox,
-                    default(ProcChainMask), DotController.DotIndex.Poison, 4f, 1f);
+                    default(ProcChainMask), DotController.DotIndex.Poison, duration,
+                    remaining > 0f ? 0.001f : 1f);
+            }
             // A kill with the strike gives it back.
             if (landed && strike && !health.alive && Plugin.StrikeKillReset.Value
                 && driverOf.TryGetValue((int)sourceId, out var striker) && striker)
