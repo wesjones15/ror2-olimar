@@ -9,6 +9,11 @@ namespace OlimarTest
         public const int Mask = 1;
         public static Vector3 ToUnity(Native.Vec3 p) => new Vector3(p.x*Scale, p.y*Scale, p.z*Scale);
     }
+    // The blast and melee adapters ask the shared helper; this headless check has no stage.
+    static class StageWater
+    {
+        public static bool Contains(Vector3 feet, float height) => false;
+    }
     sealed class Setting<T> { public T Value; public Setting(T value) { Value = value; } }
     static class Plugin
     {
@@ -51,7 +56,7 @@ namespace OlimarTest
             return (int)count;
         }
         public void Apply(float damage, RoR2.BlastAttack.FalloffModel falloff = RoR2.BlastAttack.FalloffModel.None, bool los = false) =>
-            EnemyBlast(new Vector3(), 3f, damage, falloff, los, false, 1f);
+            EnemyBlast(new Vector3(), 3f, damage, falloff, los, false, false, 1f);
         public void Drain() { stepping = false; foreach (var callback in afterStep) callback(); afterStep.Clear(); }
         public bool Swing(RoR2.OverlapAttack attack, int reportedVictims = 0) => MobMeleeFired((a,list) =>
         {
