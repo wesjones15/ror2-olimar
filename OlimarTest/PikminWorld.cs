@@ -756,7 +756,7 @@ namespace OlimarTest
             AddOnion(d.Body.footPosition + Vector3.up * 5f,
                 // Every skin's Onion takes all five colours (Pikmin 2's Purple and White come from Candypop Buds); without
                 // Pikmin 2's files only Pikmin 1's three.
-                OlimarSkin.LouieAvailable ? 0b11111u : 0b111u, d.Body);
+                OlimarSkin.Pikmin2Available ? 0b11111u : 0b111u, d.Body);
             int id = onionIds[onionIds.Count - 1];
             Native.pik_sim_set_onion_color(sim, (uint)id, saved.colour);
             Native.pik_sim_set_onion_owner(sim, (uint)id, captain);
