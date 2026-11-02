@@ -24,7 +24,7 @@ namespace OlimarTest
             public readonly List<int> triangles = new List<int>();
         }
 
-        readonly Dictionary<(uint, byte), Group> groups = new Dictionary<(uint, byte), Group>();
+        readonly Dictionary<(uint, byte, byte), Group> groups = new Dictionary<(uint, byte, byte), Group>();
         readonly Dictionary<uint,Texture2D> masks = new Dictionary<uint,Texture2D>();
         readonly Dictionary<uint,uint> versions = new Dictionary<uint,uint>();
         readonly Dictionary<uint, Texture2D> textures = new Dictionary<uint, Texture2D>();
@@ -61,14 +61,23 @@ namespace OlimarTest
             for (uint i = 0; i < n && ps != null; i++)
             {
                 var p = ps[i];
-                var g = GroupFor(p.texture, p.additive);
+                // Cloud Remap takes alpha from the material's _AlphaBoost, not the vertex
+                // alpha, so a per-particle fade has to be bucketed into materials: a native
+                // max_age fade (or a landing cloud's alpha_scale) otherwise renders at full
+                // strength until the particle vanishes.
+                byte bucket = 0;
+                if (p.additive == 0) {
+                    int bucketIndex = (int)(p.a * 15f + 0.5f);
+                    bucket = (byte)Mathf.Clamp(bucketIndex, 0, 15);
+                }
+                var g = GroupFor(p.texture, p.additive, bucket);
                 if (g == null) continue;
                 int b = g.vertices.Count;
                 g.vertices.Add(new Vector3(p.c0.x, p.c0.y, p.c0.z) * scale);
                 g.vertices.Add(new Vector3(p.c1.x, p.c1.y, p.c1.z) * scale);
                 g.vertices.Add(new Vector3(p.c2.x, p.c2.y, p.c2.z) * scale);
                 g.vertices.Add(new Vector3(p.c3.x, p.c3.y, p.c3.z) * scale);
-                var c = new Color(p.r, p.g, p.b, p.a);
+                var c = new Color(p.r, p.g, p.b, p.additive == 1 ? p.a : 1f);
                 g.uvs.Add(new Vector2(p.u0,p.v0));g.uvs.Add(new Vector2(p.u1,p.v1));g.uvs.Add(new Vector2(p.u2,p.v2));g.uvs.Add(new Vector2(p.u3,p.v3));
                 for (int k = 0; k < 4; k++)
                 {
@@ -94,11 +103,12 @@ namespace OlimarTest
             }
         }
 
-        // The mesh for particles with texture `id` and this blend; null without Cloud Remap or
-        // the texture.
-        Group GroupFor(uint id, byte additive)
+        // The mesh for particles with texture `id`, this blend and alpha bucket; null without
+        // Cloud Remap or the texture. Cloud Remap ignores vertex alpha, so the bucket's
+        // half-open range picks the material's _AlphaBoost.
+        Group GroupFor(uint id, byte additive, byte bucket)
         {
-            if (groups.TryGetValue((id, additive), out var g)) return g;
+            if (groups.TryGetValue((id, additive, bucket), out var g)) return g;
             if (!textures.TryGetValue(id, out var tex))
             {
                 try { tex = LoadTexture(id); }
@@ -118,6 +128,9 @@ namespace OlimarTest
             } else m=Shaders.SeeThrough($"pikmin particles {id}",tex,additive==1,true);
             if (!m) return null;
             m.renderQueue = 3100;
+            // Cloud Remap's vertex-colour path keeps the vertex alpha out of the blend, so
+            // the bucket's alpha is applied through the material instead.
+            if (additive == 0) m.SetFloat("_AlphaBoost", bucket / 15f);
             // libpikmin folds an additive layer's alpha into its colour already.
             if (additive == 1) m.SetFloat("_SrcBlend", (float)BlendMode.One);
             var go = new GameObject($"pikmin particles {id}");
@@ -130,7 +143,7 @@ namespace OlimarTest
             r.shadowCastingMode = ShadowCastingMode.Off;
             r.receiveShadows = false;
             g = new Group { go = go, mesh = mesh, material = m };
-            groups[(id, additive)] = g;
+            groups[(id, additive, bucket)] = g;
             return g;
         }
 
