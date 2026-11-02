@@ -260,17 +260,31 @@ namespace OlimarTest
             return true;
         }
 
-        /// Loads Purple and White Pikmin (Pikmin 2's bodies, for Louie's squad) into a new view, from the same
-        /// Pikmin 2 files; without them they are drawn as tinted Pikmin 1 bodies. False when Pikmin 2 is not available.
+        static bool pikmin2Ready;
+
+        /// Whether Purple and White Pikmin's Pikmin 2 bodies loaded (from the p2 asset folder even without Louie).
+        public static bool Pikmin2Available => pikmin2Ready;
+
+        /// Loads Purple and White Pikmin (Pikmin 2's bodies) into a new view, from Louie's cache or the
+        /// shared p2 asset folder; without them they are drawn as tinted Pikmin 1 bodies.
         public static bool LoadPikmin2Into(IntPtr view)
         {
-            if (!louieReady) return false;
-            if (Native.pik_view_load_pikmin2(view, Native.CString(louieDir)) < 0)
+            string[] dirs =
             {
-                Plugin.Log.LogWarning($"Purple and White Pikmin did not load from {louieDir}");
-                return false;
+                louieReady ? louieDir : null,
+                string.IsNullOrWhiteSpace(Plugin.AssetsDir) ? null : Path.Combine(Plugin.AssetsDir, "p2"),
+            };
+            foreach (var dir in dirs)
+            {
+                if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) continue;
+                if (Native.pik_view_load_pikmin2(view, Native.CString(dir)) >= 0)
+                {
+                    pikmin2Ready = true;
+                    return true;
+                }
             }
-            return true;
+            Plugin.Log.LogWarning("Purple and White Pikmin did not load (no piki_p2_black/white in the p2 assets or Louie cache)");
+            return false;
         }
 
         /// The Pianta's height to the top of his head, in sim units.
