@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 59;
+        public const uint AbiVersion = 60;
         /// libpikmin's replica snapshot format, checked alongside the ABI: the snapshot is nested
         /// bytes in PikminEnvelope, so an ABI match alone is not enough to know a host's snapshots
         /// can be decoded here. Set by Load.
@@ -447,6 +447,9 @@ namespace OlimarTest
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr pik_sim_new(byte[] assetsDir, ulong seed);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_field_limit(IntPtr sim, uint limit);
+        /// The Onion's model is drawn with its local X mirrored (ModelView.MirrorX), so walk,
+        /// jump and climb the drawn legs; call once per sim, right after pik_sim_new.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_mirror_onion_legs(IntPtr sim, byte on);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_free(IntPtr sim);
         /// The sim's entities and events since the last call, encoded for another machine's replica; the
         /// length written, or 0 if `cap` was too small.

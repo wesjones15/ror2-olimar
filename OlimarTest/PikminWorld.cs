@@ -221,6 +221,7 @@ namespace OlimarTest
                     return -1;
                 }
                 moverPoisoned = false;
+                Native.pik_sim_set_mirror_onion_legs(moverSim, 1);
                 var feet = UnityHost.ToSim(d.Body.footPosition);
                 if (Native.pik_sim_add_captain(moverSim, ref feet) < 0) return -1;
                 Plugin.Log.LogInfo($"{d.Body.GetDisplayName()} moves on this machine; the host's Pikmin follow");
@@ -673,6 +674,9 @@ namespace OlimarTest
                 return false;
             }
             Native.pik_sim_set_field_limit(sim, int.MaxValue);
+            // ModelView mirrors every model's local X, so the Onion's drawn legs are mirrored:
+            // walk, jump and climb the drawn legs instead of the disc's right-handed ones.
+            Native.pik_sim_set_mirror_onion_legs(sim, 1);
             simStage = Stage.instance;
             Native.pik_sim_set_ship_part_host_delivery(sim, ShipRepairMode.Active ? (byte)1 : (byte)0);
             if (ShipRepairMode.Active && ShipRepairSession.Instance && ShipRepairSession.Instance.Competitive) Native.pik_sim_set_ship_part_competitive_delivery(sim, 1);
