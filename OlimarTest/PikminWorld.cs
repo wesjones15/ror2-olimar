@@ -2622,9 +2622,10 @@ namespace OlimarTest
                 if (!Instance) return;
                 var attacker = self.attacker ? self.attacker.GetComponent<CharacterBody>() : null;
                 float damage = self.baseDamage * (self.crit ? (attacker ? attacker.critMultiplier : 2f) : 1f);
+                bool fire = (self.damageType & DamageType.IgniteOnHit) != 0;
                 Instance.EnemyBlast(self.position, self.radius, damage, self.falloffModel,
                     self.losType != BlastAttack.LoSType.None,
-                    (self.damageType & DamageType.Freeze2s) != 0, self.procCoefficient);
+                    (self.damageType & DamageType.Freeze2s) != 0, fire, self.procCoefficient);
             }
             catch (Exception e)
             {
