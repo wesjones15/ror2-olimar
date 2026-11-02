@@ -64,6 +64,8 @@ namespace OlimarTest
         /// His captain in the world drawn and queried here (the squad, the Onion): the server's, which
         /// on a client is not the id of the small sim that moves him.
         public int ViewCaptain => NetworkServer.active ? captain : remoteCaptain;
+        /// RoR2 froze this body (a Glacial elite's death blast); the drawn captain pales as Pikmin do.
+        internal bool Frozen => native && native.Frozen;
         int DataCaptain => ViewCaptain;
 
         internal void SetRemoteCaptain(int id) => remoteCaptain = id;

@@ -31,6 +31,8 @@ namespace OlimarTest
         }
         readonly Dictionary<int, ViewDraw> drawnCaptains = new Dictionary<int, ViewDraw>();
         readonly Dictionary<int, Vector3> captainFeet = new Dictionary<int, Vector3>();
+        // Captains RoR2 has frozen this frame: their draw gets the same icy sheen as a frozen Pikmin.
+        readonly HashSet<int> frozenCaptains = new HashSet<int>();
 
         (Vector3, Quaternion)? PlaceCaptain(ViewDraw draw) =>
             draw.kind == Native.KindCaptain && captainFeet.TryGetValue((int)draw.id, out var feet)
@@ -100,12 +102,16 @@ namespace OlimarTest
                 // Goobo Jr.'s Olimar is a gummy, as RoR2 draws its clones.
                 models.Models.SkinFor = d => d.kind == Native.KindCaptain && Plugin.GummyClones.Value
                     && world && world.IsTemporaryCaptain((int)d.id) ? GummyClone.Material() : null;
+                // A frozen captain (RoR2's FrozenState) pales like a frozen Pikmin.
+                models.Models.FrozenFor = d => d.kind == Native.KindCaptain
+                    && frozenCaptains.Contains((int)d.id);
             }
         }
 
         void DisposeModels()
         {
             healingAudio.Clear();
+            frozenCaptains.Clear();
             if (models != null)
             {
                 models.Dispose();
@@ -198,9 +204,13 @@ namespace OlimarTest
             }
             var drivers = OlimarDriver.All;
             captainFeet.Clear();
+            frozenCaptains.Clear();
             foreach (var d in drivers)
+            {
                 if (d.ViewCaptain >= 0 && d.DrawAtSmoothedFeet)
                     captainFeet[d.ViewCaptain] = d.SmoothedFeet;
+                if (d.ViewCaptain >= 0 && d.Frozen) frozenCaptains.Add(d.ViewCaptain);
+            }
             // Olimar beams down from the Dolphin; only the Pikmin exit the Onion.
             foreach (var d in drivers)
                 if (d.ViewCaptain >= 0)
