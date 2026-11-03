@@ -773,9 +773,11 @@ namespace OlimarTest
         }
 
         // The ship is a presentation/carry goal only; no parts or repair objective spawn.
-        /// How far behind Olimar the Dolphin lands. Its goal spot is 100 units (4 m) ahead of it
-        /// (`UfoItem::getGoalPos`); he stands a metre nearer the ship than that, in its rings.
-        const float DolphinBehind = 3f;
+        /// How far behind Olimar the Dolphin lands. Its goal spot is 100 units (4 m) ahead of
+        /// it (`UfoItem::getGoalPos`), and that is where the beam sets him down: land the
+        /// ship exactly that far back so the goal, its glowing rings and his arrival pose are
+        /// the same spot. (A metre short left him at their edge.)
+        static float DolphinBehind => 100f * UnityHost.Scale;
 
         void SpawnDolphin(int captain, OlimarDriver driver, bool bringSquad = true)
         {
