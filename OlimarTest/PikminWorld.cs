@@ -1064,6 +1064,34 @@ namespace OlimarTest
         {
             foreach (var flight in onionOf.Values)
             {
+                // The sim is authoritative on dormancy. If it is folded or reviving while the host
+                // thought the Onion was live (a missed transition), take the dormant path instead
+                // of offering its beam, ride call or an invisible boarding body.
+                if (!flight.dormant && OnionAnimInSim(flight.id, out byte simAnim) && simAnim >= 7)
+                {
+                    if (flight.ride != null) EndRide(flight, true);
+                    flight.dormant = true;
+                    flight.reviving = simAnim == 8;
+                    flight.dormantAge = flight.reviving ? DormantSeconds : 0f;
+                    flight.reviveAge = 0f;
+                    flight.ownerDeath = false;
+                    flight.summon = flight.healSummon = false;
+                    flight.healVisit = 0f;
+                    flight.menuLockout = 0f;
+                    flight.recallUntil = 0f;
+                    flight.filling = false;
+                    flight.menuBeam = flight.menuReturning = false;
+                    flight.pickup = -1;
+                    flight.transitionDuration = 0f;
+                    if (onionMinions.TryGetValue(flight.id, out var gone))
+                    {
+                        gone.Release();
+                        onionMinions.Remove(flight.id);
+                        ForgetOnionBody(flight.id);
+                    }
+                    Plugin.Log.LogWarning($"Onion {flight.id} was {(flight.reviving ? "reviving" : "dormant")} in the sim while " +
+                        "the host thought it live; holding its ride and menu until it is ready.");
+                }
                 if (flight.menuLockout > 0f) flight.menuLockout = Mathf.Max(0f, flight.menuLockout - Time.fixedDeltaTime);
                 if (flight.recallUntil > 0f) RecallToOnion(flight);
                 if (flight.dormant && flight.ownerDeath && OwnerAlive(flight))
@@ -1296,12 +1324,26 @@ namespace OlimarTest
             return true;
         }
 
+        bool OnionAnimInSim(int id, out byte anim)
+        {
+            for (int i = 0; i < OnionCount; i++)
+                if (Onions[i].id == id) { anim = Onions[i].anim; return true; }
+            anim = 0;
+            return false;
+        }
+
         bool OnionDisabled(int id)
         {
             foreach (var f in onionOf.Values) if (f.id == id && f.dormant) return true;
-            for (int i = 0; i < OnionCount; i++) if (Onions[i].id == id) return Onions[i].anim >= 7;
-            return false;
+            return OnionAnimInSim(id, out byte anim) && anim >= 7;
         }
+
+        /// The Onion is live in the sim and not folded or reviving: a ride call, menu or board may
+        /// use it. A dormant flag that lags the sim must not let the ride grab the invisible body
+        /// (its Pikmin transfers are refused while it wakes).
+        bool OnionReady(OnionFlight f) =>
+            f != null && OnionMenuPolicy.Ready(f.dormant,
+                OnionAnimInSim(f.id, out byte anim), anim);
 
         public bool OnionFlying(int captain) => ClientMode
             ? remoteInfo.TryGetValue(captain, out var info) && info.OnionAirborne
@@ -1333,7 +1375,7 @@ namespace OlimarTest
                 if (Plugin.LogEvents.Value) Plugin.Log.LogInfo($"captain {captain}: no Onion to {(follow ? "raise" : "lower")}");
                 return false;
             }
-            if (f.dormant || f.ride != null) return false;
+            if (!OnionReady(f) || f.ride != null) return false;
             f.summon = false;
             f.healSummon = false;
             f.healVisit = 0f;
@@ -1377,7 +1419,7 @@ namespace OlimarTest
                 moverDriver.SendOnion(OnionCommandPacket.ReleaseFlyingAll, 0, 0);
                 return true;
             }
-            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant || !flight.airborne || flight.ride != null)
+            if (!onionOf.TryGetValue(captain, out var flight) || !OnionReady(flight) || !flight.airborne || flight.ride != null)
                 return false;
             flight.releaseWhenReady = true;
             return true;
@@ -1393,7 +1435,7 @@ namespace OlimarTest
                 moverDriver.SendOnion(OnionCommandPacket.FillFlyingAll, 0, 0);
                 return true;
             }
-            if (!onionOf.TryGetValue(captain, out var flight) || flight.dormant || !flight.airborne || flight.ride != null)
+            if (!onionOf.TryGetValue(captain, out var flight) || !OnionReady(flight) || !flight.airborne || flight.ride != null)
                 return false;
             ApplyOnionTransfer(captain, flight.id, OnionCommandPacket.ReturnAll, 0);
             return true;
@@ -1558,7 +1600,7 @@ namespace OlimarTest
                 || !driverOf.TryGetValue(captain, out var d) || !d || !d.Body) return -1;
             // A heal visit's beam is not the menu: he is moving under it, and it must not open.
             if (f.healVisit > 0f) return -1;
-            return InOnionBeam(d, sim, captain, f.position, f.airborne, f.following, f.menuReady, f.dormant) ? f.id : -1;
+            return InOnionBeam(d, sim, captain, f.position, f.airborne, f.following, f.menuReady, OnionDisabled(f.id)) ? f.id : -1;
         }
 
         static bool InOnionBeam(OlimarDriver driver, IntPtr captainSim, int captain, Vector3 position,

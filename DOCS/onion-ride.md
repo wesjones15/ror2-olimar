@@ -15,7 +15,7 @@ In an Onion's beam, beam commands win: X dump, Y fill, RB heal, LB call straggle
 **LT board** (Onion Ride; LT is the lock-on out of the beam and LB the camera recentre, and B stays jump in the beam). Riding: left stick steers, its click boosts, right stick is the camera, A/B/X/Y exit.
 
 **Hold RT + tap LT** calls the Onion to Olimar from anywhere: it flies over like a raised Onion does (the fast 1.8 s glide, then it eases in), comes down its beam, and boards him; the same again calls it off
-(`PikminWorld.ToggleSummon`; refused if the Onion is dormant or the ride has no charge). The tap must be fresh: if LT is already down for a lock-on when RT goes down, the call does not fire (RT's whistle, swarm and dump/fill still do). Release LT and tap it again while RT is held, and it fires as if RT had been pressed first. Holding RT stops LB recentring the camera.
+(`PikminWorld.ToggleSummon`; refused if the Onion is dormant or the ride has no charge). An Onion that is folded or still playing its revival is not ready: the call, menu and board all check the sim's own anim (`OnionReady` / `OnionDisabled`), not only the host's dormant flag, so a lagging flag cannot board the invisible body (its Pikmin transfers are refused while it wakes). The tap must be fresh: if LT is already down for a lock-on when RT goes down, the call does not fire (RT's whistle, swarm and dump/fill still do). Release LT and tap it again while RT is held, and it fires as if RT had been pressed first. Holding RT stops LB recentring the camera.
 
 Keyboard (not in the spec; made up): V dump, B fill, Z call the Onion, Utility hold relocate, Jump in the beam boards,
 Sprint boosts, any of Primary/Secondary/Utility/Equipment exits.

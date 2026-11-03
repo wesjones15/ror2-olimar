@@ -116,6 +116,7 @@ namespace OlimarTest
             { why = "There is no Onion to board."; return false; }
             if (f.ride != null) return false;
             if (f.dormant) { why = "The Onion is dormant."; return false; }
+            if (!OnionReady(f)) { why = "The Onion is still waking up."; return false; }
             if (!fromCall && OnionInReach(captain) != f.id) { why = "Stand in the Onion's beam to board."; return false; }
             var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
             // The charge goes at boarding, but its recharge waits for the ride to end (HoldRecharge).
@@ -135,6 +136,9 @@ namespace OlimarTest
             f.pickup = -1;
             f.pickupDwell = 0f;
             f.transitionDuration = 0f;
+            // Put the Onion in its flying pose before the squad is sent in: a landed Onion is
+            // Idle in the sim, and its put-away/enter path only takes Pikmin while it is Hover.
+            WriteFlight(f);
             // His squad goes in through the flying legs while the Onion scoops him up.
             ApplyOnionTransfer(captain, f.id, OnionCommandPacket.ReturnAll, 0);
             d.RideBegan(f.position, d.HasState ? d.State.face : UnityHost.Yaw(d.Body.transform.forward));
@@ -162,6 +166,7 @@ namespace OlimarTest
             if (f.ride != null) return false;
             if (f.healVisit > 0f || f.summon) { ReleaseRescue(f); return true; }
             if (f.dormant) { why = "The Onion is dormant."; return false; }
+            if (!OnionReady(f)) { why = "The Onion is still waking up."; return false; }
             var slot = d.Body.skillLocator ? d.Body.skillLocator.utility : null;
             // Checked now so a called Onion never flies over for nothing.
             if (slot && !NativeSkills.Ready(slot, OlimarSkills.Ride)) { why = "Onion Ride is recharging."; return false; }
@@ -202,6 +207,7 @@ namespace OlimarTest
             if (f.ride != null) return false;
             if (f.healVisit > 0f || f.healSummon) { ReleaseRescue(f); return true; }
             if (f.dormant) { why = "The Onion is dormant."; return false; }
+            if (!OnionReady(f)) { why = "The Onion is still waking up."; return false; }
             if (OnionTotals(f.id, captain, out var stock))
                 Plugin.Log.LogInfo($"captain {captain}: called Onion heal; {stock.in_onion} stored, {stock.in_squad} in the squad");
             // A normal call already on its way just switches to healing.
@@ -233,7 +239,7 @@ namespace OlimarTest
         bool UpdateSummon(OnionFlight f)
         {
             f.summonAge += Time.fixedDeltaTime;
-            if (!driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || f.dormant || !OwnerAlive(f) || f.summonAge > SummonSeconds)
+            if (!driverOf.TryGetValue(f.captain, out var d) || !d || !d.Body || !OnionReady(f) || !OwnerAlive(f) || f.summonAge > SummonSeconds)
             {
                 ReleaseRescue(f);
                 return false;

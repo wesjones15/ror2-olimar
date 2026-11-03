@@ -13,6 +13,11 @@ static class Program
         Check(OnionMenuPolicy.InBeam(true, true, true, false, true, 0, 0, 0), "hovering Onion at beam height enables menu");
         Check(!OnionMenuPolicy.InBeam(true, false, true, false, true, 0, 0, 0), "landing or taking-off Onion never opens menu");
         Check(!OnionMenuPolicy.InBeam(false, false, false, true, true, 0, 0, 0), "dormant Onion never opens menu");
+        Check(!OnionMenuPolicy.Ready(true, true, 0), "a dormant Onion can't offer a ride");
+        Check(!OnionMenuPolicy.Ready(false, false, 0), "an Onion the sim hasn't reported yet can't offer a ride");
+        Check(!OnionMenuPolicy.Ready(false, true, 7), "a folded Onion can't offer a ride");
+        Check(!OnionMenuPolicy.Ready(false, true, 8), "a reviving Onion can't offer a ride");
+        Check(OnionMenuPolicy.Ready(false, true, 0), "a live Onion can offer a ride");
         Check(!OnionMenuPolicy.InBeam(false, false, false, false, false, 0, 0, 0), "jumping through beam does not open menu");
         Check(!OnionMenuPolicy.InBeam(false, false, false, false, true, 71, 0, 0), "outside beam keeps X for relocation");
         Check(!OnionMenuPolicy.InBeam(true, true, true, false, true, 0, 30, 0), "above beam ground level cannot interact");
