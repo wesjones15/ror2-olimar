@@ -142,11 +142,8 @@ namespace OlimarTest
         Vector3 lastFeet;
         bool lastFeetSet;
 
-        // A jump pad's own throw, recorded from JumpVolume.OnTriggerStay. RoR2 clears the
-        // motor's disableAirControlUntilCollision on the next movement hit, so that flag is
-        // not a reliable marker by the time the input is built.
-        float padLaunchedAt = -100f;
-        Vector3 padLaunchVelocity;
+        // A pad's throw owns him until the sim reports landing. The velocity itself comes from
+        // the motor (`NativeBody.TakeExternalVelocity`), the same reading Mario's host uses.
         bool padFlight;
 
         /// The last tick's captain, for the cursor and whistle drawing.
@@ -393,17 +390,6 @@ namespace OlimarTest
 
         float Yaw() => UnityHost.Yaw(direction ? direction.forward : transform.forward);
 
-        /// A pad fired under him (PikminWorld.JumpPads): keep its own throw for the next input.
-        public void NoteJumpPad(JumpVolume pad)
-        {
-            if (!pad || !NetworkServer.active || padFlight) return;
-            var v = pad.alignJumpVelocityToTransform
-                ? pad.transform.up * pad.jumpVelocity.magnitude
-                : pad.jumpVelocity;
-            padLaunchVelocity = v;
-            padLaunchedAt = Time.fixedTime;
-        }
-
         // Replays a host launch (a pad's own throw, or another external velocity) in the sim.
         void Launch(PikminWorld world, Vector3 thrown, bool padLaunch)
         {
@@ -484,20 +470,11 @@ namespace OlimarTest
                     i.use_cursor = 0;
                     putBack = null;
                 }
-                else if (native && padLaunchedAt >= 0f && Time.fixedTime - padLaunchedAt <= 0.25f)
-                {
-                    // The pad's own throw takes precedence over a smoother reset: posing him
-                    // here would zero the velocity the pad just gave him.
-                    var thrown = padLaunchVelocity;
-                    padLaunchedAt = -1f;
-                    smoother.Reset();
-                    native.ForgetVelocity();
-                    Launch(world, thrown, true);
-                    putBack = null;
-                }
                 else if (native && !padFlight && native.JumpPadLaunch && native.TakeExternalVelocity(out var padThrown, 2f))
                 {
-                    // The same pad, seen through the motor's flag instead of the hook.
+                    // The pad's throw as the motor applied it, the same reading Mario's host
+                    // uses. Deriving it from the pad's jumpVelocity instead sent Olimar over
+                    // the cliff on golemplains' rotated jump pads, where the two differ.
                     smoother.Reset();
                     Launch(world, padThrown, true);
                     putBack = null;
@@ -665,21 +642,12 @@ namespace OlimarTest
                 return i;
             }
             var p = remotePacket;
-            // A jump pad fires on the server for a client's body too (NoteJumpPad), but this path
-            // used to send only the pose, so the host sim followed the arc instead of running it
-            // and the squad never got the pad's launch. Apply the recorded throw here exactly as
+            // A jump pad fires on the server for a client's body too, but this path used to
+            // send only the pose, so the host sim followed the arc instead of running it and
+            // the squad never got the pad's launch. Take the motor's own throw here exactly as
             // BuildInput does for a host Olimar.
             bool padLaunched = false;
-            if (native && padLaunchedAt >= 0f && Time.fixedTime - padLaunchedAt <= 0.25f)
-            {
-                var thrown = padLaunchVelocity;
-                padLaunchedAt = -1f;
-                smoother.Reset();
-                native.ForgetVelocity();
-                Launch(world, thrown, true);
-                padLaunched = true;
-            }
-            else if (native && !padFlight && native.JumpPadLaunch && native.TakeExternalVelocity(out var padThrown, 2f))
+            if (native && !padFlight && native.JumpPadLaunch && native.TakeExternalVelocity(out var padThrown, 2f))
             {
                 smoother.Reset();
                 Launch(world, padThrown, true);
@@ -794,7 +762,7 @@ namespace OlimarTest
             State = c;
             HasState = true;
             // A pad flight ends when he lands; the pad can launch him again after that.
-            if (c.on_ground != 0) { padFlight = false; padLaunchedAt = -1f; }
+            if (c.on_ground != 0) { padFlight = false; }
             pad.Ticked();
             Items.Ticked(c);
             if (IsRemote || !SimMoves || !Active) return;

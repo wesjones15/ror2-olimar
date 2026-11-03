@@ -441,7 +441,6 @@ namespace OlimarTest
             HookBlasts();
             HookMobMelee();
             HookShots();
-            HookJumpPads();
         }
 
         public void StopPresentation()
