@@ -1,3 +1,4 @@
+using System;
 using RoR2;
 using Ror2Common;
 using UnityEngine;
@@ -36,6 +37,33 @@ namespace OlimarTest
         internal static void PlaceView(CharacterBody body)
         {
             if (InHeadset(body)) Character.PlaceBehind(body);
+        }
+
+        /// His own body isn't drawn for him in first person (VR.HideBody), in any skin; other players
+        /// and his Pikmin, cursor and whistle still are.
+        internal static bool HidesCaptain(OlimarDriver d) =>
+            d && d.ViewCaptain >= 0 && Plugin.VrSettings != null && Character.HideBody(d.Body);
+
+        static readonly float[] head = new float[16];
+
+        /// After the view posed him (PikminView): the eye follows his head's height (VR.HeadFollow);
+        /// his Pikmin jump (a roll) is a flip, turning the view over only with VR.FlipCamera.
+        /// `feet` and `turn` are where his body is drawn.
+        internal static void FollowHead(OlimarDriver d, IntPtr view, Vector3 feet, Quaternion turn)
+        {
+            var body = d ? d.Body : null;
+            if (!InHeadset(body)) return;
+            Character.PlaceBehind(body);
+            if (!Character.FirstPerson(body) || view == IntPtr.Zero || d.ViewCaptain < 0) return;
+            // Anchor 0 is the head in the body's model space, every skin (pik_view_anchor); ModelView
+            // mirrors the models across their own X.
+            if (Native.pik_view_anchor(view, (uint)d.ViewCaptain, 0, head) != 1) return;
+            var offset = turn * new Vector3(-head[12], head[13], head[14]) * UnityHost.Scale;
+            var s = d.State;
+            var pose = s.on_ground != 0 && s.down == 0 && s.plucking == 0 ? VrCharacter.Pose.Standing
+                : s.on_ground == 0 && Plugin.PikminJump.Value ? VrCharacter.Pose.Flip
+                : VrCharacter.Pose.Other;
+            Character.FollowHead(body, offset, turn * Vector3.forward, feet, Mathf.Max(offset.y, 0.3f), pose);
         }
     }
 }

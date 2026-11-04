@@ -252,9 +252,14 @@ namespace OlimarTest
                 models.SetTekis(list, tekis);
                 models.SetTekiLegs(TekiDraw.Legs, TekiDraw.LegsCount);
             }
+            // In a headset, the local first-person captain isn't drawn for him (OlimarVr).
+            int vrCaptain = -1;
+            foreach (var d in drivers)
+                if (user != null && d.Body && d.Body == user.cachedBody && OlimarVr.HidesCaptain(d))
+                    vrCaptain = d.ViewCaptain;
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.DataHandle, ref frame, UnityHost.Scale, d =>
-                (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id)
+                (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id) || (int)d.id == vrCaptain
                     : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && (world.CaptainArriving(d.id) || world.Riding((int)d.id))) ||
                 d.kind == Native.KindPellet && TekiCorpses.Has(d.id) ||
                 d.kind == Native.KindPellet &&
@@ -274,10 +279,13 @@ namespace OlimarTest
                 ViewDraw dr = default;
                 if (d.ViewCaptain >= 0) drawn = drawnCaptains.TryGetValue(d.ViewCaptain, out dr);
                 if (drawn && !d.Arriving)
-                    d.PoseItems(models.ViewHandle,
-                        captainFeet.TryGetValue(d.ViewCaptain, out var feet) ? feet
-                            : new Vector3(dr.pos.x, dr.pos.y, dr.pos.z) * UnityHost.Scale,
-                        new Quaternion(dr.rot_x, dr.rot_y, dr.rot_z, dr.rot_w), UnityHost.Scale);
+                {
+                    var feet = captainFeet.TryGetValue(d.ViewCaptain, out var placed) ? placed
+                        : new Vector3(dr.pos.x, dr.pos.y, dr.pos.z) * UnityHost.Scale;
+                    var turn = new Quaternion(dr.rot_x, dr.rot_y, dr.rot_z, dr.rot_w);
+                    d.PoseItems(models.ViewHandle, feet, turn, UnityHost.Scale);
+                    if (user != null && d.Body == user.cachedBody) OlimarVr.FollowHead(d, models.ViewHandle, feet, turn);
+                }
                 d.HideBody(d.Arriving || drawn);
             }
         }
