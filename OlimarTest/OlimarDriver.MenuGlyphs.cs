@@ -99,6 +99,46 @@ namespace OlimarTest
             onionGlyphNote.text = note ?? "";
         }
 
+        GUIStyle vrMenuTitle, vrMenuLine;
+
+        // The Onion window on the wrist panel (VR): the same shortcuts in IMGUI, named by his VR
+        // layout's buttons (Pad.ReadVr), at the panel's right like the desktop popup.
+        void VrOnionMenu(string note)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            MenuStyles();
+            if (vrMenuTitle == null)
+            {
+                vrMenuTitle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 24, fontStyle = FontStyle.Bold };
+                vrMenuTitle.normal.textColor = new Color(.85f, .88f, .82f);
+                vrMenuLine = new GUIStyle(GUI.skin.label) { fontSize = 20, richText = true };
+                vrMenuLine.normal.textColor = new Color(.85f, .88f, .82f);
+            }
+            float scale = Screen.height / 1080f;
+            var saved = GUI.matrix;
+            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
+            float w = Screen.width / scale;
+            var panel = new Rect(w - MenuMargin - MenuW, 540f - MenuH * .5f, MenuW, MenuH);
+            GUI.DrawTexture(panel, panelTex);
+            var c = GUI.color;
+            GUI.color = new Color(0.8f, 0.95f, 0.65f);
+            GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 5f), stripeTex);
+            GUI.color = c;
+            GUI.Label(new Rect(panel.x, panel.y + 6f, panel.width, 36f), "ONION", vrMenuTitle);
+            bool flying = PikminWorld.Instance.OnionFlying(DataCaptain);
+            string off = flying ? "<color=#777B78>" : "", on = flying ? "</color>" : "";
+            GUI.Label(new Rect(panel.x + 22f, panel.y + 50f, panel.width - 44f, 230f),
+                "X  Dump Onion Pikmin (keep one)\n" +
+                "Y  Fill Onion with squad\n" +
+                "B  Heal Olimar from Onion stock\n" +
+                "L stick click  Call stuck carriers\n" +
+                off + "R trigger  Send Onion plucker" + on + "\n" +
+                "L trigger  Board the Onion (Onion Ride)", vrMenuLine);
+            if (!string.IsNullOrEmpty(note))
+                GUI.Label(new Rect(panel.x + 12f, panel.yMax - 40f, panel.width - 24f, 28f), note, vrMenuLine);
+            GUI.matrix = saved;
+        }
+
         void HideMenuGlyphs()
         {
             if (onionGlyphCanvas) onionGlyphCanvas.SetActive(false);

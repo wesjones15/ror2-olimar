@@ -1103,15 +1103,28 @@ namespace OlimarTest
                 HideMenuGlyphs();
                 return;
             }
-            StageEntryBanner();
-            BottomHud();
-            if (!MenuOpen || localUser == null || !PikminWorld.Instance)
+            // In VR the HUD is on the wrist panel (OlimarVr), the Onion window too: its uGUI canvas
+            // would only reach the desktop window.
+            bool wrist = OlimarVr.Wrist(Body);
+            bool menu = MenuOpen && localUser != null && PikminWorld.Instance;
+            OlimarVr.Character.OnWrist(() =>
+            {
+                StageEntryBanner();
+                BottomHud();
+                if (menu && wrist) VrOnionMenu(menuNote);
+            });
+            if (!menu || wrist)
             {
                 HideMenuGlyphs();
                 return;
             }
             // Panel and text are one uGUI canvas (MenuGlyphs), so the text sits over its panel.
             ShowMenuGlyphs(menuNote);
+        }
+
+        void LateUpdate()
+        {
+            if (localUser != null && Body && Body == localUser.cachedBody && OlimarVr.Wrist(Body)) OlimarVr.Character.ShowWrist();
         }
     }
 }

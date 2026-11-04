@@ -224,8 +224,10 @@ namespace OlimarTest
             strikeHeld = d.Secondary;
             heal |= bPressed;
             if (grip && bPressed) { healSummon = true; swallowStrike = true; }
-            recallStuck = false;
-            confirm |= aPressed;
+            // Under the beam: the left stick click calls stuck carriers and the right trigger sends the
+            // plucker (A jumps there, as everywhere).
+            recallStuck |= VrPad.Pressed(o.StickClick, lastOff.StickClick);
+            confirm |= VrPad.AxisPressed(d.Trigger, lastDominant.Trigger, Squeeze);
             cancel |= bPressed;
             lastDominant = d;
             lastOff = o;

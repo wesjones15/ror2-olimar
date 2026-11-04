@@ -25,6 +25,9 @@ namespace OlimarTest
         internal static bool Controls(CharacterBody body) =>
             Plugin.VrControls != null && Plugin.VrControls.Value && Plugin.Scheme == ControlScheme.Pikmin && InHeadset(body) && Character.Motion(body);
 
+        /// His HUD and menus go on the wrist panel (VR.WristHud) for the local `body` in a headset.
+        internal static bool Wrist(CharacterBody body) => InHeadset(body) && Character.WristHud;
+
         /// His cursor from the pointer (VrCharacter.Aim) in a headset with motion controls, cast up to
         /// `range` and resting `miss` along it in the air. False otherwise.
         internal static bool PointerCursor(CharacterBody body, float range, float miss, out VrCharacter.PointerAim aim)

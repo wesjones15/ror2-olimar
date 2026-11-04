@@ -698,7 +698,11 @@ namespace OlimarTest
             }
         }
 
-        void OnGUI()
+        // In VR its overlays go on the wrist panel with Olimar's HUD (OlimarVr); a desktop click on its
+        // button still reaches it.
+        void OnGUI() => OlimarVr.Character.OnWrist(DrawGui);
+
+        void DrawGui()
         {
             if (!run || !ShipRepairMode.Active || Ror2Common.PauseMenu.IsOpen) return;
             if (run.isGameOverServer || (Terminal && !Winning))
