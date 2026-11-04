@@ -53,6 +53,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_release_pellet(IntPtr sim, uint pellet, ref Vec3 pos, float yaw);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_hand_ship_part(IntPtr sim, uint ship, uint pellet);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_ship_hand_owned(IntPtr sim, uint ship);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_bake_vr_arms(byte[] dir, byte[] smsDir, byte[] p2Dir, byte[] meleeDir, [Out] byte[] message, uint length);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_render_stings(byte[] dir, [Out] byte[] message, uint length);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_view_take_death_sting(IntPtr view, [Out] float[] samples, uint max);
         // Item hooks (libpikmin's items.rs, plucker.rs and jump.rs).

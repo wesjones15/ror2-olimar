@@ -41,6 +41,9 @@ namespace OlimarTest
 
         /// Where the Sunshine cache the Pianta comes from is, when its files are all there.
         public static string SunshineDir => ready ? sunshineDir : null;
+        /// The Pikmin 2 cache Louie comes from, and the Melee cache Captain Pikachu does, when each is ready.
+        public static string LouieDir => louieReady ? louieDir : null;
+        public static string MeleeDir => pikachuReady ? meleeDir : null;
         /// Whether the Pianta can be drawn at all (Sunshine's extracted files are found).
         public static bool PiantaAvailable => ready;
 

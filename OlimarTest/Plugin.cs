@@ -444,6 +444,7 @@ namespace OlimarTest
             P2Enemies.Prepare(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, discDirs);
             ShipRepairSession.PrepareTreasures(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, discDirs);
             OlimarSkin.PreparePikachu(meleeCache.Value, meleeDisc.Value, here, discDirs);
+            BakeVrArms();
             PikminDamageNumbers.Install(gameObject, Config);
             PikminHealthGauges.Install(gameObject, Config);
             ItemHooks.Install();
@@ -551,6 +552,21 @@ namespace OlimarTest
                 }
             }) { IsBackground = true, Name = "pikmin extract" };
             worker.Start();
+        }
+
+        // Every captain body's forearms and hands for the VR mod's controllers (ror2-common VrArmsBake), once the
+        // assets have settled: Olimar, and Louie, the Piantas and Captain Pikachu where their caches were found.
+        static void BakeVrArms()
+        {
+            string sms = OlimarSkin.SunshineDir, p2 = OlimarSkin.LouieDir, melee = OlimarSkin.MeleeDir;
+            new Thread(() =>
+            {
+                while (!AssetsSettled) Thread.Sleep(500);
+                if (!AssetsReady) return;
+                VrArmsBake.Run(AssetsDir, "Olimar", $"0.5.3|{sms}|{p2}|{melee}", (buf, len) => Native.pik_bake_vr_arms(
+                    Native.CString(AssetsDir), sms == null ? null : Native.CString(sms), p2 == null ? null : Native.CString(p2),
+                    melee == null ? null : Native.CString(melee), buf, len));
+            }) { IsBackground = true, Name = "pikmin VR arms" }.Start();
         }
 
         void Update()
