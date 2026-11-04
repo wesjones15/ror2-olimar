@@ -93,6 +93,46 @@ namespace OlimarTest
             ControlSheetLayout.SpaceRows(sheet);
             return sheet;
         }
+
+        // His VR layout (Pad.ReadVr), for a headset with motion controls. The flat sheet above is
+        // left as it is. Both sections carry it, since the window picks one by the last device.
+        public static ControlSheet VrSheet()
+        {
+            var sheet = new ControlSheet
+            {
+                Subtitle = "Captain of the S.S. Dolphin,\nConqueror of PNF-404",
+            };
+            foreach (var section in new[] { sheet.Pad(""), sheet.Keys("") })
+                section
+                    .Add("Point", "Aim the cursor (not held to the ground)")
+                    .Add("L stick", "Walk (head is forward)")
+                    .Add("A", "Jump")
+                    .Add("R trigger", "Grab and Throw Pikmin")
+                    .Add("B", "Dismiss Strike / Pikmin Charge")
+                    .Add("R grip", "Whistle to call Pikmin")
+                    .Add("L grip", "Swarm Pikmin to the cursor")
+                    .Add("hold L trigger", "Lock on to target")
+                    .Add("L trigger + B / R stick click", "Cycle target")
+                    .Add("R grip + X", "Dump flying Onion's Pikmin")
+                    .Add("R grip + Y", "Fill flying Onion with squad")
+                    .Add("R grip + L trigger", "Call the Onion to you and board it")
+                    .Add("hold X (0.6s)", "Land/lift Onion");
+            foreach (var section in new[] { sheet.Pad("While Standing Under Onion"), sheet.Keys("While Standing Under Onion") })
+                section
+                    .Add("X", "Empty Onion")
+                    .Add("Y", "Fill Onion with Squad")
+                    .Add("L stick click", "Call straggler Pikmin")
+                    .Add("B", "Restore health... for a price")
+                    .Add("R trigger", "Send Onion plucker")
+                    .Add("L trigger", "Board Onion (Onion Ride)");
+            foreach (var section in new[] { sheet.Pad("Riding the Onion"), sheet.Keys("Riding the Onion") })
+                section
+                    .Add("L stick", "Steer the Onion")
+                    .Add("click L stick", "Speed boost (2s)")
+                    .Add("A / B / X / Y", "Get out and sneeze out the squad");
+            ControlSheetLayout.SpaceRows(sheet);
+            return sheet;
+        }
     }
 }
 

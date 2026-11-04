@@ -326,9 +326,19 @@ uses), in first person or with `VR.ThirdPerson` from behind and above him. It is
 ground: it sits on what the pointer hits, an enemy's side or a ledge, as the flat-screen cursor
 does only while locked on (libpikmin's free cursor, `use_cursor` 2, ABI 61; a client's goes to the
 host as `PikminInputPacket.FreeCursor`). Pointing into the air puts it on the ground below, as
-before. Pikmin's camera and the arrival's never take the headset. Not done yet: his body still
-shows in first person, his own arms, the VR button layout, the wrist HUD. Nothing here has been
-played in a headset.
+before. Pikmin's camera and the arrival's never take the headset.
+
+In first person his body isn't drawn for the player; his own forearms and hands are, on the
+controllers (cut from his model on the first run, `pik_view_set_vr_arms`, ABI 62), with the Pikmin
+he holds in the throwing hand, and the view follows his head through jumps and flips. Riding the
+Onion in first person, the Onion isn't drawn for him. With `VR.Controls` (on by default) the sim
+moves him, the head is forward, and the buttons are his VR layout: left stick walks, A jumps, the
+right trigger throws, B strikes, the right grip whistles, the left grip swarms to the cursor, the
+left trigger locks on (B or the right stick click cycles), X and Y work the Onion, and the pause
+sheet shows this layout. With it off, the Aim scheme above runs instead. His HUD, banners, the
+Onion menu and Ship Repair's window are on the off-hand wrist (`VR.WristHud`); the carry counts and
+the ship-part and treasure labels sit over the world in the headset (ror2-common's `VrSheet`), and
+the health gauges on a canvas in front of the eye. Nothing here has been played in a headset.
 
 ### How it works
 

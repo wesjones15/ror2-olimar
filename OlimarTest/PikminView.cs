@@ -44,6 +44,14 @@ namespace OlimarTest
         (Vector3, Quaternion)? vrHeldAt;
         int vrHeld = -1;
 
+        // The Onion draw at the ridden Onion's foot (sim units; the flight and the draw share it, so a
+        // small radius picks it and not a neighbour).
+        static bool RideOnion(ViewDraw d, Native.Vec3 foot)
+        {
+            float x = d.pos.x - foot.x, z = d.pos.z - foot.z;
+            return x * x + z * z < 30f * 30f;
+        }
+
         (Vector3, Quaternion)? Place(ViewDraw draw)
         {
             if (draw.kind == Native.KindVrArm)
@@ -281,6 +289,16 @@ namespace OlimarTest
                     if (d.HasState) vrHeld = d.State.held_piki;
                 }
             models.SetVrArms(vrCaptain);
+            // ... and riding in first person, the Onion he sits in isn't drawn for him either.
+            bool hideRide = false;
+            Native.Vec3 ride = default;
+            foreach (var d in drivers)
+                if (user != null && d.Body && d.Body == user.cachedBody && OlimarVr.Character.FirstPerson(d.Body) &&
+                    world.RideOnionFoot(d.ViewCaptain, out var foot))
+                {
+                    hideRide = true;
+                    ride = UnityHost.ToSim(foot);
+                }
             vrArmAt[0] = vrCaptain >= 0 ? OlimarVr.Character.ArmAt(0) : null;
             vrArmAt[1] = vrCaptain >= 0 ? OlimarVr.Character.ArmAt(1) : null;
             vrHeldAt = vrHeld >= 0 ? OlimarVr.HeldAt() : null;
@@ -289,6 +307,7 @@ namespace OlimarTest
                 d.kind == Native.KindVrArm && !(VrCharacter.ArmSide(d) is int s && s >= 0 && vrArmAt[s].HasValue) ||
                 (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id) || (int)d.id == vrCaptain
                     : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && (world.CaptainArriving(d.id) || world.Riding((int)d.id))) ||
+                d.kind == Native.KindOnion && hideRide && RideOnion(d, ride) ||
                 d.kind == Native.KindPellet && TekiCorpses.Has(d.id) ||
                 d.kind == Native.KindPellet &&
                 world.Corpses.Pose(d.id, new Vector3(d.pos.x, d.pos.y, d.pos.z) * UnityHost.Scale,
