@@ -48,6 +48,7 @@ namespace OlimarTest
         internal static ControlScheme Scheme;
         /// The [VR] settings every character shares (ror2-common VrSettings), read only in a headset.
         internal static VrSettings VrSettings;
+        internal static ConfigEntry<bool> VrControls;
         internal static ConfigEntry<CameraMode> Camera;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue, StartPurple, StartWhite;
         internal static ConfigEntry<float> PoundGroundSeconds, WhitePoisonDamage, WeighGroundSeconds, BulbMinSpacing;
@@ -156,8 +157,18 @@ namespace OlimarTest
                 "Pikmin: the sim moves Olimar, pad buttons by position (A throw/pluck, B jump, RT + B whistle, " +
                 "X dismiss, RT blocks jumping, LB recentres). Keyboard: secondary jumps; hold jump + secondary to whistle. Aim: RoR2 moves the body " +
                 "and the cursor is where you aim (primary throw, secondary whistle, utility " +
-                "dismiss, special swarm). Auto: Aim in VR (VRMod), Pikmin otherwise.");
+                "dismiss, special swarm). Auto: Pikmin, which in VR (VRMod) is his VR layout with VR.Controls " +
+                "on and Aim with it off.");
             VrSettings = new VrSettings(Config, "Olimar");
+            // Only read with Blowntobytes' VR mod running in a headset (ror2-common's Vr).
+            VrControls = Config.Bind("VR", "Controls", true,
+                "In VR with motion controls, the sim moves Olimar (where you look is forward) in his own layout " +
+                "(right-handed; the VR mod's left-handed mode mirrors it): left stick walks, right trigger throws " +
+                "and plucks, right grip whistles at the pointer (and blocks jumping; with X / Y it dumps / fills a " +
+                "flying Onion, with B calls it to heal you, with a left trigger tap calls it to board), left grip " +
+                "swarms toward the pointer, left trigger locks on (B cycles) and boards in a beam, A jumps, B " +
+                "strikes, hold X lowers or raises the Onion, right stick click picks the next colour. The cursor " +
+                "is where the dominant hand points. False: the Aim scheme (RoR2 moves him; the VR mod's skill buttons).");
             StartRed = Config.Bind("Pikmin", "StartRed", 10, "Red Pikmin in the squad at the start of a run.");
             StartYellow = Config.Bind("Pikmin", "StartYellow", 5, "Yellow Pikmin at the start of a run.");
             StartBlue = Config.Bind("Pikmin", "StartBlue", 5, "Blue Pikmin at the start of a run.");
@@ -430,7 +441,7 @@ namespace OlimarTest
 
             Scheme = scheme.Value;
             if (Scheme == ControlScheme.Auto)
-                Scheme = InVr() ? ControlScheme.Aim : ControlScheme.Pikmin;
+                Scheme = InVr() && !VrControls.Value ? ControlScheme.Aim : ControlScheme.Pikmin;
 
             if (!Native.Load(Path.Combine(here, "pikmin.dll"), out string error))
             {

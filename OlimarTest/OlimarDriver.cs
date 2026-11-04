@@ -263,7 +263,9 @@ namespace OlimarTest
         {
             if (health && !health.alive) PlayDeathSound();
             FindLocalUser();
-            if (localUser != null) pad.Read(localUser.inputPlayer, realPrompt);
+            // In a headset with motion controls, the controllers in his VR layout (Pad.ReadVr).
+            if (localUser != null && OlimarVr.Controls(Body)) pad.ReadVr(realPrompt, PauseMenu.IsOpen || PauseManager.isPaused);
+            else if (localUser != null) pad.Read(localUser.inputPlayer, realPrompt);
             if (localUser != null) OlimarVr.PlaceView(Body);
             sprintPressed |= input && input.sprint.down;
             if (captain < 0) return;
@@ -393,6 +395,18 @@ namespace OlimarTest
 
         float Yaw() => UnityHost.Yaw(direction ? direction.forward : transform.forward);
 
+        /// A stick in world XZ: about where the headset faces in VR (OlimarVr), else Pikmin's camera.
+        internal Vector2 StickToWorld(Vector2 s)
+        {
+            if (OlimarVr.InHeadset(Body))
+            {
+                var f = OlimarVr.Character.ViewForward(transform.forward);
+                var fwd = new Vector2(f.x, f.z).normalized;
+                return new Vector2(fwd.y, -fwd.x) * s.x + fwd * s.y;
+            }
+            return cam != null ? cam.StickToWorld(s) : s;
+        }
+
         // Replays a host launch (a pad's own throw, or another external velocity) in the sim.
         void Launch(PikminWorld world, Vector3 thrown, bool padLaunch)
         {
@@ -418,10 +432,10 @@ namespace OlimarTest
             var i = new Native.Input();
             if (Plugin.Scheme == ControlScheme.Pikmin && !IsAi)
             {
-                var stick = cam != null ? cam.StickToWorld(pad.move) : pad.move;
+                var stick = StickToWorld(pad.move);
                 i.stick_x = stick.x;
                 i.stick_y = stick.y;
-                Vector2 swarm = cam != null ? cam.StickToWorld(pad.swarm) : pad.swarm;
+                Vector2 swarm = StickToWorld(pad.swarm);
                 if (pad.swarmToCursor && HasState)
                 {
                     var to = UnityHost.ToUnity(State.cursor_world) - feet;
@@ -439,7 +453,9 @@ namespace OlimarTest
                 // one metre from Olimar, so looking straight down can still aim close.
                 // The sim keeps the existing ThrowReach maximum and finds the ground height.
                 // In a headset the dominant hand's pointer is the crosshair (OlimarVr).
-                var sceneCam = camRig ? camRig.sceneCam : null;
+                // A headset without motion controls aims where the head looks.
+                var sceneCam = camRig ? camRig.sceneCam
+                    : OlimarVr.InHeadset(Body) && localUser != null && localUser.cameraRigController ? localUser.cameraRigController.sceneCam : null;
                 bool pointed = OlimarVr.PointerCursor(Body, 60f, 60f, out var pointer);
                 if (pointed || sceneCam)
                 {
@@ -609,10 +625,12 @@ namespace OlimarTest
                 }
             }
             enemyLock.Points = CollectLockPoints;
+            // In VR the lock picks, keeps and cycles about the pointer, wherever the head looks.
+            enemyLock.Aim = OlimarVr.Controls(Body) && OlimarVr.Character.Pointer(out var pointerRay) ? pointerRay : (Ray?)null;
             bool onThing = false;
             uint thingId = 0;
             var locked = IsAi ? brainTarget : enemyLock.Update(Body,
-                Plugin.Scheme == ControlScheme.Pikmin && Plugin.Camera.Value == CameraMode.Orbit
+                Plugin.Scheme == ControlScheme.Pikmin && (Plugin.Camera.Value == CameraMode.Orbit || OlimarVr.InHeadset(Body))
                     && pad.lockHeld && !MenuOpen && !Arriving && !RideActive,
                 pad.cycleTarget, pad.targetDirection, out onThing, out thingId);
             pad.cycleTarget = false;

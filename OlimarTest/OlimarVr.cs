@@ -21,6 +21,10 @@ namespace OlimarTest
         /// The local player has `body` in a headset (first or third person).
         internal static bool InHeadset(CharacterBody body) => Plugin.VrSettings != null && Character.InHeadset(body);
 
+        /// ... with motion controls in his VR layout (VR.Controls; Pad.ReadVr).
+        internal static bool Controls(CharacterBody body) =>
+            Plugin.VrControls != null && Plugin.VrControls.Value && Plugin.Scheme == ControlScheme.Pikmin && InHeadset(body) && Character.Motion(body);
+
         /// His cursor from the pointer (VrCharacter.Aim) in a headset with motion controls, cast up to
         /// `range` and resting `miss` along it in the air. False otherwise.
         internal static bool PointerCursor(CharacterBody body, float range, float miss, out VrCharacter.PointerAim aim)

@@ -168,6 +168,73 @@ namespace OlimarTest
                            || UnityEngine.Input.GetKeyDown(KeyCode.KeypadEnter);
                 cancel |= player.GetButtonDown(Action.SecondarySkill) || UnityEngine.Input.GetKeyDown(KeyCode.Backspace);
             }
+            Finish();
+        }
+
+        // ---- VR ------------------------------------------------------------------------------------
+        //
+        // In a headset with motion controls and VR.Controls (OlimarVr.Controls) the controllers are read
+        // as they are (ror2-common's VrPad), right-handed (the VR mod's left-handed mode mirrors it):
+        // the left stick walks (its click boosts a ride), the right trigger throws and plucks, the right
+        // grip whistles at the pointer and is the pad's RT modifier (it blocks jumping; with X / Y it
+        // dumps / fills a flying Onion, with B it calls the Onion to heal, with a tap of the left trigger
+        // it calls the Onion to board), the left grip swarms toward the pointer, the left trigger locks on
+        // (B then cycles) and boards in a beam, A jumps, B strikes, holding X lowers or raises the Onion,
+        // and the right stick click picks the next colour. The cursor is the pointer (OlimarVr).
+
+        readonly VrPad vr = new VrPad();
+        VrPad.Hand lastDominant, lastOff;
+        const float Squeeze = 0.6f;
+
+        public void ReadVr(bool interactPrompt, bool blocked)
+        {
+            vr.Read(blocked);
+            var d = vr.Dominant;
+            var o = vr.Off;
+            usingPad = true;
+            move = Dead(o.Stick);
+            swarm = look = targetDirection = Vector2.zero;
+            recentre = zoom = topView = false;
+            bool grip = d.Grip > Squeeze;
+            modifierHeld = grip;
+            throwNow = d.Trigger > Squeeze;
+            jumpButton.Read(d.Primary, grip);
+            whistleNow = grip;
+            swarmToCursor = o.Grip > Squeeze;
+            bool x = o.Primary, y = o.Secondary;
+            bool aPressed = VrPad.Pressed(d.Primary, lastDominant.Primary), bPressed = VrPad.Pressed(d.Secondary, lastDominant.Secondary);
+            bool xPressed = VrPad.Pressed(x, lastOff.Primary), yPressed = VrPad.Pressed(y, lastOff.Secondary);
+            relocateNow = interact.Claim(x && !grip, interactPrompt);
+            relocateHeld = x && !grip;
+            equipmentHeld = y;
+            releaseAll |= xPressed;
+            returnAll |= yPressed;
+            remoteDump |= grip && xPressed;
+            remoteFill |= grip && yPressed;
+            boostPressed |= VrPad.Pressed(o.StickClick, lastOff.StickClick);
+            anyFacePressed |= aPressed || bPressed || xPressed || yPressed;
+            swallowInteract = grip && (x || y);
+            cycleNow = VrPad.Pressed(d.StickClick, lastDominant.StickClick);
+            bool lt = VrPad.AxisPressed(o.Trigger, lastOff.Trigger, Squeeze);
+            board |= lt;
+            summonPressed |= lt && grip;
+            lockHeld = o.Trigger > Squeeze;
+            cycleTarget |= lockHeld && bPressed;
+            strikeNow = !lockHeld && d.Secondary;
+            strikeHeld = d.Secondary;
+            heal |= bPressed;
+            if (grip && bPressed) { healSummon = true; swallowStrike = true; }
+            recallStuck = false;
+            confirm |= aPressed;
+            cancel |= bPressed;
+            lastDominant = d;
+            lastOff = o;
+            Finish();
+        }
+
+        // Shared by both reads: the presses a closed window swallowed, the taps latched until a tick.
+        void Finish()
+        {
             if (swallowThrow)
             {
                 if (throwNow) throwNow = false;
