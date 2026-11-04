@@ -44,6 +44,16 @@ namespace OlimarTest
         internal static bool HidesCaptain(OlimarDriver d) =>
             d && d.ViewCaptain >= 0 && Plugin.VrSettings != null && Character.HideBody(d.Body);
 
+        /// Where the Pikmin he holds before a throw is drawn: in the dominant hand (his throwing hand), stood up
+        /// on the controller (its up along the back of the hand, facing where it points) and turned with the view
+        /// through a flip. Null with no hand.
+        internal static (Vector3, Quaternion)? HeldAt()
+        {
+            var hand = Vr.Hand(true);
+            if (!hand) return null;
+            return VrRig.Turned(hand.position + hand.rotation * (Vector3.forward * 0.02f), hand.rotation);
+        }
+
         static readonly float[] head = new float[16];
 
         /// After the view posed him (PikminView): the eye follows his head's height (VR.HeadFollow);

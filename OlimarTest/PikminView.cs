@@ -39,6 +39,22 @@ namespace OlimarTest
                 ? (feet, new Quaternion(draw.rot_x, draw.rot_y, draw.rot_z, draw.rot_w))
                 : ((Vector3, Quaternion)?)null;
 
+        // This frame's VR arms on the controllers, and the held Pikmin in the throwing hand (OlimarVr).
+        readonly (Vector3, Quaternion)?[] vrArmAt = new (Vector3, Quaternion)?[2];
+        (Vector3, Quaternion)? vrHeldAt;
+        int vrHeld = -1;
+
+        (Vector3, Quaternion)? Place(ViewDraw draw)
+        {
+            if (draw.kind == Native.KindVrArm)
+            {
+                int side = VrCharacter.ArmSide(draw);
+                return side >= 0 ? vrArmAt[side] : null;
+            }
+            if (draw.kind == Native.KindPiki && vrHeld >= 0 && draw.id == (uint)vrHeld && vrHeldAt.HasValue) return vrHeldAt;
+            return PlaceCaptain(draw);
+        }
+
         static readonly Color[] PikiColours =
         {
             new Color(0.15f, 0.35f, 0.95f), // Blue
@@ -252,27 +268,41 @@ namespace OlimarTest
                 models.SetTekis(list, tekis);
                 models.SetTekiLegs(TekiDraw.Legs, TekiDraw.LegsCount);
             }
-            // In a headset, the local first-person captain isn't drawn for him (OlimarVr).
+            // In a headset, the local first-person captain isn't drawn for him; his forearms and
+            // hands are, on the controllers, with the Pikmin he holds in his throwing hand (OlimarVr).
             int vrCaptain = -1;
+            vrHeld = -1;
             foreach (var d in drivers)
                 if (user != null && d.Body && d.Body == user.cachedBody && OlimarVr.HidesCaptain(d))
+                {
                     vrCaptain = d.ViewCaptain;
+                    if (d.HasState) vrHeld = d.State.held_piki;
+                }
+            models.SetVrArms(vrCaptain);
+            vrArmAt[0] = vrCaptain >= 0 ? OlimarVr.Character.ArmAt(0) : null;
+            vrArmAt[1] = vrCaptain >= 0 ? OlimarVr.Character.ArmAt(1) : null;
+            vrHeldAt = vrHeld >= 0 ? OlimarVr.HeldAt() : null;
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.DataHandle, ref frame, UnityHost.Scale, d =>
+                d.kind == Native.KindVrArm && !(VrCharacter.ArmSide(d) is int s && s >= 0 && vrArmAt[s].HasValue) ||
                 (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id) || (int)d.id == vrCaptain
                     : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && (world.CaptainArriving(d.id) || world.Riding((int)d.id))) ||
                 d.kind == Native.KindPellet && TekiCorpses.Has(d.id) ||
                 d.kind == Native.KindPellet &&
                 world.Corpses.Pose(d.id, new Vector3(d.pos.x, d.pos.y, d.pos.z) * UnityHost.Scale,
-                    new Quaternion(d.rot_x, d.rot_y, d.rot_z, d.rot_w)), PlaceCaptain);
+                    new Quaternion(d.rot_x, d.rot_y, d.rot_z, d.rot_w)), Place);
 
             // Olimar's own model stands in for Commando's wherever it's drawn.
             drawnCaptains.Clear();
+            int armsDrawn = 0;
             for (int i = 0; i < models.DrawCount; i++)
             {
                 var dr = models.DrawAt(i);
                 if (dr.kind == Native.KindCaptain) drawnCaptains[(int)dr.id] = dr;
+                if (dr.kind == Native.KindVrArm && VrCharacter.ArmSide(dr) is int side && side >= 0 && vrArmAt[side].HasValue) armsDrawn++;
             }
+            // The VR mod's stand-in hands show only where no arm of his is drawn.
+            if (OlimarVr.InHeadset(user != null ? user.cachedBody : null)) OlimarVr.Character.ArmsDrawn(armsDrawn);
             foreach (var d in drivers)
             {
                 bool drawn = false;

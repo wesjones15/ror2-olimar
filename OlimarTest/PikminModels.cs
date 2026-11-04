@@ -101,6 +101,15 @@ namespace OlimarTest
             return new PikminModels(v, models, parent) { hasPianta = pianta, hasLouie = louie, hasPikachu = pikachu };
         }
 
+        int vrArms = -1;
+        /// The captain whose forearms and hands the view also draws for VR (KindVrArm draws), or -1.
+        public void SetVrArms(int captain)
+        {
+            if (view == IntPtr.Zero || captain == vrArms) return;
+            vrArms = captain;
+            Native.pik_view_set_vr_arms(view, captain, captain < 0 ? null : Native.CString(Plugin.AssetsDir));
+        }
+
         /// Who wears which body this frame: a captain's skin from OlimarSkin (0 Olimar, 2 the Pianta). Ignored when
         /// the Pianta did not load.
         public void SetCaptainSkin(uint captain, uint skin)

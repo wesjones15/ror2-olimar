@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 61;
+        public const uint AbiVersion = 62;
         /// libpikmin's replica snapshot format, checked alongside the ABI: the snapshot is nested
         /// bytes in PikminEnvelope, so an ABI match alone is not enough to know a host's snapshots
         /// can be decoded here. Set by Load.
@@ -322,7 +322,9 @@ namespace OlimarTest
 
         // Draw kinds (libpikmin_present::view::kinds).
         public const byte KindCaptain = 0, KindPiki = 1, KindHappa = 2, KindOnion = 3, KindPellet = 4,
-            KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8, KindShip = 9, KindBeam = 10, KindShipPart = 11;
+            KindSprout = 5, KindSproutHappa = 6, KindCursor = 7, KindMarker = 8, KindShip = 9, KindBeam = 10, KindShipPart = 11,
+            /// A VR player's forearm and hand (pik_view_set_vr_arms), in arm space, keyed 0x10 + side.
+            KindVrArm = 15;
 
         // Models' info, batches, textures and draws are ror2-common's ViewModelInfo, ViewBatch
         // (blends: ViewBlend; libpikmin_present::view::blend's additive is the Onions' light cones), ViewTexture and
@@ -380,6 +382,9 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_pianta(IntPtr view, byte[] sunshineDir, byte female, uint colour);
         /// Which body a captain wears: 0 Olimar, 2 the Pianta.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_captain_skin(IntPtr view, uint captain, byte skin);
+        /// Also draws `captain`'s forearms and hands for a VR player's controllers (KindVrArm), cut from the asset
+        /// cache `cache` (vr_arms/pik-*.arms); captain < 0 stops.
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_view_set_vr_arms(IntPtr view, int captain, byte[] cache);
         /// Pikachu and the Ice Climbers (skin 3) from the Melee cache, four models appended to the table; Pikachu's
         /// model index or -1.
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int pik_view_load_pikachu(IntPtr view, byte[] meleeDir);
