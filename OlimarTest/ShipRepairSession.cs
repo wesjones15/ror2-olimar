@@ -734,7 +734,7 @@ namespace OlimarTest
             }
             if (TeleporterInteraction.instance && TeleporterInteraction.instance.isCharged)
                 GUI.Label(new Rect(20, 175, 490, 30), $"Leaving {parts.Count(p => !p.delivered)} parts behind — they can return.");
-            TreasureLabels();
+            VrSheet.Draw(TreasureLabels);
             int row = 0;
             foreach (var part in parts.Where(p => p.discovered && !p.delivered))
             {
@@ -747,13 +747,17 @@ namespace OlimarTest
                 if (HasCarriers(part)) continue;
                 var user = LocalUserManager.GetFirstLocalUser();
                 var camera = user?.cameraRigController ? user.cameraRigController.sceneCam : Camera.main;
-                if (!camera) continue;
-                var screen = camera.WorldToScreenPoint(part.pos + Vector3.up * 2f);
+                if (!camera && !VrSheet.Active) continue;
+                // In VR over the part on the sheet before the eye (VrSheet), not on the wrist.
+                var screen = VrSheet.WorldToScreenPoint(camera, part.pos + Vector3.up * 2f);
                 if (screen.z <= 0) continue;
                 float labelX = Mathf.Clamp(screen.x, 130f, Screen.width - 130f), labelY = Mathf.Clamp(Screen.height - screen.y, 40, Screen.height - 70);
-                ShipRepairUi.PikminText(part.name, labelX, labelY, 26f, 260f, new Color(1f, .78f, .28f));
-                ShipRepairUi.PikminText(part.weight + " carriers" + (Competitive && race.Players.TryGetValue(LocalUserId, out var me) && (me.Mask & (1u << part.id)) != 0 ? " - Onion salvage" : ""),
-                    labelX, labelY + 28f, 18f, 260f, new Color(1f, .94f, .72f));
+                string carriers = part.weight + " carriers" + (Competitive && race.Players.TryGetValue(LocalUserId, out var me) && (me.Mask & (1u << part.id)) != 0 ? " - Onion salvage" : "");
+                VrSheet.Draw(() =>
+                {
+                    ShipRepairUi.PikminText(part.name, labelX, labelY, 26f, 260f, new Color(1f, .78f, .28f));
+                    ShipRepairUi.PikminText(carriers, labelX, labelY + 28f, 18f, 260f, new Color(1f, .94f, .72f));
+                });
             }
         }
         // Whether any Pikmin have taken hold of the part (the world's pellets, or a client's replica of them).

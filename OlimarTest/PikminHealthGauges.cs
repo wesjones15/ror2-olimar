@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using BepInEx.Configuration;
 using RoR2;
 using RoR2.UI;
+using Ror2Common;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -153,6 +154,18 @@ namespace OlimarTest
                 return;
             }
             EnsureCanvas();
+            // In VR the overlay only reaches the desktop window: the gauges are drawn in front of the
+            // headset's camera instead, at the distance of the other labels (VrSheet).
+            if (Vr.Active)
+            {
+                if (canvas.renderMode != RenderMode.ScreenSpaceCamera || canvas.worldCamera != cam)
+                {
+                    canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                    canvas.worldCamera = cam;
+                    canvas.planeDistance = VrSheet.Distance;
+                }
+            }
+            else if (canvas.renderMode != RenderMode.ScreenSpaceOverlay) canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             // An overlay would draw over RoR2's pause menu: only while the game runs.
             canvas.gameObject.SetActive(Time.timeScale > 0f);
             var mine = body.teamComponent.teamIndex;

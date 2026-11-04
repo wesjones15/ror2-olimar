@@ -172,6 +172,8 @@ namespace OlimarTest
 
         void LateUpdate()
         {
+            // In VR, this frame's labels on the sheet before the eye (VrSheet: carry counts, Ship Repair's names).
+            Ror2Common.VrSheet.Show();
             // Game over stops the view, except a downed Olimar's knockdown corpse still plays out.
             if (Ror2Common.RunAudio.Ended && (!world || !world.CorpseActive)) return;
             if (!world || !world.Running) return;

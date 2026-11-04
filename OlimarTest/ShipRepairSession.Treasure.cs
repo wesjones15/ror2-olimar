@@ -253,7 +253,7 @@ namespace OlimarTest
         {
             var user = LocalUserManager.GetFirstLocalUser();
             var camera = user?.cameraRigController ? user.cameraRigController.sceneCam : Camera.main;
-            if (!camera) return;
+            if (!camera && !VrSheet.Active) return;
             var world = PikminWorld.Instance;
             foreach (var t in treasures)
             {
@@ -268,8 +268,10 @@ namespace OlimarTest
                         if (t.carriers == 0) t.carriers = world.Pellets[i].min_carriers;
                     }
                 if (!known || carried) continue;
-                if (Vector3.Distance(camera.transform.position, t.pos) > 45f) continue;
-                var screen = camera.WorldToScreenPoint(t.pos + Vector3.up * 2f);
+                var eye = VrSheet.Active ? Vr.Head().position : camera.transform.position;
+                if (Vector3.Distance(eye, t.pos) > 45f) continue;
+                // In VR over the treasure on the sheet before the eye (VrSheet), not on the wrist.
+                var screen = VrSheet.WorldToScreenPoint(camera, t.pos + Vector3.up * 2f);
                 if (screen.z <= 0) continue;
                 float x = Mathf.Clamp(screen.x, 130f, Screen.width - 130f), y = Mathf.Clamp(Screen.height - screen.y, 40, Screen.height - 70);
                 ShipRepairUi.PikminText(t.name, x, y, 24f, 260f, new Color(.62f, .9f, 1f));

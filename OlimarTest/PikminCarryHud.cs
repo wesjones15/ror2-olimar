@@ -39,12 +39,15 @@ namespace OlimarTest
             carryDigits = null;
         }
 
-        void OnGUI()
+        // In VR the counts go on the sheet before the eye, projected through it (ror2-common VrSheet).
+        void OnGUI() => Ror2Common.VrSheet.Draw(DrawCounts);
+
+        void DrawCounts()
         {
             if (Event.current.type != EventType.Repaint || !world || !world.Running ||
                 Ror2Common.RunAudio.Ended || Ror2Common.PauseMenu.IsOpen) return;
             var camera = Camera.main;
-            if (!camera) return;
+            if (!camera && !Ror2Common.VrSheet.Active) return;
             LoadCarryDigits();
             for (int i = 0; i < world.PelletCount; i++)
             {
@@ -64,7 +67,7 @@ namespace OlimarTest
                 var colorTint = carrierColours[dominant] > 0 ? PikiColours[dominant] : Color.white;
                 var above = UnityHost.ToUnity(pellet.pos) + Vector3.up *
                     Mathf.Max(1.4f, pellet.radius * UnityHost.Scale * Mathf.Max(0.05f, pellet.scale));
-                var screen = camera.WorldToScreenPoint(above);
+                var screen = Ror2Common.VrSheet.WorldToScreenPoint(camera, above);
                 if (screen.z <= 0f || screen.x < 0f || screen.x > Screen.width ||
                     screen.y < 0f || screen.y > Screen.height) continue;
                 DrawCarryCount(screen.x, Screen.height - screen.y, (int)pellet.carriers,
