@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 60;
+        public const uint AbiVersion = 61;
         /// libpikmin's replica snapshot format, checked alongside the ABI: the snapshot is nested
         /// bytes in PikminEnvelope, so an ABI match alone is not enough to know a host's snapshots
         /// can be decoded here. Set by Load.

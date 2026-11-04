@@ -320,6 +320,16 @@ Raising and lowering the Onion (hold X 0.6 s) is separate, free, and never touch
 **Aim** (for VR): RoR2 moves Olimar as usual and the Pikmin cursor is wherever you aim.
 Primary throws, secondary whistles, utility lifts or lands the Onion (and strikes, when there is no Onion press to make), special swarms toward the cursor.
 
+In a headset (Blowntobytes' VR mod, built on `feature/vr`, the shared `[VR]` section; `OlimarVr`)
+the cursor is where the dominant hand points (ror2-common's pointer aim, the one Mario's FLUDD
+uses), in first person or with `VR.ThirdPerson` from behind and above him. It isn't put on the
+ground: it sits on what the pointer hits, an enemy's side or a ledge, as the flat-screen cursor
+does only while locked on (libpikmin's free cursor, `use_cursor` 2, ABI 61; a client's goes to the
+host as `PikminInputPacket.FreeCursor`). Pointing into the air puts it on the ground below, as
+before. Pikmin's camera and the arrival's never take the headset. Not done yet: his body still
+shows in first person, his own arms, the VR button layout, the wrist HUD. Nothing here has been
+played in a headset.
+
 ### How it works
 
 The incoming-explosion regression checks run headless:

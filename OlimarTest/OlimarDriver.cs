@@ -264,6 +264,7 @@ namespace OlimarTest
             if (health && !health.alive) PlayDeathSound();
             FindLocalUser();
             if (localUser != null) pad.Read(localUser.inputPlayer, realPrompt);
+            if (localUser != null) OlimarVr.PlaceView(Body);
             sprintPressed |= input && input.sprint.down;
             if (captain < 0) return;
 
@@ -367,6 +368,8 @@ namespace OlimarTest
         void EnsureCamera()
         {
             if (localUser == null) return;
+            // Pikmin's camera (and the arrival's) never takes a headset.
+            if (OlimarVr.InHeadset(Body)) { ReleaseCamera(); return; }
             var rig = localUser.cameraRigController;
             if (!rig) return;
             if (!cam)
@@ -435,17 +438,24 @@ namespace OlimarTest
                 // Follow the camera crosshair on the ground. Keep the free cursor at least
                 // one metre from Olimar, so looking straight down can still aim close.
                 // The sim keeps the existing ThrowReach maximum and finds the ground height.
+                // In a headset the dominant hand's pointer is the crosshair (OlimarVr).
                 var sceneCam = camRig ? camRig.sceneCam : null;
-                if (sceneCam)
+                bool pointed = OlimarVr.PointerCursor(Body, 60f, 60f, out var pointer);
+                if (pointed || sceneCam)
                 {
-                    var ray = sceneCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-                    bool hitGround = Physics.Raycast(ray, out var hit, 60f, UnityHost.Mask,
-                        QueryTriggerInteraction.Ignore);
-                    var aim = hitGround ? hit.point : ray.GetPoint(60f);
+                    var ray = pointed ? pointer.Ray : sceneCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+                    var aim = pointer.Point;
+                    if (!pointed)
+                        aim = Physics.Raycast(ray, out var hit, 60f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
+                            ? hit.point : ray.GetPoint(60f);
                     const float minRadius = 1f;
                     var offset = new Vector2(aim.x - feet.x, aim.z - feet.z);
+                    // A pointer's hit keeps its height (OlimarVr.CursorMode); one pushed out to a
+                    // metre is no longer what it hit, so that goes back on the ground.
+                    byte mode = pointed ? OlimarVr.CursorMode(pointer) : (byte)1;
                     if (offset.sqrMagnitude < minRadius * minRadius)
                     {
+                        mode = 1;
                         if (offset.sqrMagnitude < 0.000001f)
                             offset = new Vector2(ray.direction.x, ray.direction.z);
                         if (offset.sqrMagnitude < 0.000001f)
@@ -458,7 +468,7 @@ namespace OlimarTest
                         aim.z = feet.z + offset.y;
                     }
                     i.cursor = UnityHost.ToSim(aim);
-                    i.use_cursor = 1;
+                    i.use_cursor = mode;
                 }
                 // Something else moved the body: put the captain where it is now.
                 if (RideActive)
@@ -519,12 +529,23 @@ namespace OlimarTest
             {
                 if (lastFeetSet) Teleported(world, lastFeet, feet);
                 Pose(ref i, feet, motor ? motor.velocity : Vector3.zero, Yaw());
-                var ray = input.GetAimRay();
-                var aim = Physics.Raycast(ray, out var h, 60f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
-                    ? h.point
-                    : ray.GetPoint(20f);
+                // In a headset, where the dominant hand points, first or third person, on what it
+                // hits rather than the ground below (OlimarVr).
+                Vector3 aim;
+                if (OlimarVr.PointerCursor(Body, 60f, 20f, out var pointer))
+                {
+                    aim = pointer.Point;
+                    i.use_cursor = OlimarVr.CursorMode(pointer);
+                }
+                else
+                {
+                    var ray = input.GetAimRay();
+                    aim = Physics.Raycast(ray, out var h, 60f, UnityHost.Mask, QueryTriggerInteraction.Ignore)
+                        ? h.point
+                        : ray.GetPoint(20f);
+                    i.use_cursor = 1;
+                }
                 i.cursor = UnityHost.ToSim(aim);
-                i.use_cursor = 1;
                 i.throw_ = B(input.skill1.down);
                 i.whistle = B(input.skill2.down);
                 i.dismiss = B(input.skill3.down);
@@ -658,7 +679,8 @@ namespace OlimarTest
             i.pose_vel = new Native.Vec3(p.vx, p.vy, p.vz);
             i.pose_face = p.face;
             i.cursor = new Native.Vec3(p.cx, p.cy, p.cz);
-            i.use_cursor = 1;
+            // His VR pointer's hit stays where it is (FreeCursor), as it does on his machine.
+            i.use_cursor = (byte)((p.buttons & PikminInputPacket.FreeCursor) != 0 ? 2 : 1);
             byte b = (byte)(remotePulses | p.buttons);
             remotePulses = 0;
             i.whistle = B((b & PikminInputPacket.Whistle) != 0);
@@ -700,7 +722,8 @@ namespace OlimarTest
                 return;
             }
             byte b = (byte)((i.whistle != 0 ? PikminInputPacket.Whistle : 0) | (i.throw_ != 0 ? PikminInputPacket.Throw : 0)
-                | (i.dismiss != 0 ? PikminInputPacket.Dismiss : 0) | (i.cycle != 0 ? PikminInputPacket.Cycle : 0));
+                | (i.dismiss != 0 ? PikminInputPacket.Dismiss : 0) | (i.cycle != 0 ? PikminInputPacket.Cycle : 0)
+                | (i.use_cursor == 2 ? PikminInputPacket.FreeCursor : 0));
             bool riding = RideActive;
             if (riding)
             {

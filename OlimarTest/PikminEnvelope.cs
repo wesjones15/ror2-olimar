@@ -127,6 +127,8 @@ namespace OlimarTest
         public const byte Whistle = 1, Throw = 2, Dismiss = 4, Cycle = 8, SwarmToCursor = 16;
         /// While he rides: the stick click was pressed, or any face button (climb out). The stick is in swarmX/Y.
         public const byte Boost = 32, Exit = 64;
+        /// The cursor is a VR pointer's hit, kept where it is rather than put on the ground (use_cursor 2).
+        public const byte FreeCursor = 128;
 
         public static byte[] Write(in PikminInputPacket p)
         {

@@ -12,8 +12,9 @@
     <Managed>$(RoR2Dir)\Risk of Rain 2_Data\Managed</Managed>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <GenerateDependencyFile>false</GenerateDependencyFile>
-    <!-- ror2-common's IL hooks (MinionHit): needs the MonoMod references below. -->
-    <DefineConstants>$(DefineConstants);ROR2COMMON_HOOKS</DefineConstants>
+    <!-- ror2-common's IL hooks (MinionHit): needs the MonoMod references below. ROR2COMMON_VR: its opt-in
+         VR layer (src/Vr), with the XR and VR module references. -->
+    <DefineConstants>$(DefineConstants);ROR2COMMON_HOOKS;ROR2COMMON_VR</DefineConstants>
   </PropertyGroup>
 
   <ItemDefinitionGroup>
@@ -46,6 +47,7 @@
     <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(Managed)\UnityEngine.TextRenderingModule.dll</HintPath></Reference>
     <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(Managed)\UnityEngine.InputLegacyModule.dll</HintPath></Reference>
     <Reference Include="Unity.TextMeshPro"><HintPath>$(Managed)\Unity.TextMeshPro.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.XRModule"><HintPath>$(Managed)\UnityEngine.XRModule.dll</HintPath></Reference>
     <Reference Include="UnityEngine.VRModule"><HintPath>$(Managed)\UnityEngine.VRModule.dll</HintPath></Reference>
     <Reference Include="com.unity.multiplayer-hlapi.Runtime"><HintPath>$(Managed)\com.unity.multiplayer-hlapi.Runtime.dll</HintPath></Reference>
   </ItemGroup>

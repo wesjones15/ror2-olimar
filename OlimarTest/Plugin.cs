@@ -46,6 +46,8 @@ namespace OlimarTest
         bool musicInitialized;
 
         internal static ControlScheme Scheme;
+        /// The [VR] settings every character shares (ror2-common VrSettings), read only in a headset.
+        internal static VrSettings VrSettings;
         internal static ConfigEntry<CameraMode> Camera;
         internal static ConfigEntry<int> StartRed, StartYellow, StartBlue, StartPurple, StartWhite;
         internal static ConfigEntry<float> PoundGroundSeconds, WhitePoisonDamage, WeighGroundSeconds, BulbMinSpacing;
@@ -155,6 +157,7 @@ namespace OlimarTest
                 "X dismiss, RT blocks jumping, LB recentres). Keyboard: secondary jumps; hold jump + secondary to whistle. Aim: RoR2 moves the body " +
                 "and the cursor is where you aim (primary throw, secondary whistle, utility " +
                 "dismiss, special swarm). Auto: Aim in VR (VRMod), Pikmin otherwise.");
+            VrSettings = new VrSettings(Config, "Olimar");
             StartRed = Config.Bind("Pikmin", "StartRed", 10, "Red Pikmin in the squad at the start of a run.");
             StartYellow = Config.Bind("Pikmin", "StartYellow", 5, "Yellow Pikmin at the start of a run.");
             StartBlue = Config.Bind("Pikmin", "StartBlue", 5, "Blue Pikmin at the start of a run.");
