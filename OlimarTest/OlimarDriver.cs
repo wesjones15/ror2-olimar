@@ -264,7 +264,11 @@ namespace OlimarTest
             if (health && !health.alive) PlayDeathSound();
             FindLocalUser();
             // In a headset with motion controls, the controllers in his VR layout (Pad.ReadVr).
-            if (localUser != null && OlimarVr.Controls(Body)) pad.ReadVr(realPrompt, PauseMenu.IsOpen || PauseManager.isPaused);
+            if (localUser != null && OlimarVr.Controls(Body))
+            {
+                pad.ReadVr(realPrompt, PauseMenu.IsOpen || PauseManager.isPaused);
+                VrBank.Drive(input, pad.Ror2);
+            }
             else if (localUser != null) pad.Read(localUser.inputPlayer, realPrompt);
             if (localUser != null) OlimarVr.PlaceView(Body);
             sprintPressed |= input && input.sprint.down;

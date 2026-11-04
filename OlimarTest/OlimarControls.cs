@@ -116,7 +116,8 @@ namespace OlimarTest
                     .Add("R grip + X", "Dump flying Onion's Pikmin")
                     .Add("R grip + Y", "Fill flying Onion with squad")
                     .Add("R grip + L trigger", "Call the Onion to you and board it")
-                    .Add("hold X (0.6s)", "Land/lift Onion");
+                    .Add("hold X (0.6s)", "Land/lift Onion")
+                    .Add("R grip + click R stick", "Ping");
             foreach (var section in new[] { sheet.Pad("While Standing Under Onion"), sheet.Keys("While Standing Under Onion") })
                 section
                     .Add("X", "Empty Onion")

@@ -183,6 +183,9 @@ namespace OlimarTest
         // and the right stick click picks the next colour. The cursor is the pointer (OlimarVr).
 
         readonly VrPad vr = new VrPad();
+        /// What RoR2 reads of its own buttons in his VR layout (VrBank): interact on X and
+        /// equipment on Y as on a pad, A jump, the stick clicks sprint and (with the grip) ping.
+        public VrBank.Buttons Ror2;
         VrPad.Hand lastDominant, lastOff;
         const float Squeeze = 0.6f;
 
@@ -229,6 +232,12 @@ namespace OlimarTest
             recallStuck |= VrPad.Pressed(o.StickClick, lastOff.StickClick);
             confirm |= VrPad.AxisPressed(d.Trigger, lastDominant.Trigger, Squeeze);
             cancel |= bPressed;
+            Ror2 = new VrBank.Buttons
+            {
+                Skill1 = throwNow, Skill2 = grip, Skill3 = d.Secondary, Skill4 = swarmToCursor,
+                Interact = x && !grip, Equipment = y && !grip, Jump = d.Primary,
+                Sprint = o.StickClick, Ping = grip && d.StickClick,
+            };
             lastDominant = d;
             lastOff = o;
             Finish();

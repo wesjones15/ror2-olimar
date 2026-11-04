@@ -335,7 +335,9 @@ Onion in first person, the Onion isn't drawn for him. With `VR.Controls` (on by 
 moves him, the head is forward, and the buttons are his VR layout: left stick walks, A jumps, the
 right trigger throws, B strikes, the right grip whistles, the left grip swarms to the cursor, the
 left trigger locks on (B or the right stick click cycles), X and Y work the Onion, and the pause
-sheet shows this layout. With it off, the Aim scheme above runs instead. His HUD, banners, the
+sheet shows this layout. RoR2 reads this layout, not the VR mod's own buttons (ror2-common's
+`VrBank`): X interacts, Y uses equipment, the left stick click sprints, the right grip with the
+right stick click pings. With it off, the Aim scheme above runs instead. His HUD, banners, the
 Onion menu and Ship Repair's window are on the off-hand wrist (`VR.WristHud`); the carry counts and
 the ship-part and treasure labels sit over the world in the headset (ror2-common's `VrSheet`), and
 the health gauges on a canvas in front of the eye. Nothing here has been played in a headset.
