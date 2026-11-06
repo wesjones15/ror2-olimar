@@ -437,6 +437,8 @@ namespace OlimarTest
         public delegate byte DamageFn(IntPtr user, ulong creature, float amount, int part, uint source, uint sourceId);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_abi_version();
+        /// The oldest panic pikmin.dll caught at its boundary (see NativeLib.DrainPanics).
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_take_panic([Out] byte[] output, uint len);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_tick_hz();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_struct_sizes(out Sizes sizes);
 

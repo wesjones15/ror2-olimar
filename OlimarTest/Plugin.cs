@@ -448,6 +448,7 @@ namespace OlimarTest
                 Log.LogError(error);
                 return;
             }
+            nativeLoaded = true;
             AssetsDir = GameCubeLibrary.ResolveAssets(assets.Value, here, "PIKMIN_ASSETS", LibraryRoot, GameCubeLibrary.Olimar, out string assetsFrom);
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
                         $"assets {AssetsDir} ({assetsFrom}), controls {Scheme}" + (LibraryRoot != null ? $", GameCube library {LibraryRoot}" : ""));
@@ -583,8 +584,12 @@ namespace OlimarTest
             }) { IsBackground = true, Name = "pikmin VR arms" }.Start();
         }
 
+        static bool nativeLoaded;
+
         void Update()
         {
+            // pikmin.dll's exports catch their own panics; this is where they reach the log.
+            if (nativeLoaded) NativeLib.DrainPanics("pikmin.dll", Native.pik_take_panic, Log.LogError);
             OlimarPerformance.Report();
             if (musicInitialized || !AssetsSettled) return;
             musicInitialized = true;
