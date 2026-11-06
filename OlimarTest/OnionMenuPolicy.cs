@@ -19,10 +19,10 @@ namespace OlimarTest
             x * x + z * z < (engaged ? 2.8f * 2.8f : 1.25f * 1.25f);
 
         // The Onion is live in the sim and not folded/reviving: it can offer its beam, take a
-        // ride call or board Olimar. A host whose dormant flag lags the sim must not let the
-        // ride use the invisible folded body (its transfers are refused while it wakes).
+        // ride call or board Olimar. `anim` is this tick's copy, so it also guards the moment
+        // between the sim folding the Onion and the flight's next SyncDormancy.
         internal static bool Ready(bool dormant, bool inSim, byte anim) =>
-            !dormant && inSim && anim < 7;
+            !dormant && inSim && anim < Native.OnionAnimDormant;
 
         internal static int Clamp(int delta, uint squad, uint stock, uint room) =>
             Math.Max(-(int)squad, Math.Min(delta, (int)Math.Min(stock, room)));

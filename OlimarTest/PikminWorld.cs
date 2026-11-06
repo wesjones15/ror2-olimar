@@ -122,15 +122,14 @@ namespace OlimarTest
             /// keep the beam over him and retry before giving up.
             public float healRetry;
             public float summonAge;
-            public bool dormant;
+            /// Folded (or reviving) in the sim. Only SyncDormancy writes these two; the sim keeps the
+            /// clock (pik_sim_onion_dormancy).
+            public bool dormant, reviving;
             /// Dormant because its owner died (it wakes when he is alive again), not from damage.
             public bool ownerDeath;
             /// His squad is going home before it goes dormant: when that is over (Time.fixedTime), and the
             /// next time to send the Pikmin still outside.
             public float recallUntil, recallNext;
-            /// Seconds dormant, and seconds into the revival (the sim's two phases), for its gauge.
-            public float dormantAge, reviveAge;
-            public bool reviving;
             public int pickup = -1;
             public float pickupDwell;
             public bool filling;
@@ -1043,8 +1042,14 @@ namespace OlimarTest
             {
                 if (f.dormant)
                 {
+                    // From the sim's clock: the wait counts down `remaining`, the revival runs
+                    // `progress` back up to 1. An owner-death wait (no revival until he is back)
+                    // stays empty.
+                    byte state = Native.pik_sim_onion_dormancy(sim, (uint)f.id, out float remaining, out float progress);
                     float total = DormantSeconds + ReviveSeconds;
-                    float elapsed = f.reviving ? DormantSeconds + Mathf.Min(f.reviveAge, ReviveSeconds) : Mathf.Min(f.dormantAge, DormantSeconds);
+                    float elapsed = state == Native.OnionReviving
+                        ? DormantSeconds + Mathf.Clamp01(progress) * ReviveSeconds
+                        : Mathf.Clamp(DormantSeconds - remaining, 0f, DormantSeconds);
                     into.Add(new OnionGauge { key = f, position = f.position + Vector3.up * 5f, ratio = Mathf.Clamp01(elapsed / total), keep = true });
                 }
                 else if (onionMinions.TryGetValue(f.id, out var minion) && minion.Alive)
@@ -1064,34 +1069,7 @@ namespace OlimarTest
         {
             foreach (var flight in onionOf.Values)
             {
-                // The sim is authoritative on dormancy. If it is folded or reviving while the host
-                // thought the Onion was live (a missed transition), take the dormant path instead
-                // of offering its beam, ride call or an invisible boarding body.
-                if (!flight.dormant && OnionAnimInSim(flight.id, out byte simAnim) && simAnim >= 7)
-                {
-                    if (flight.ride != null) EndRide(flight, true);
-                    flight.dormant = true;
-                    flight.reviving = simAnim == 8;
-                    flight.dormantAge = flight.reviving ? DormantSeconds : 0f;
-                    flight.reviveAge = 0f;
-                    flight.ownerDeath = false;
-                    flight.summon = flight.healSummon = false;
-                    flight.healVisit = 0f;
-                    flight.menuLockout = 0f;
-                    flight.recallUntil = 0f;
-                    flight.filling = false;
-                    flight.menuBeam = flight.menuReturning = false;
-                    flight.pickup = -1;
-                    flight.transitionDuration = 0f;
-                    if (onionMinions.TryGetValue(flight.id, out var gone))
-                    {
-                        gone.Release();
-                        onionMinions.Remove(flight.id);
-                        ForgetOnionBody(flight.id);
-                    }
-                    Plugin.Log.LogWarning($"Onion {flight.id} was {(flight.reviving ? "reviving" : "dormant")} in the sim while " +
-                        "the host thought it live; holding its ride and menu until it is ready.");
-                }
+                SyncDormancy(flight);
                 if (flight.menuLockout > 0f) flight.menuLockout = Mathf.Max(0f, flight.menuLockout - Time.fixedDeltaTime);
                 if (flight.recallUntil > 0f) RecallToOnion(flight);
                 if (flight.dormant && flight.ownerDeath && OwnerAlive(flight))
@@ -1107,28 +1085,7 @@ namespace OlimarTest
                     onionMinions.Remove(flight.id);
                     ForgetOnionBody(flight.id);
                 }
-                if (flight.dormant)
-                {
-                    bool disabled = true;
-                    byte anim = 0;
-                    for (int i = 0; i < OnionCount; i++)
-                        if (Onions[i].id == flight.id) { anim = Onions[i].anim; disabled = anim >= 7; }
-                    if (disabled)
-                    {
-                        // The sim's clock, for the gauge: it folds shut and waits, then revives.
-                        if (anim == 8)
-                        {
-                            if (!flight.reviving) { flight.reviving = true; flight.dormantAge = DormantSeconds; flight.reviveAge = 0f; }
-                            flight.reviveAge += Time.fixedDeltaTime;
-                        }
-                        else flight.dormantAge += Time.fixedDeltaTime;
-                        continue;
-                    }
-                    flight.dormant = false;
-                    if (driverOf.TryGetValue(flight.captain, out var owner) && owner && owner.Body)
-                        AddOnionMinion(flight.id, flight.position + Vector3.up * 3.5f, owner.Body);
-                    Plugin.Log.LogInfo($"Onion {flight.id} revived; its stored Pikmin are available again.");
-                }
+                if (flight.dormant) continue;
                 if (flight.releaseWhenReady)
                 {
                     // A newly raised Onion may still be in TakeOff. Wait for Hover so the
@@ -1335,7 +1292,7 @@ namespace OlimarTest
         bool OnionDisabled(int id)
         {
             foreach (var f in onionOf.Values) if (f.id == id && f.dormant) return true;
-            return OnionAnimInSim(id, out byte anim) && anim >= 7;
+            return OnionAnimInSim(id, out byte anim) && anim >= Native.OnionAnimDormant;
         }
 
         /// The Onion is live in the sim and not folded or reviving: a ride call, menu or board may
@@ -2762,25 +2719,50 @@ namespace OlimarTest
         // has fully recovered.
         void GoDormant(OnionFlight f, float seconds, bool ownerDied)
         {
-            f.summon = false;
-            f.healSummon = false;
-            f.healVisit = 0f;
-            f.menuLockout = 0f;
             // A ride in progress ends first, while the Onion can still hand its Pikmin back.
             if (f.ride != null) EndRide(f, true);
-            f.dormant = true;
-            f.filling = false;
             f.ownerDeath = ownerDied;
-            f.recallUntil = 0f;
-            f.dormantAge = f.reviveAge = 0f;
-            f.reviving = false;
             f.following = f.airborne = false;
-            f.menuBeam = f.menuReturning = false;
-            f.pickup = -1;
-            f.transitionDuration = 0f;
             f.position = UnityHost.Snap(f.position);
             var ground = UnityHost.ToSim(f.position);
             Native.pik_sim_make_onion_dormant(sim, (uint)f.id, seconds, ref ground);
+            // The sim may refuse (a ship never goes dormant); the flight follows whatever it decided.
+            SyncDormancy(f);
+        }
+
+        /// The one place `dormant` and `reviving` change: they follow the sim's own dormancy
+        /// (pik_sim_onion_dormancy), read fresh rather than from this tick's Onion copies, so the
+        /// host can never think an Onion live that the sim has folded, or the reverse.
+        void SyncDormancy(OnionFlight f)
+        {
+            byte state = Native.pik_sim_onion_dormancy(sim, (uint)f.id, out _, out _);
+            bool dormant = state != Native.OnionLive;
+            f.reviving = state == Native.OnionReviving;
+            if (dormant == f.dormant) return;
+            f.dormant = dormant;
+            if (dormant)
+            {
+                DropLiveState(f);
+                return;
+            }
+            if (driverOf.TryGetValue(f.captain, out var owner) && owner && owner.Body)
+                AddOnionMinion(f.id, f.position + Vector3.up * 3.5f, owner.Body);
+            Plugin.Log.LogInfo($"Onion {f.id} revived; its stored Pikmin are available again.");
+        }
+
+        /// What only a live Onion has: a ride, a summon or visit, its menu beam, a pickup, a
+        /// flight transition, and the body enemies can see and hit.
+        void DropLiveState(OnionFlight f)
+        {
+            if (f.ride != null) EndRide(f, true);
+            f.summon = f.healSummon = false;
+            f.healVisit = 0f;
+            f.menuLockout = 0f;
+            f.filling = false;
+            f.recallUntil = 0f;
+            f.menuBeam = f.menuReturning = false;
+            f.pickup = -1;
+            f.transitionDuration = 0f;
             if (onionMinions.TryGetValue(f.id, out var minion))
             {
                 minion.Release();

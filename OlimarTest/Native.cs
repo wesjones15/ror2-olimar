@@ -84,6 +84,12 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_adopt_orphans(IntPtr sim, uint from, uint to);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_send_orphans_home(IntPtr sim, uint from, uint onion);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_onion_dormancy_seconds(IntPtr sim, uint onion, float seconds);
+        /// An Onion's dormancy from the sim's own clock: OnionLive, OnionDormant or OnionReviving;
+        /// `remaining` seconds of the wait, `progress` the pose (1 live .. 0 folded).
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_onion_dormancy(IntPtr sim, uint onion, out float remaining, out float progress);
+        public const byte OnionLive = 0, OnionDormant = 1, OnionReviving = 2;
+        /// PikOnion.anim codes of a folded and a reviving Onion (every live motion is below them).
+        public const byte OnionAnimDormant = 7, OnionAnimReviving = 8;
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_emergency(IntPtr sim, float seconds, uint count);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_onion_owner(IntPtr sim, uint onion, int captain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern float pik_sim_heal_squad(IntPtr sim, uint captain, float amount);

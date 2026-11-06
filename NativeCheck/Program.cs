@@ -226,11 +226,20 @@ static class Program
         Native.pik_sim_make_onion_dormant(sim, (uint)onion, 0.2f, ref ground);
         var onions = new Native.Onion[1];
         Native.pik_sim_onions(sim, onions, 1);
-        Check(onions[0].anim == 7 && onions[0].stored1 == 4, "dormancy crosses ABI without erasing stock");
+        Check(onions[0].anim == Native.OnionAnimDormant && onions[0].stored1 == 4, "dormancy crosses ABI without erasing stock");
+        Check(Native.pik_sim_onion_dormancy(sim, (uint)onion, out float remaining, out float progress) == Native.OnionDormant
+            && Math.Abs(remaining - 0.2f) < 1e-4f && progress == 1f, "the sim's dormancy clock crosses ABI");
         Check(Native.pik_sim_onion_call_out(sim, (uint)captain, (uint)onion, Native.Red, 4) == 0, "dormant stock is inaccessible");
-        for (int i = 0; i < 150; i++) Native.pik_sim_advance(sim, ref host, 1f / 30f);
+        bool sawReviving = false;
+        for (int i = 0; i < 150; i++)
+        {
+            Native.pik_sim_advance(sim, ref host, 1f / 30f);
+            if (Native.pik_sim_onion_dormancy(sim, (uint)onion, out _, out _) == Native.OnionReviving) sawReviving = true;
+        }
         Native.pik_sim_onions(sim, onions, 1);
         Check(onions[0].anim == 0 && onions[0].stored1 == 4, "Onion revives through ABI with stock intact");
+        Check(sawReviving && Native.pik_sim_onion_dormancy(sim, (uint)onion, out _, out _) == Native.OnionLive,
+            "dormancy reports reviving, then live");
         int pellet = Native.pik_sim_spawn_numbered_pellet(sim, 1, Native.Red, ref ground, 0);
         var hover = new Native.Vec3(0, 125, 0);
         Native.pik_sim_set_onion_pose(sim, (uint)onion, ref hover, 1);
