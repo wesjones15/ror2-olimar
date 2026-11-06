@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.5.5")]
+    [BepInPlugin(Guid, "Olimar", "0.5.6")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -585,7 +585,7 @@ namespace OlimarTest
             {
                 while (!AssetsSettled) Thread.Sleep(500);
                 if (!AssetsReady) return;
-                VrArmsBake.Run(AssetsDir, "Olimar", $"0.5.5|{sms}|{p2}|{melee}", (buf, len) => Native.pik_bake_vr_arms(
+                VrArmsBake.Run(AssetsDir, "Olimar", $"0.5.6|{sms}|{p2}|{melee}", (buf, len) => Native.pik_bake_vr_arms(
                     Native.CString(AssetsDir), sms == null ? null : Native.CString(sms), p2 == null ? null : Native.CString(p2),
                     melee == null ? null : Native.CString(melee), buf, len));
             }) { IsBackground = true, Name = "pikmin VR arms" }.Start();
