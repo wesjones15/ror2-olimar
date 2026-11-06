@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 62;
+        public const uint AbiVersion = 63;
         /// libpikmin's replica snapshot format, checked alongside the ABI: the snapshot is nested
         /// bytes in PikminEnvelope, so an ABI match alone is not enough to know a host's snapshots
         /// can be decoded here. Set by Load.
@@ -79,6 +79,7 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_carry(IntPtr sim, float range);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_give_onion_seeds(IntPtr sim, uint onion, uint color, uint seeds);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_auto_pluck(IntPtr sim, float seconds);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_set_rebirth(IntPtr sim, float chance, float burstChance, uint burstCount, float window);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_trigger_plucker(IntPtr sim, uint onion);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_recall_stuck_carriers(IntPtr sim, uint captain);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_adopt_orphans(IntPtr sim, uint from, uint to);

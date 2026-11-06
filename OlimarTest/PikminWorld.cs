@@ -2070,6 +2070,8 @@ namespace OlimarTest
             Native.pik_sim_set_growth(sim, boost, 0.5f / boost);
             float pluck = Plugin.AutoPluckDelay.Value;
             Native.pik_sim_set_auto_pluck(sim, pluck >= 0f ? pluck / boost : -1f);
+            Native.pik_sim_set_rebirth(sim, Plugin.RebirthChance.Value, Plugin.RebirthBurstChance.Value,
+                (uint)Mathf.Max(1, Plugin.RebirthBurstCount.Value), Plugin.RebirthWindow.Value);
             Native.pik_sim_set_emergency(sim, Mathf.Max(0f, Plugin.EmergencySeconds.Value) / boost,
                 (uint)Mathf.Max(0, Plugin.EmergencyCount.Value));
         }

@@ -73,7 +73,7 @@ namespace OlimarTest
         internal static ConfigEntry<bool> ReliableSnapshots, LogNet, PerformanceLog;
         // Items (OlimarItems): the shared minion scaling policy and the timers items shorten.
         internal static ConfigEntry<float> ProcInterval, MinionMoveScale, MinionHealScale, ItemEffectScale,
-            CooldownExponent, RideRecharge, AutoPluckDelay, EmergencySeconds, AutoCarryMetres,
+            CooldownExponent, RideRecharge, AutoPluckDelay, RebirthChance, RebirthBurstChance, RebirthWindow, EmergencySeconds, AutoCarryMetres,
             StompPikminDamage, RazorwireInterval;
         // Growth: planted sprouts ripen on a timer, Pikmin grow on kills they fought.
         internal static ConfigEntry<float> SecondsPerStage, FlowerSeconds;
@@ -87,7 +87,7 @@ namespace OlimarTest
         internal static ConfigEntry<float> PunchDamage, StrikeChargeSeconds;
         internal static ConfigEntry<bool> StrikeStun, StrikeKillReset;
         internal static ConfigEntry<int> KillsPerStage;
-        internal static ConfigEntry<int> EmergencyCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
+        internal static ConfigEntry<int> EmergencyCount, RebirthBurstCount, BackupSeedsPerStack, LarvaSquad, StompPikminCap;
         internal static ConfigEntry<bool> AttackSpeedFromItems, GooboSquad, GummyClones, FallDamageEnabled, ItemDisplays;
         internal static ConfigEntry<bool> Sound;
         internal static ConfigEntry<float> PiantaHeightRatio, LouieHeight, PikachuHeight, IceClimberHeight;
@@ -364,6 +364,13 @@ namespace OlimarTest
             AutoPluckDelay = Config.Bind("Items", "AutoPluckDelay", 60f,
                 "Seconds a sprout can stand ready before a Pikmin from the landed Onion comes out to " +
                 "pluck every ready sprout (the special). Below 0: off. Restart to apply to the skill.");
+            RebirthChance = Config.Bind("Pikmin", "RebirthChance", 0.6f,
+                "Chance (0-1) a dead Pikmin sprouts again as a buried leaf where it fell, once its ghost has gone. Below 0: off " +
+                "(the disc's rule: only a dead flower sometimes leaves a seed).");
+            RebirthBurstChance = Config.Bind("Pikmin", "RebirthBurstChance", 0.8f,
+                "The same chance while a mass death is under way (Pikmin.RebirthBurstCount gone within Pikmin.RebirthWindow seconds).");
+            RebirthBurstCount = Config.Bind("Pikmin", "RebirthBurstCount", 5, "How many Pikmin dying within the window make a mass death.");
+            RebirthWindow = Config.Bind("Pikmin", "RebirthWindow", 1f, "Seconds a mass death is counted over.");
             EmergencySeconds = Config.Bind("Items", "EmergencySeconds", 15f,
                 "Seconds after Olimar has no Pikmin anywhere (field, Onion, sprouts) before the Onion sends more.");
             EmergencyCount = Config.Bind("Items", "EmergencyCount", 10, "How many emergency Pikmin come. 0: off.");
