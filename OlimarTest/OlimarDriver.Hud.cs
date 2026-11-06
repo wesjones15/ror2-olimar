@@ -65,7 +65,9 @@ namespace OlimarTest
         void BottomHud()
         {
             var world = PikminWorld.Instance;
-            if (Event.current.type != EventType.Repaint || localUser == null || !world || !Active ||
+            // The player's own HUD, or that of the Olimar they are spectating (his captain is known on every machine).
+            bool watched = localUser == null && Ror2Common.LocalUsers.IsSpectated(Body) && (!health || health.alive);
+            if (Event.current.type != EventType.Repaint || !world || (!watched && (localUser == null || !Active)) ||
                 DataCaptain < 0 || Ror2Common.RunAudio.Ended) return;
             MenuStyles();
             LoadBottomHud();
