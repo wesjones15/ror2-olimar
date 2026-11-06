@@ -359,17 +359,7 @@ namespace OlimarTest
             DisposeMenuGlyphs();
         }
 
-        void FindLocalUser()
-        {
-            if (localUser != null && localUser.cachedBody == Body) return;
-            localUser = null;
-            foreach (var u in LocalUserManager.readOnlyLocalUsersList)
-                if (u != null && u.cachedBody == Body)
-                {
-                    localUser = u;
-                    break;
-                }
-        }
+        void FindLocalUser() => localUser = LocalUsers.Refresh(localUser, Body);
 
         void EnsureCamera()
         {

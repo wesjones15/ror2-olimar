@@ -137,7 +137,7 @@ namespace OlimarTest
         /// `assets_dir.txt`) and, if it lacks Pikachu's and the Ice Climbers' models, extracts them once from the
         /// user's Melee disc (`configuredDisc`, or one beside this plugin, the Melee plugin, its cache or the Pikmin assets). Without either
         /// the skin is not offered.
-        public static void PreparePikachu(string configured, string configuredDisc, string here, string assetsParent)
+        public static void PreparePikachu(string configured, string configuredDisc, string here, string searchDirs)
         {
             try
             {
@@ -154,7 +154,7 @@ namespace OlimarTest
                     {
                         var found = new byte[1024];
                         // Beside this plugin, beside the Melee plugin (where its disc usually is) and its cache, and the Pikmin assets.
-                        string where = string.Join(";", new[] { here, Path.GetFullPath(Path.Combine(here, "../Melee")), meleeDir, assetsParent });
+                        string where = string.Join(";", new[] { here, Path.GetFullPath(Path.Combine(here, "../Melee")), meleeDir, searchDirs });
                         disc = Native.pik_ssbm_find_disc(Native.CString(where), found, (uint)found.Length) != 0
                             ? Native.Utf8(found) : null;
                     }
@@ -214,23 +214,29 @@ namespace OlimarTest
         /// Whether Louie can be drawn (Pikmin 2's player files are extracted).
         public static bool LouieAvailable => louieReady;
 
+        /// The Pikmin 2 disc for Louie, the P2 enemies and the treasures: the config's image path when it exists, else
+        /// the first one `pik_p2_find_disc` finds beside this plugin or in `searchDirs` (the GameCube library's
+        /// search list, `;`-separated). Null when there is none.
+        internal static string FindPikmin2Disc(string configuredDisc, string here, string searchDirs)
+        {
+            string disc = configuredDisc?.Trim();
+            if (!string.IsNullOrEmpty(disc) && File.Exists(disc)) return disc;
+            var found = new byte[1024];
+            return Native.pik_p2_find_disc(Native.CString(here + ";" + searchDirs), found, (uint)found.Length) != 0
+                ? Native.Utf8(found) : null;
+        }
+
         /// Finds the Pikmin 2 disc and extracts Louie's files from it once, into `cacheDir` (a few small
         /// archives, so on the calling thread). Without a disc Louie is simply not offered. `configuredDisc`
-        /// is the config's image path; empty looks beside this plugin and the Pikmin assets.
-        public static void PrepareLouie(string configuredDisc, string cacheDir, string here, string assetsParent)
+        /// is the config's image path; see `FindPikmin2Disc` for where else it looks.
+        public static void PrepareLouie(string configuredDisc, string cacheDir, string here, string searchDirs)
         {
             louieDir = cacheDir;
             try
             {
                 if (Native.pik_p2_complete(Native.CString(cacheDir)) == 0)
                 {
-                    string disc = configuredDisc?.Trim();
-                    if (string.IsNullOrEmpty(disc) || !File.Exists(disc))
-                    {
-                        var found = new byte[1024];
-                        disc = Native.pik_p2_find_disc(Native.CString(here + ";" + assetsParent), found, (uint)found.Length) != 0
-                            ? Native.Utf8(found) : null;
-                    }
+                    string disc = FindPikmin2Disc(configuredDisc, here, searchDirs);
                     if (string.IsNullOrEmpty(disc))
                     {
                         Plugin.Log.LogInfo("Louie: no Pikmin 2 disc found (set Skins.Pikmin2Disc), so he is not offered");

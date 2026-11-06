@@ -43,17 +43,12 @@ namespace OlimarTest
 
         /// Extracts Pikmin 2's treasures from the user's Pikmin 2 disc once, beside Louie's files (a few hundred small
         /// archives, so on the calling thread). Without the disc or the files Ship Repair simply has no treasures.
-        internal static void PrepareTreasures(string configuredDisc, string cacheDir, string here, string assetsParent)
+        internal static void PrepareTreasures(string configuredDisc, string cacheDir, string here, string searchDirs)
         {
             try
             {
                 if (Native.pik_p2_treasures_complete(Native.CString(cacheDir)) != 0) return;
-                string disc = configuredDisc?.Trim();
-                if (string.IsNullOrEmpty(disc) || !System.IO.File.Exists(disc))
-                {
-                    var found = new byte[1024];
-                    disc = Native.pik_p2_find_disc(Native.CString(here + ";" + assetsParent), found, (uint)found.Length) != 0 ? Native.Utf8(found) : null;
-                }
+                string disc = OlimarSkin.FindPikmin2Disc(configuredDisc, here, searchDirs);
                 if (string.IsNullOrEmpty(disc)) { Plugin.Log.LogInfo("Treasures: no Pikmin 2 disc found (set Skins.Pikmin2Disc), so Ship Repair has none"); return; }
                 Plugin.Log.LogInfo($"Treasures: extracting Pikmin 2's treasures from {disc} into {cacheDir}...");
                 if (Native.pik_p2_extract_treasures(Native.CString(disc), Native.CString(cacheDir)) != 0)
