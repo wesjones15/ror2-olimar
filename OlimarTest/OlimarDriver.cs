@@ -994,12 +994,6 @@ namespace OlimarTest
             if (pad.confirm)
             {
                 pad.confirm = false;
-                if (world.OnionFlying(DataCaptain))
-                {
-                    menuNote = "Land the Onion to send its plucker.";
-                    world.PlaySound(2, Body.footPosition);
-                    return;
-                }
                 if (!world.TriggerOnionPlucker(DataCaptain))
                     menuNote = "No ready sprouts near the Onion.";
                 else menuNote = null;

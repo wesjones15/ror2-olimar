@@ -88,13 +88,11 @@ namespace OlimarTest
             }
             onionGlyphCanvas.SetActive(true);
             onionGlyphTitle.text = "ONION";
-            bool flying = PikminWorld.Instance.OnionFlying(DataCaptain);
-            string disabled = "<color=#777B78>", enabled = "</color>";
             onionGlyphActions.text = MenuGlyph(PadButton.X, "X") + "  Dump Onion Pikmin (keep one)\n" +
                 MenuGlyph(PadButton.Y, "Y") + "  Fill Onion with squad\n" +
                 MenuGlyph(PadButton.RB, "RB") + "  Heal Olimar from Onion stock\n" +
                 MenuGlyph(PadButton.LB, "LB") + "  Call stuck carriers\n" +
-                (flying ? disabled : "") + MenuGlyph(PadButton.A, "A") + "  Send Onion plucker" + (flying ? enabled : "") + "\n" +
+                MenuGlyph(PadButton.A, "A") + "  Send Onion plucker\n" +
                 MenuGlyph(PadButton.LT, "LT") + "  Board the Onion (Onion Ride)";
             onionGlyphNote.text = note ?? "";
         }
@@ -125,14 +123,12 @@ namespace OlimarTest
             GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 5f), stripeTex);
             GUI.color = c;
             GUI.Label(new Rect(panel.x, panel.y + 6f, panel.width, 36f), "ONION", vrMenuTitle);
-            bool flying = PikminWorld.Instance.OnionFlying(DataCaptain);
-            string off = flying ? "<color=#777B78>" : "", on = flying ? "</color>" : "";
             GUI.Label(new Rect(panel.x + 22f, panel.y + 50f, panel.width - 44f, 230f),
                 "X  Dump Onion Pikmin (keep one)\n" +
                 "Y  Fill Onion with squad\n" +
                 "B  Heal Olimar from Onion stock\n" +
                 "L stick click  Call stuck carriers\n" +
-                off + "R trigger  Send Onion plucker" + on + "\n" +
+                "R trigger  Send Onion plucker\n" +
                 "L trigger  Board the Onion (Onion Ride)", vrMenuLine);
             if (!string.IsNullOrEmpty(note))
                 GUI.Label(new Rect(panel.x + 12f, panel.yMax - 40f, panel.width - 24f, 28f), note, vrMenuLine);

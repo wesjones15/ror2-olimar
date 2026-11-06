@@ -1648,7 +1648,7 @@ namespace OlimarTest
         public bool TriggerOnionPlucker(int captain)
         {
             int onion = OnionInReach(captain);
-            if (onion < 0 || OnionFlying(captain)) return false;
+            if (onion < 0) return false;
             if (ClientMode)
             {
                 if (!moverDriver) return false;
