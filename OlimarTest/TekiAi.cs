@@ -216,11 +216,17 @@ namespace OlimarTest
                     body.healthComponent.Networkhealth = body.maxHealth;
                 }
                 b.aiLastHealth = body.healthComponent.health;
-                if ((lost > 0f || b.kind == TekiCatalog.PelletPosy && body.healthComponent.health <= 1f && !b.aiDeathSent) && TekiCatalog.Has(b.kind))
+                if (body.healthComponent.health > 1.5f) b.aiSeenHealthy = true;
+                // A Posy's Buddha flag holds it at 1 HP when killed; that only means a lethal hit once it has been
+                // healthy. A body still filling its health at spawn would otherwise wilt the instant it appears.
+                bool posyKilled = b.kind == TekiCatalog.PelletPosy && b.aiSeenHealthy && body.healthComponent.health <= 1f && !b.aiDeathSent;
+                if (b.kind == TekiCatalog.PelletPosy && !b.aiSeenHealthy) lost = 0f;
+                if ((lost > 0f || posyKilled) && TekiCatalog.Has(b.kind))
                 {
                     float amount = lost / Mathf.Max(1f, body.maxHealth) * TekiCatalog.Get(b.kind).life;
-                    if (b.kind == TekiCatalog.PelletPosy && body.healthComponent.health <= 1f && !b.aiDeathSent)
+                    if (posyKilled)
                     {
+                        Plugin.Log.LogInfo($"Pellet Posy {b.aiId} killed (health {body.healthComponent.health}/{body.maxHealth}).");
                         b.aiDeathSent = true;
                         TekiAiNative.pik_tekis_damage(h, (uint)b.aiId, 1e6f, -1);
                     }

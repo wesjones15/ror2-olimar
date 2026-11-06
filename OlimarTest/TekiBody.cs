@@ -53,6 +53,9 @@ namespace OlimarTest
         internal float aiLastHealth;
         /// The body died and the strategy was told, so that it plays its dying (effects, what it drops).
         internal bool aiDeathSent;
+        /// The body's health was seen above the Buddha floor (1 HP). A Posy's "held at 1 HP" death trigger counts only
+        /// after this: a fresh body reads 0-1 HP until RoR2 fills its health, and that is not a lethal hit.
+        internal bool aiSeenHealthy;
         int hurtDeactivated;
 
         void Awake()
