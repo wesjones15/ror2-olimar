@@ -265,6 +265,7 @@ namespace OlimarTest
             Native.pik_sim_set_captain_reach(moverSim, 0, Plugin.ThrowReach.Value);
             if (d.Active) d.Items.BeforeStep(moverSim, 0);
             Native.pik_sim_set_networked(moverSim, 0);
+            Native.pik_sim_set_gravity_scale(moverSim, Ror2Common.WorldGravity.Scale);
             uint ticks = Native.pik_sim_advance(moverSim, ref host, Time.fixedDeltaTime);
             moverAlpha = Native.pik_sim_alpha(moverSim);
             moverTicks += ticks;
@@ -1839,6 +1840,7 @@ namespace OlimarTest
             try
             {
                 Native.pik_sim_set_networked(sim, (byte)(Mp.Networked ? 1 : 0));
+                Native.pik_sim_set_gravity_scale(sim, Ror2Common.WorldGravity.Scale);
                 ticks = Native.pik_sim_advance(sim, ref host, Time.fixedDeltaTime);
             }
             finally
