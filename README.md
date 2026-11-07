@@ -539,5 +539,10 @@ in-game acceptance of arrival, enemy targeting, healing and revival remains manu
 
 Ship Repair now mixes four directed Pikmin 2 overworld scores into its stage soundtrack: 20% on stages 1-2, 35% on stages 3-5 and 50% later. Enemy proximity, carrying work, nearby ship parts and squad presence drive the disc's music layers. P2 data failures fall back to P1. Enemy presentation uses libsms's common JParticle TEV/alpha/sampler runtime and ror2-common's refraction material. Source IDs, viewer commands and verification limits are documented in ../libpikmin/docs/p2-presentations.md. Not yet played in-game.
 
+## License and credits
 
-
+Original contributions by **wesleyasaurus** are dedicated to the public domain under
+[CC0 1.0 Universal](LICENSE), to the extent wesleyasaurus owns the relevant rights.
+Attribution for those contributions is appreciated but not required. Third-party software
+and original game content retain their respective rights and terms.
+See [CREDITS.md](CREDITS.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
