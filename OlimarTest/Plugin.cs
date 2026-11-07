@@ -839,7 +839,11 @@ namespace OlimarTest
             driver = GetComponent<OlimarDriver>();
         }
 
+#if PUBLICIZED_GAME_LIBS
+        public override bool CanExecuteSkill(GenericSkill skillSlot) => false;
+#else
         protected override bool CanExecuteSkill(GenericSkill skillSlot) => false;
+#endif
 
         public override void HandleMovements()
         {
