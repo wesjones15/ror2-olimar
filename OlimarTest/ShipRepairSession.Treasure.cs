@@ -43,16 +43,28 @@ namespace OlimarTest
 
         /// Extracts Pikmin 2's treasures from the user's Pikmin 2 disc once, beside Louie's files (a few hundred small
         /// archives, so on the calling thread). Without the disc or the files Ship Repair simply has no treasures.
+        /// Version of `pik_p2_extract_treasures`'s output (SharedFiles extracted.txt, set "p2treasures"): bump it when
+        /// the extractor writes an existing file differently.
+        const int TreasureExtractorVersion = 1;
+
         internal static void PrepareTreasures(string cacheDir, string searchDirs)
         {
             try
             {
-                if (Native.pik_p2_treasures_complete(Native.CString(cacheDir)) != 0) return;
+                bool complete = Native.pik_p2_treasures_complete(Native.CString(cacheDir)) != 0;
+                if (complete && SharedFiles.Current(SharedFiles.Pikmin, "p2treasures", TreasureExtractorVersion)) return;
                 string disc = OlimarSkin.FindPikmin2Disc(searchDirs);
-                if (string.IsNullOrEmpty(disc)) { Plugin.Log.LogInfo("Treasures: no Pikmin 2 disc found, so Ship Repair has none. " + SharedFiles.MissingDisc("Pikmin 2")); return; }
+                if (string.IsNullOrEmpty(disc))
+                {
+                    // Files from an older extractor are still used as they are.
+                    if (!complete) Plugin.Log.LogInfo("Treasures: no Pikmin 2 disc found, so Ship Repair has none. " + SharedFiles.MissingDisc("Pikmin 2"));
+                    return;
+                }
                 Plugin.Log.LogInfo($"Treasures: extracting Pikmin 2's treasures from {disc} into {cacheDir}...");
                 if (Native.pik_p2_extract_treasures(Native.CString(disc), Native.CString(cacheDir)) != 0)
-                    Plugin.Log.LogWarning("Treasures: extraction from the Pikmin 2 disc failed, so Ship Repair has none");
+                    Plugin.Log.LogWarning("Treasures: extraction from the Pikmin 2 disc failed");
+                else if (Native.pik_p2_treasures_complete(Native.CString(cacheDir)) != 0)
+                    SharedFiles.MarkCurrent(SharedFiles.Pikmin, "p2treasures", TreasureExtractorVersion);
             }
             catch (Exception e)
             {

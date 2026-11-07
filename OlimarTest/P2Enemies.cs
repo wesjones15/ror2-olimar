@@ -14,26 +14,38 @@ namespace OlimarTest
 
         /// Finds the Pikmin 2 disc (`OlimarSkin.FindPikmin2Disc`) and extracts
         /// the enemies' files from it once into `cacheDir` (a few hundred small files, so on the calling thread).
+        /// Version of `pik_p2_enemies_extract`'s output (SharedFiles extracted.txt, set "p2enemies"): bump it when
+        /// the extractor writes an existing file differently.
+        const int ExtractorVersion = 1;
+
         public static void Prepare(string cacheDir, string searchDirs)
         {
             try
             {
-                if (Native.pik_p2_enemies_complete(Native.CString(cacheDir)) == 0)
+                bool complete = Native.pik_p2_enemies_complete(Native.CString(cacheDir)) != 0;
+                if (!complete || !SharedFiles.Current(SharedFiles.Pikmin, "p2enemies", ExtractorVersion))
                 {
                     string disc = OlimarSkin.FindPikmin2Disc(searchDirs);
                     if (string.IsNullOrEmpty(disc))
                     {
-                        Plugin.Log.LogInfo("Pikmin 2 enemies: no Pikmin 2 disc found, so they are not offered. " + SharedFiles.MissingDisc("Pikmin 2"));
-                        return;
+                        // Files from an older extractor are still used as they are.
+                        if (!complete)
+                        {
+                            Plugin.Log.LogInfo("Pikmin 2 enemies: no Pikmin 2 disc found, so they are not offered. " + SharedFiles.MissingDisc("Pikmin 2"));
+                            return;
+                        }
                     }
-                    Plugin.Log.LogInfo($"Pikmin 2 enemies: extracting their files from {disc} into {cacheDir}...");
-                    if (Native.pik_p2_enemies_extract(Native.CString(disc), Native.CString(cacheDir)) != 0)
+                    else
                     {
-                        Plugin.Log.LogWarning("Pikmin 2 enemies: extraction from the Pikmin 2 disc failed, so they are not offered");
-                        return;
+                        Plugin.Log.LogInfo($"Pikmin 2 enemies: extracting their files from {disc} into {cacheDir}...");
+                        if (Native.pik_p2_enemies_extract(Native.CString(disc), Native.CString(cacheDir)) != 0)
+                            Plugin.Log.LogWarning("Pikmin 2 enemies: extraction from the Pikmin 2 disc failed");
+                        else if (Native.pik_p2_enemies_complete(Native.CString(cacheDir)) != 0)
+                            SharedFiles.MarkCurrent(SharedFiles.Pikmin, "p2enemies", ExtractorVersion);
                     }
                 }
                 Ready = Native.pik_p2_enemies_complete(Native.CString(cacheDir)) != 0;
+                if (!Ready) Plugin.Log.LogWarning("Pikmin 2 enemies: their files aren't complete, so they are not offered");
             }
             catch (Exception e)
             {

@@ -115,6 +115,7 @@ namespace OlimarTest
         {
             Log = Logger;
             CommonLog.Log = Logger;
+            Experimental.ShareWithLobby();
             OnionMenuEquipment.Install();
             string here = Path.GetDirectoryName(Info.Location);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
@@ -480,6 +481,10 @@ namespace OlimarTest
 
         // First run: build the assets folder from the user's disc on a worker thread (the sim
         // waits for it). Nothing from the disc ships with the plugin.
+        /// Version of `pik_extract`'s output (SharedFiles extracted.txt, set "main"): bump it when the extractor
+        /// writes an existing file differently, so installed caches are extracted again.
+        const int MainExtractorVersion = 1;
+
         static void PrepareAssets()
         {
             bool ready = Native.pik_assets_complete(Native.CString(AssetsDir)) != 0;
@@ -490,13 +495,30 @@ namespace OlimarTest
             // An older extraction has only the first three enemies' files; the rest come from the disc (extraction tops it up).
             bool needTekis = ready && (!File.Exists(Path.Combine(AssetsDir, "tekis", ".all"))
                 || !File.Exists(Path.Combine(AssetsDir, "cinemas", "demo74", "navi.anm")));
-            if (ready && !needIntro && !needTekis) return;
+            // Complete, but written by an older extractor (SharedFiles extracted.txt): extracted again over the top,
+            // like the enemies' top-up, when the disc is there.
+            bool stale = ready && !needTekis && !SharedFiles.Current(SharedFiles.Pikmin, "main", MainExtractorVersion);
+            if (ready && !needIntro && !needTekis && !stale) return;
             string disc = null;
-            if (!ready || needTekis)
+            if (!ready || needTekis || stale)
             {
                 var found = new byte[1024];
                 if (Native.pik_find_disc(Native.CString(SharedFiles.SearchList()), found, (uint)found.Length) != 0)
                     disc = Native.Utf8(found);
+            }
+            if (stale)
+            {
+                if (string.IsNullOrEmpty(disc) || !File.Exists(disc))
+                {
+                    Log.LogWarning("Pikmin assets were extracted by an older version of the mod; using them as they are. " + SharedFiles.MissingDisc("Pikmin"));
+                    if (!needIntro) return;
+                }
+                else
+                {
+                    Log.LogInfo("Pikmin assets were extracted by an older version of the mod; extracting them again.");
+                    needTekis = true; // the same full pik_extract over the top
+                }
+                stale = false;
             }
             if (needTekis && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))
             {
@@ -522,6 +544,7 @@ namespace OlimarTest
                     if (needTekis)
                     {
                         byte ok = Native.pik_extract(Native.CString(disc), Native.CString(AssetsDir), msg, (uint)msg.Length);
+                        if (ok != 0) SharedFiles.MarkCurrent(SharedFiles.Pikmin, "main", MainExtractorVersion);
                         if (ok != 0) Log.LogInfo($"Pikmin enemies' files added: {Native.Utf8(msg)}");
                         else Log.LogWarning($"Couldn't add Pikmin's other enemies: {Native.Utf8(msg)}");
                     }
@@ -529,6 +552,7 @@ namespace OlimarTest
                     {
                         byte ok = Native.pik_extract(Native.CString(disc), Native.CString(AssetsDir), msg, (uint)msg.Length);
                         ready = ok != 0 && Native.pik_assets_complete(Native.CString(AssetsDir)) != 0;
+                        if (ready) SharedFiles.MarkCurrent(SharedFiles.Pikmin, "main", MainExtractorVersion);
                         if (ready) Log.LogInfo($"Extracted: {Native.Utf8(msg)}");
                         else Log.LogError($"Extraction failed: {Native.Utf8(msg)}");
                     }

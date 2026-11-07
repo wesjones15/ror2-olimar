@@ -113,37 +113,48 @@ namespace OlimarTest
 
         /// SharedFiles' Melee folder; if it lacks Pikachu's and the Ice Climbers' models, extracts them once from a
         /// Melee disc in put_games_here (the Melee plugin isn't needed). Without either the skin is not offered.
+        /// Versions of the extractors' output (SharedFiles extracted.txt): bump one when its extractor writes an
+        /// existing file differently, so installed caches are extracted again.
+        const int IceClimbersExtractorVersion = 1, P2ExtractorVersion = 1;
+
         public static void PreparePikachu()
         {
             try
             {
                 meleeDir = SharedFiles.Assets(SharedFiles.Melee);
-                if (Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) == 0)
+                bool Complete() => Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) != 0;
+                bool Current() => SharedFiles.Current(SharedFiles.Melee, "iceclimbers", IceClimbersExtractorVersion);
+                if (!Complete() || !Current())
                 {
                     using (SharedFiles.Lock(SharedFiles.Melee))
                     {
                         // Another plugin may have just extracted them.
-                        if (Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) == 0)
+                        bool complete = Complete();
+                        if (!complete || !Current())
                         {
                             var found = new byte[1024];
                             string disc = Native.pik_ssbm_find_disc(Native.CString(SharedFiles.SearchList()), found, (uint)found.Length) != 0
                                 ? Native.Utf8(found) : null;
                             if (string.IsNullOrEmpty(disc))
                             {
-                                Plugin.Log.LogInfo("Captain Pikachu: no Melee disc found, so he is not offered. " +
-                                                   SharedFiles.MissingDisc("Super Smash Bros. Melee (USA, revision 1.02)"));
-                                return;
+                                // Files from an older extractor are still used as they are.
+                                if (!complete)
+                                    Plugin.Log.LogInfo("Captain Pikachu: no Melee disc found, so he is not offered. " +
+                                                       SharedFiles.MissingDisc("Super Smash Bros. Melee (USA, revision 1.02)"));
                             }
-                            Plugin.Log.LogInfo($"Captain Pikachu: extracting the Ice Climbers models from {disc} into {meleeDir}...");
-                            if (Native.pik_ssbm_extract_ice_climbers(Native.CString(disc), Native.CString(meleeDir)) != 0)
+                            else
                             {
-                                Plugin.Log.LogWarning("Captain Pikachu: extraction from the Melee disc failed (it must be GALE01 revision 2), so he is not offered");
-                                return;
+                                Plugin.Log.LogInfo($"Captain Pikachu: extracting the Ice Climbers and Pikachu from {disc} into {meleeDir}...");
+                                if (Native.pik_ssbm_extract_ice_climbers(Native.CString(disc), Native.CString(meleeDir)) != 0)
+                                    Plugin.Log.LogWarning("Captain Pikachu: extraction from the Melee disc failed (it must be GALE01 revision 2)");
+                                else if (Complete())
+                                    SharedFiles.MarkCurrent(SharedFiles.Melee, "iceclimbers", IceClimbersExtractorVersion);
                             }
                         }
                     }
                 }
-                pikachuReady = Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) != 0;
+                pikachuReady = Complete();
+                if (!pikachuReady) Plugin.Log.LogInfo("Captain Pikachu: his Melee files aren't complete, so he is not offered");
             }
             catch (Exception e)
             {
@@ -182,22 +193,30 @@ namespace OlimarTest
             louieDir = cacheDir;
             try
             {
-                if (Native.pik_p2_complete(Native.CString(cacheDir)) == 0)
+                bool complete = Native.pik_p2_complete(Native.CString(cacheDir)) != 0;
+                if (!complete || !SharedFiles.Current(SharedFiles.Pikmin, "p2", P2ExtractorVersion))
                 {
                     string disc = FindPikmin2Disc(searchDirs);
                     if (string.IsNullOrEmpty(disc))
                     {
-                        Plugin.Log.LogInfo("Louie: no Pikmin 2 disc found, so he is not offered. " + SharedFiles.MissingDisc("Pikmin 2"));
-                        return;
+                        // Files from an older extractor are still used as they are.
+                        if (!complete)
+                        {
+                            Plugin.Log.LogInfo("Louie: no Pikmin 2 disc found, so he is not offered. " + SharedFiles.MissingDisc("Pikmin 2"));
+                            return;
+                        }
                     }
-                    Plugin.Log.LogInfo($"Louie: extracting Pikmin 2's player files from {disc} into {cacheDir}...");
-                    if (Native.pik_p2_extract(Native.CString(disc), Native.CString(cacheDir)) != 0)
+                    else
                     {
-                        Plugin.Log.LogWarning("Louie: extraction from the Pikmin 2 disc failed, so he is not offered");
-                        return;
+                        Plugin.Log.LogInfo($"Louie: extracting Pikmin 2's player files from {disc} into {cacheDir}...");
+                        if (Native.pik_p2_extract(Native.CString(disc), Native.CString(cacheDir)) != 0)
+                            Plugin.Log.LogWarning("Louie: extraction from the Pikmin 2 disc failed");
+                        else if (Native.pik_p2_complete(Native.CString(cacheDir)) != 0)
+                            SharedFiles.MarkCurrent(SharedFiles.Pikmin, "p2", P2ExtractorVersion);
                     }
                 }
                 louieReady = Native.pik_p2_complete(Native.CString(cacheDir)) != 0;
+                if (!louieReady) Plugin.Log.LogWarning("Louie: Pikmin 2's player files aren't complete, so he is not offered");
             }
             catch (Exception e)
             {
