@@ -29,7 +29,7 @@ static class Program
         Check(PosySpawnPolicy.Target(true, 100, 0, 6, 2) == 24 && PosySpawnPolicy.Target(false, 100, 100, 6, 2) == 8, "Posy stage caps");
         Check(PosySpawnPolicy.Target(true, 4, 1, 0, 2) == 0 && PosySpawnPolicy.Target(false, 4, 1, 6, -1) == 0, "disabled and negative Posy counts");
         Check(PosySpawnPolicy.RefillSeconds(true) < PosySpawnPolicy.RefillSeconds(false), "Classic replenishes less often");
-        Check(PosySpawnPolicy.InitialSize(0) == 2 && PosySpawnPolicy.InitialSize(1) == 1 && PosySpawnPolicy.InitialSize(3) == 0, "ready, bud and seedling Posies");
+        Check(PosySpawnPolicy.InitialSize(0) == 2 && PosySpawnPolicy.InitialSize(1) == 2 && PosySpawnPolicy.InitialSize(3) == 2, "every Posy spawns bloomed");
         var run = new ShipRepairProgress();
         run.EnterStage();
         Check(!run.Receive(run.Epoch, 0), "arrival cannot award parts");
