@@ -2,7 +2,7 @@
 
 C# host for [libpikmin](https://github.com/wesjones15/libpikmin), registering **Olimar** as a Risk of Rain 2 survivor. Lead a squad, throw Pikmin onto enemies, whistle them out of danger, and carry pellets back to the Onion to grow replacements.
 
-The native library runs the squad and captain simulation. This plugin connects it to Unity terrain, RoR2 enemies, damage, items, controls, UI and multiplayer. Models, animation, sound and other runtime assets are extracted locally from the player's own disc image; they are not included in the source or releases.
+The native library runs the squad and captain simulation. This plugin connects it to Unity terrain, RoR2 enemies, damage, items, controls, UI and multiplayer. Models, animation, sound and effects are prepared from the player's disc image on first run.
 
 The `modern/1.5.0` branch targets the project's **RoR2 DLC4 build, Unity 2021.3 and BepInEx 5**. The `legacy/1.2.4.4` branch is frozen. For packaged downloads and dependency/install instructions, start with [ror2-characters](https://github.com/wesjones15/ror2-characters).
 
@@ -12,7 +12,7 @@ The default opening squad is **10 Red, 5 Yellow and 5 Blue**, with a field cap o
 
 Enemy kills produce pellets. Carry teams bring them to the Onion, which produces seeds; sprouts grow from leaf to bud to flower and can be plucked into the squad. Nectar blooms existing Pikmin. The active squad and stored stock carry between stages; units left outside those groups can be left behind.
 
-**Olimar can obtain Purple and White Pikmin from Candypop Buds around the map**, with the optional data available. They are not restricted to Louie: Louie additionally starts with 3 Purple and 5 White by default. Color roles matter: Reds resist fire, Yellows gain bonuses against airborne/mechanical targets, Blues benefit in water, Whites poison enemies that eat them, and Purples carry heavy loads and can bring fliers down.
+Candypop Buds around the map let Olimar obtain Purple and White Pikmin when the optional data is available. Louie starts with 3 Purple and 5 White by default. Color roles matter: Reds resist fire, Yellows gain bonuses against airborne/mechanical targets, Blues benefit in water, Whites poison enemies that eat them, and Purples carry heavy loads and can bring fliers down.
 
 Pikmin are vulnerable to enemy attacks, explosions and shake-offs. Their health and attacks scale through the host's rules and Olimar's stats. Current defaults also let dead Pikmin return as buried leaf sprouts at a configured chance; `Pikmin.RebirthChance` below zero disables that extension.
 
@@ -40,7 +40,7 @@ The default flat-screen scheme uses physical gamepad positions with Xbox-style n
 | X / Y | Interact / Equipment | Normal RoR2 actions outside Onion shortcuts. |
 | RoR2 sprint | Sprint | Activate sprint behavior and related items. |
 
-The right stick pans the Orbit camera normally and directs the swarm while RT is held. LT lock-on requires line of sight and defaults to a 40 m range. Keyboard does not have a separate lock-on control in this scheme. Release LT and tap it again after holding RT to summon the Onion; pressing RT while LT is already held does not summon it.
+The right stick pans the Orbit camera normally and directs the swarm while RT is held. Gamepad LT lock-on requires line of sight and defaults to a 40 m range. To summon the Onion, hold RT and then make a fresh LT press; release an existing LT lock first.
 
 ### Onion shortcuts and riding
 
@@ -74,23 +74,23 @@ The four moves use real RoR2 skill slots so item hooks can observe them:
 | Utility | Onion Ride. |
 | Special | Dismiss Strike. |
 
-Onion pluckers are the passive, not the Special skill. Cooldown items also accelerate growth, seeding, regrouping and support timers. Attack-speed and movement items feed into squad behavior; Backup Magazine adds seeds from deliveries; Hardlight adds ride stock. Pikmin hits use Olimar's attacker identity, stats and applicable item hooks, with a default proc coefficient of **0.2** and a per-Pikmin proc interval.
+Onion pluckers are the passive. Cooldown items also accelerate growth, seeding, regrouping and support timers. Attack-speed and movement items feed into squad behavior; Backup Magazine adds seeds from deliveries; Hardlight adds ride stock. Pikmin hits use Olimar's attacker identity, stats and applicable item hooks, with a default proc coefficient of **0.2** and a per-Pikmin proc interval.
 
-These are adapter rules, with configurable scaling and limits rather than a promise that every item has been playtested. Current defaults are in [`OlimarTest/Plugin.cs`](OlimarTest/Plugin.cs).
+Scaling, limits and current defaults are configured in [`OlimarTest/Plugin.cs`](OlimarTest/Plugin.cs).
 
 ## Ship Repair and alternate captains
 
-Select **Ship Repair** from the game-mode menu to recover **30 unique ship parts** and deliver them to the Dolphin. It defaults to competitive races; set `ShipRepair.CompetitiveMode = false` for shared crew progress. Additional enemies, parts, optional treasures and stage music support that mode. The old `Dolphin.ShipPartsMode` switch is retired.
+Select **Ship Repair** from the game-mode menu to recover **30 unique ship parts** and deliver them to the Dolphin. It defaults to competitive races; set `ShipRepair.CompetitiveMode = false` for shared crew progress. Additional enemies, parts, optional treasures and stage music support that mode.
 
 Alternate captains unlock on the player's profile and are offered when their required local assets are available:
 
 | Skin | Unlock | Additional data |
 | --- | --- | --- |
 | Pianta | Complete a stage 1 or later teleporter event as Olimar. | Sunshine cache prepared by the Mario plugin. |
-| Captain Pikachu | Complete a stage 2 or later teleporter event as Olimar. | Melee USA revision 1.02; this plugin extracts the required files, without needing the Melee plugin. |
+| Captain Pikachu | Complete a stage 2 or later teleporter event as Olimar. | Melee USA revision 1.02; this plugin handles the extraction. |
 | Louie | Recover all 30 unique parts in one Ship Repair run as Olimar. | Pikmin 2 disc; also supplies optional squad/enemy content. |
 
-Shared crew parts count for everyone in co-op; competitive progress is per player. Unlocks can be earned before the extra assets are installed. See the [Pianta](DOCS/pianta-skin.md), [captain skin](DOCS/pikachu-skin.md) and [Louie](DOCS/louie-skin.md) notes for implementation details; older path instructions in those notes are historical.
+Shared crew parts count for everyone in co-op; competitive progress is per player. Unlocks can be earned before the extra assets are installed. See the [Pianta](DOCS/pianta-skin.md), [captain skin](DOCS/pikachu-skin.md) and [Louie](DOCS/louie-skin.md) notes for implementation details. Use the setup below for current asset paths.
 
 ## First run and configuration
 
@@ -100,9 +100,9 @@ Install the character package and **wesleyasaurus-SharedFiles** with the release
 2. Launch RoR2 and let the background extraction finish. The shared cache is `wesleyasaurus-SharedFiles/assets/pikmin/`.
 3. If the lobby display has not refreshed, select another survivor and then Olimar again.
 
-Put optional Pikmin 2 or Melee images in the same disc folder for the plugin's additional extraction sets. Pianta uses an existing Sunshine cache prepared by the Mario plugin. Complete caches are reused on later launches; keep discs available for extraction refreshes when updating. Original game data and generated caches are not included when sharing the mod.
+Put optional Pikmin 2 or Melee images in the same disc folder for the plugin's additional extraction sets. Pianta uses an existing Sunshine cache prepared by the Mario plugin. Complete caches are reused on later launches; keep discs available for extraction refreshes when updating.
 
-Current builds find SharedFiles automatically. Older `Paths.*`, skin disc-path settings and `assets_dir.txt` instructions are superseded. See the [SharedFiles guide](https://github.com/wesjones15/ror2-common/blob/modern/1.5.0/SHARED-FILES.md).
+The plugin finds SharedFiles automatically. See the [SharedFiles guide](https://github.com/wesjones15/ror2-common/blob/modern/1.5.0/SHARED-FILES.md) for folder layout and extraction behavior.
 
 Configuration is in `BepInEx/config/com.libpikmin.olimartest.cfg`. Main groups cover input/camera (`Controls`), squad and Onion behavior (`Pikmin`), damage and survivability (`Combat`), item rules (`Items`), optional conversion buds (`Candypop`), Ship Repair and presentation/VR. For missing assets or a stand-in model, inspect `BepInEx/LogOutput.log`. Use matching plugin/native DLLs.
 
@@ -110,7 +110,7 @@ Configuration is in `BepInEx/config/com.libpikmin.olimartest.cfg`. Main groups c
 
 Optional VR integration provides pointer-directed commands, controller arms and a wrist HUD with a compatible active VR mod. The motion layout uses right trigger to throw, right grip to whistle, left grip to swarm, left trigger to lock/board, A to jump and B to strike. The pause sheet shows the full contextual layout; left-handed mode mirrors it. Recent headset behavior still needs manual verification.
 
-The server owns the squad simulation. Clients submit commands, move their own captain locally, and display the world through native snapshot replicas. Peers need matching builds, compatible unfinished-content settings and their own local assets. Headless protocol checks do not establish complete co-op behavior; use offline play or private friends-only co-op.
+The server owns the squad simulation. Clients submit commands, move their own captain locally, and display the world through native snapshot replicas. Peers need matching builds, compatible unfinished-content settings and their own local assets. Use offline play or private friends-only co-op.
 
 ## Repository relationships and development
 
@@ -130,7 +130,7 @@ From this repository:
 powershell -ExecutionPolicy Bypass -File build.ps1 -RoR2Dir "C:\path\to\Risk of Rain 2" -NoInstall
 ```
 
-This builds `pikmin.dll` and `OlimarTest.dll` into `dist/OlimarTest/`, without requiring extracted assets. Without `-NoInstall`, the script also stages the plugin and SharedFiles beneath a workspace `target/BepInEx/plugins/` directory; `-InstallDir` selects the staging root. Copy staged files into the intended game/profile yourself. The default compile path is the workspace's `2026 Mod Stuff/RiskOfRain2_DLC4` copy.
+This builds `pikmin.dll` and `OlimarTest.dll` into `dist/OlimarTest/`. Omit `-NoInstall` to also stage the plugin and SharedFiles beneath a workspace `target/BepInEx/plugins/` directory; `-InstallDir` selects the staging root. Copy staged files into the intended game/profile yourself. The default compile path is the workspace's `2026 Mod Stuff/RiskOfRain2_DLC4` copy.
 
 Example headless checks:
 
@@ -139,9 +139,9 @@ dotnet run --project tests/OnionMenuCheck -c Release
 dotnet run --project tests/SkinUnlockCheck -c Release
 ```
 
-Run native checks from `libpikmin/` with `cargo test --release`. Some boundary checks need the built native library and local assets. Builds and tests cover specific contracts; they do not prove balance, final appearance or in-game behavior. Recent optional enemies/treasures, movement/VR changes and extraction/lobby changes include paths still awaiting manual checks.
+Run native checks from `libpikmin/` with `cargo test --release`. Some boundary checks need the built native library and local assets. Headless checks cover adapter and native API contracts. Manual checks remain for recent optional enemies/treasures, movement/VR changes, extraction/lobby behavior and co-op changes.
 
-Further reading: [native behavior spec](https://github.com/wesjones15/libpikmin/blob/modern/1.5.0/docs/behavior-spec.md), [gameplay notes](DOCS/2026-10-30-gameplay.md), [enemy integration](DOCS/pikmin-enemies.md), and [shared multiplayer architecture](https://github.com/wesjones15/ror2-common/blob/modern/1.5.0/MULTIPLAYER.md). Historical notes can retain old defaults; current source takes precedence.
+Further reading: [native behavior spec](https://github.com/wesjones15/libpikmin/blob/modern/1.5.0/docs/behavior-spec.md), [gameplay notes](DOCS/2026-10-30-gameplay.md), [enemy integration](DOCS/pikmin-enemies.md), and [shared multiplayer architecture](https://github.com/wesjones15/ror2-common/blob/modern/1.5.0/MULTIPLAYER.md). Current defaults are defined in `Plugin.cs`.
 
 ## License and credits
 
