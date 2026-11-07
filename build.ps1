@@ -2,23 +2,24 @@
 # folder name r2modman gives the Thunderstore package).
 # Intro audio is generated on first run under assets/ror2_audio, just like Mario.
 #
-#   powershell -ExecutionPolicy Bypass -File build.ps1 [-RoR2Dir <game to compile against>]
+#   powershell -ExecutionPolicy Bypass -File build.ps1 -RoR2Dir <compilation references>
 #       [-InstallDir <folder to stage under; default ..\target, never the game>] [-NoInstall]
 #
 param(
-    [string]$RoR2Dir = (Join-Path $PSScriptRoot "..\2026 Mod Stuff\RiskOfRain2_DLC4"),
+    [string]$RoR2Dir,
     [string]$InstallDir = "",
     [string]$LibPikmin = (Join-Path $PSScriptRoot "..\libpikmin"),
     [switch]$NoInstall
 )
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot '../ror2-common/build/BuildPaths.ps1')
+$buildPaths = Get-Ror2BuildPaths -ProjectRoot $PSScriptRoot -RoR2Dir $RoR2Dir -InstallDir $InstallDir
+$RoR2Dir = $buildPaths.References
+$InstallDir = $buildPaths.Stage
 if (-not $NoInstall) {
     & (Join-Path $PSScriptRoot '../ror2-common/tests/CheckReleaseBranches.ps1') -HostDir $PSScriptRoot -NativeDir $LibPikmin
 }
 & (Join-Path $PSScriptRoot "../ror2-common/tests/CheckOverlapApi.ps1") -RoR2Dir $RoR2Dir
-if ([string]::IsNullOrWhiteSpace($InstallDir)) {
-    $InstallDir = [System.IO.Path]::GetFullPath((Join-Path $RoR2Dir "..\..\target"))
-}
 
 $cargo = Join-Path $env:USERPROFILE ".cargo\bin\cargo.exe"
 if (-not (Test-Path $cargo)) { $cargo = "cargo" }

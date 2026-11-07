@@ -16,13 +16,15 @@ Source layout, builds and checks for `ror2-olimar`. Run the commands below from 
 
 Build on Windows with PowerShell 5.1, Rust supporting edition 2024, a .NET SDK and local DLC4/BepInEx assemblies. The plugin targets `netstandard2.1`; console checks target .NET 6. Keep the repositories above as siblings: use `modern/1.5.0` for the host, native library, Common and other Rust dependencies, and `main` for `libssbm`.
 
+Set `$referenceDirectory` to the directory containing the RoR2 and BepInEx assemblies you intend to compile against. Pass it explicitly with `-RoR2Dir`; there is no machine-specific default. Staging is resolved relative to the source checkout as workspace `target/`, independently of the reference directory.
+
 From this repository:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File build.ps1 -RoR2Dir "C:\path\to\Risk of Rain 2" -NoInstall
+powershell -ExecutionPolicy Bypass -File build.ps1 -RoR2Dir $referenceDirectory -NoInstall
 ```
 
-This builds `pikmin.dll` and `OlimarTest.dll` into `dist/OlimarTest/`. Omit `-NoInstall` to also stage the plugin and SharedFiles beneath a workspace `target/BepInEx/plugins/` directory; `-InstallDir` selects the staging root. Copy staged files into the intended game/profile yourself. The default compile path is the workspace's `2026 Mod Stuff/RiskOfRain2_DLC4` copy.
+This builds `pikmin.dll` and `OlimarTest.dll` into `dist/OlimarTest/`. Omit `-NoInstall` to also stage the plugin and SharedFiles beneath a workspace `target/BepInEx/plugins/` directory; `-InstallDir` can select a subdirectory within workspace `target/`. Copy staged files into the intended game/profile yourself.
 
 Example headless checks:
 
