@@ -1949,7 +1949,7 @@ namespace OlimarTest
             {
                 if (!warnedAssets && Plugin.AssetsSettled)
                     Plugin.Log.LogWarning("The host is playing Olimar, but this machine has no Pikmin assets yet " +
-                                          "(set Paths.Disc to your own disc): you won't see their Pikmin.");
+                                          "(put your own Pikmin disc in wesleyasaurus-SharedFiles/put_games_here): you won't see their Pikmin.");
                 warnedAssets = true;
                 return;
             }

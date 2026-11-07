@@ -1,4 +1,5 @@
 using System;
+using Ror2Common;
 
 namespace OlimarTest
 {
@@ -13,16 +14,16 @@ namespace OlimarTest
 
         /// Finds the Pikmin 2 disc (`OlimarSkin.FindPikmin2Disc`) and extracts
         /// the enemies' files from it once into `cacheDir` (a few hundred small files, so on the calling thread).
-        public static void Prepare(string configuredDisc, string cacheDir, string here, string searchDirs)
+        public static void Prepare(string cacheDir, string searchDirs)
         {
             try
             {
                 if (Native.pik_p2_enemies_complete(Native.CString(cacheDir)) == 0)
                 {
-                    string disc = OlimarSkin.FindPikmin2Disc(configuredDisc, here, searchDirs);
+                    string disc = OlimarSkin.FindPikmin2Disc(searchDirs);
                     if (string.IsNullOrEmpty(disc))
                     {
-                        Plugin.Log.LogInfo("Pikmin 2 enemies: no Pikmin 2 disc found (set Skins.Pikmin2Disc), so they are not offered");
+                        Plugin.Log.LogInfo("Pikmin 2 enemies: no Pikmin 2 disc found, so they are not offered. " + SharedFiles.MissingDisc("Pikmin 2"));
                         return;
                     }
                     Plugin.Log.LogInfo($"Pikmin 2 enemies: extracting their files from {disc} into {cacheDir}...");

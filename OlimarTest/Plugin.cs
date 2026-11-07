@@ -40,8 +40,6 @@ namespace OlimarTest
 
         internal static ManualLogSource Log;
         internal static string AssetsDir;
-        /// The shared GameCube library (GameCubeLibrary), or null.
-        internal static string LibraryRoot;
         static volatile bool assetsBusy;
         bool musicInitialized;
 
@@ -123,18 +121,6 @@ namespace OlimarTest
             Camera = Config.Bind("Controls", "CameraMode", CameraMode.Orbit,
                 "Orbit: right stick pans, RT + right stick swarms, LB recentres, LT locks, LT + RB cycles targets. Vanilla uses the fixed camera. Both use B to jump and RT + B to whistle.");
 
-            var assets = Config.Bind("Paths", "AssetsDir", "",
-                "libpikmin's assets/ folder (extracted from your own Pikmin disc). Empty: read " +
-                "assets_dir.txt next to the plugin, then $PIKMIN_ASSETS, then assets/ next to the plugin.");
-            var disc = Config.Bind("Paths", "Disc", "",
-                "Your Pikmin (GameCube) disc image (.iso/.gcm/.ciso), used once to build AssetsDir " +
-                "if it's missing. Empty: look in the plugin folder, next to AssetsDir and in the GameCube library.");
-            var library = Config.Bind("Paths", "Library", "",
-                "A folder shared by the Olimar, Mario and Melee plugins: your disc images (any names, in it or its isos/ folder) " +
-                "and assets/Olimar, assets/Mario, assets/Melee for what they extract. Empty: gamecube_library.txt in this plugin's " +
-                "folder or the plugins folder, then $GAMECUBE_LIBRARY. An AssetsDir set above, assets_dir.txt, $PIKMIN_ASSETS " +
-                "or an assets/ folder already beside the plugin still wins; the library's cache is used for a fresh install.");
-            LibraryRoot = GameCubeLibrary.Root(library.Value, here);
             OlimarHeight = Config.Bind("Scale", "OlimarHeight", 0.667f,
                 "Olimar's height as a share of a standard survivor's (Commando's). Pikmin, the " +
                 "Onion and everything else from the sim scale with him. Try 0.75 too.");
@@ -396,9 +382,6 @@ namespace OlimarTest
                 "follow the drawn body (Olimar, Louie, the Pianta or Captain Pikachu) instead of being hidden " +
                 "with Commando. Off: hidden, as before.");
             ItemDisplayRig.Enabled = ItemDisplays.Value;
-            var sunshine = Config.Bind("Skins", "SunshineAssets", "",
-                "The Super Mario Sunshine cache the Pianta skin is drawn from (the Mario plugin's extracted assets folder). " +
-                "Empty: $SMS_ASSETS, then beside this plugin or the Mario plugin's assets_dir.txt. Without it the skin is not offered.");
             PiantaHeightRatio = Config.Bind("Skins", "PiantaHeightRatio", 1.25f,
                 new ConfigDescription("The Pianta's height to the top of his palm, as a multiple of Olimar's. 1.25 keeps him a little " +
                     "taller than Olimar.", new AcceptableValueRange<float>(0.5f, 3f)));
@@ -407,18 +390,11 @@ namespace OlimarTest
                     "1 is blue; 7 is the game's usual first Pianta; -1 also picks that one.", new AcceptableValueRange<int>(-1, 9)));
             LouieHeight = Config.Bind("Skins", "LouieHeight", 1f,
                 new ConfigDescription("Louie's height as a multiple of Olimar's.", new AcceptableValueRange<float>(0.5f, 2f)));
-            var p2disc = Config.Bind("Skins", "Pikmin2Disc", "",
-                "Your Pikmin 2 disc image (.iso/.gcm/.ciso), used once to extract Louie's models and motions. Empty: look in " +
-                "the plugin folder and next to AssetsDir. Without it Louie is not offered.");
             PikachuHeight = Config.Bind("Skins", "PikachuHeight", 1f,
                 new ConfigDescription("Captain Pikachu's height as a multiple of Olimar's.", new AcceptableValueRange<float>(0.5f, 2f)));
             IceClimberHeight = Config.Bind("Skins", "IceClimberHeight", 0.42f,
                 new ConfigDescription("An Ice Climber's height as a multiple of Olimar's (Captain Pikachu's squad).", new AcceptableValueRange<float>(0.2f, 1f)));
-            var meleeCache = Config.Bind("Skins", "MeleeAssets", "",
-                "The Melee plugin's extracted cache, where Captain Pikachu's models live. Empty: $SSBM_ASSETS, then beside this plugin or the Melee plugin's assets_dir.txt.");
-            var meleeDisc = Config.Bind("Skins", "MeleeDisc", "",
-                "Your Melee disc image (GALE01 revision 2, .iso/.gcm/.ciso), used once to add the Ice Climbers models to the Melee cache. Empty: look in the plugin folder and next to AssetsDir.");
-            OlimarSkin.Discover(sunshine.Value, here);
+            OlimarSkin.Discover();
             Log.LogInfo(OlimarSkin.PiantaAvailable ? $"Pianta skin: Sunshine assets at {OlimarSkin.SunshineDir}"
                 : "Pianta skin: no Sunshine assets found, so it is not offered");
             SnapshotHz = Config.Bind("Net", "SnapshotHz", 10f,
@@ -456,16 +432,16 @@ namespace OlimarTest
                 return;
             }
             nativeLoaded = true;
-            AssetsDir = GameCubeLibrary.ResolveAssets(assets.Value, here, "PIKMIN_ASSETS", LibraryRoot, GameCubeLibrary.Olimar, out string assetsFrom);
+            AssetsDir = SharedFiles.Assets(SharedFiles.Pikmin);
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
-                        $"assets {AssetsDir} ({assetsFrom}), controls {Scheme}" + (LibraryRoot != null ? $", GameCube library {LibraryRoot}" : ""));
-            PrepareAssets(disc.Value, here);
-            // Where the other discs are looked for besides this plugin's folder: next to AssetsDir and the library.
-            string discDirs = GameCubeLibrary.SearchList(LibraryRoot, Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here);
-            OlimarSkin.PrepareLouie(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, discDirs);
-            P2Enemies.Prepare(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, discDirs);
-            ShipRepairSession.PrepareTreasures(p2disc.Value, Path.Combine(AssetsDir, "p2"), here, discDirs);
-            OlimarSkin.PreparePikachu(meleeCache.Value, meleeDisc.Value, here, discDirs);
+                        $"assets {AssetsDir}, controls {Scheme}");
+            PrepareAssets();
+            // Every disc is looked for in SharedFiles' put_games_here/ only.
+            string discDirs = SharedFiles.SearchList();
+            OlimarSkin.PrepareLouie(Path.Combine(AssetsDir, "p2"), discDirs);
+            P2Enemies.Prepare(Path.Combine(AssetsDir, "p2"), discDirs);
+            ShipRepairSession.PrepareTreasures(Path.Combine(AssetsDir, "p2"), discDirs);
+            OlimarSkin.PreparePikachu();
             BakeVrArms();
             PikminDamageNumbers.Install(gameObject, Config);
             PikminHealthGauges.Install(gameObject, Config);
@@ -504,7 +480,7 @@ namespace OlimarTest
 
         // First run: build the assets folder from the user's disc on a worker thread (the sim
         // waits for it). Nothing from the disc ships with the plugin.
-        static void PrepareAssets(string configuredDisc, string here)
+        static void PrepareAssets()
         {
             bool ready = Native.pik_assets_complete(Native.CString(AssetsDir)) != 0;
             string audio = Path.Combine(AssetsDir, "ror2_audio");
@@ -515,25 +491,24 @@ namespace OlimarTest
             bool needTekis = ready && (!File.Exists(Path.Combine(AssetsDir, "tekis", ".all"))
                 || !File.Exists(Path.Combine(AssetsDir, "cinemas", "demo74", "navi.anm")));
             if (ready && !needIntro && !needTekis) return;
-            string disc = configuredDisc?.Trim();
-            if ((!ready || needTekis) && string.IsNullOrEmpty(disc))
+            string disc = null;
+            if (!ready || needTekis)
             {
-                string parent = Path.GetDirectoryName(Path.GetFullPath(AssetsDir)) ?? here;
                 var found = new byte[1024];
-                if (Native.pik_find_disc(Native.CString(GameCubeLibrary.SearchList(LibraryRoot, here, parent)), found, (uint)found.Length) != 0)
+                if (Native.pik_find_disc(Native.CString(SharedFiles.SearchList()), found, (uint)found.Length) != 0)
                     disc = Native.Utf8(found);
             }
             if (needTekis && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))
             {
                 Log.LogWarning("Pikmin's other enemies need their files from your disc, and none was found; only the Bulborbs will spawn. " +
-                               $"Set Paths.Disc in BepInEx/config/{Guid}.cfg to your Pikmin disc.");
+                               SharedFiles.MissingDisc("Pikmin"));
                 needTekis = false;
                 if (!needIntro) return;
             }
             if (!ready && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))
             {
                 Log.LogError($"No Pikmin assets at '{AssetsDir}' and no disc image to build them from. " +
-                             $"Set Paths.Disc in BepInEx/config/{Guid}.cfg to your own Pikmin disc. " +
+                             SharedFiles.MissingDisc("Pikmin") + " " +
                              "Until then the sim runs on code defaults, which differ from the game's tuning.");
                 return;
             }

@@ -38,18 +38,20 @@ $legacyIntro = Join-Path $dist "spawn.wav"
 if (Test-Path -LiteralPath $legacyIntro) { Remove-Item -LiteralPath $legacyIntro }
 Copy-Item (Join-Path $PSScriptRoot "OlimarTest\bin\Release\netstandard2.1\OlimarTest.dll") $dist -Force
 Copy-Item (Join-Path $LibPikmin "target\release\pikmin.dll") $dist -Force
-# Where the assets extracted from your own disc live (libpikmin/assets). If it isn't there
-# yet the plugin builds it on first run from the disc set in its config.
-$assets = [System.IO.Path]::GetFullPath((Join-Path $LibPikmin "assets"))
-[System.IO.File]::WriteAllText((Join-Path $dist "assets_dir.txt"), $assets)
-Write-Host "built $dist (assets: $assets)"
+# Discs and extracted files live in the wesleyasaurus-SharedFiles package beside the plugins (ror2-common
+# SharedFiles); nothing path-related is staged here.
+Remove-Item (Join-Path $dist "assets_dir.txt") -ErrorAction SilentlyContinue
+Write-Host "built $dist"
 
 if (-not $NoInstall) {
     $plugins = Join-Path $InstallDir "BepInEx\plugins\OlimarTest"
     New-Item -ItemType Directory -Force $plugins | Out-Null
-    foreach ($file in @("OlimarTest.dll", "pikmin.dll", "assets_dir.txt")) {
+    foreach ($file in @("OlimarTest.dll", "pikmin.dll")) {
         Copy-Item -LiteralPath (Join-Path $dist $file) -Destination $plugins -Force
     }
+    # Older builds staged a path pointer here; it is no longer read.
+    Remove-Item (Join-Path $plugins "assets_dir.txt") -ErrorAction SilentlyContinue
+    & (Join-Path $PSScriptRoot '../ror2-common/sharedfiles/Stage.ps1') -PluginsDir (Split-Path $plugins)
     $legacyIntro = Join-Path $plugins "spawn.wav"
     if (Test-Path -LiteralPath $legacyIntro) { Remove-Item -LiteralPath $legacyIntro }
     Write-Host "installed into $plugins"

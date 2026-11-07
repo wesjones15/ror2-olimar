@@ -62,34 +62,12 @@ namespace OlimarTest
             return true;
         }
 
-        /// Resolves the Sunshine cache (the folder the Mario plugin extracted from the user's own
-        /// Sunshine disc). Empty `configured`: $SMS_ASSETS, then beside this plugin or the Mario
-        /// plugin's pointer file.
-        public static void Discover(string configured, string here)
+        /// SharedFiles' Sunshine folder (filled by the Mario plugin from the player's own Sunshine disc); the Pianta
+        /// is offered when his files are there.
+        public static void Discover()
         {
-            sunshineDir = Resolve(configured, here);
+            sunshineDir = SharedFiles.Assets(SharedFiles.Sunshine);
             ready = Complete(sunshineDir);
-        }
-
-        static string Resolve(string configured, string here)
-        {
-            if (!string.IsNullOrWhiteSpace(configured)) return configured.Trim();
-            string env = Environment.GetEnvironmentVariable("SMS_ASSETS");
-            if (!string.IsNullOrWhiteSpace(env) && Complete(env.Trim())) return env.Trim();
-            foreach (var rel in new[] { "../MarioTest/assets", "assets", "MarioTest/assets" })
-            {
-                var p = Path.GetFullPath(Path.Combine(here, rel));
-                if (Complete(p)) return p;
-            }
-            var pointer = Path.GetFullPath(Path.Combine(here, "../MarioTest/assets_dir.txt"));
-            if (File.Exists(pointer))
-            {
-                var target = File.ReadAllText(pointer).Trim();
-                if (Complete(target)) return target;
-            }
-            // The Mario plugin's cache in the shared GameCube library.
-            var shared = GameCubeLibrary.AssetsFor(Plugin.LibraryRoot, GameCubeLibrary.Mario);
-            return Complete(shared) ? shared : null;
         }
 
         public static OlimarSkinSpec Spec(uint id) => id < Specs.Length && Specs[id] != null ? Specs[id] : Specs[Olimar];
@@ -133,41 +111,36 @@ namespace OlimarTest
         /// Whether Captain Pikachu can be drawn (Melee's Pikachu and Ice Climbers models are in the Melee cache).
         public static bool PikachuAvailable => pikachuReady;
 
-        /// Finds the Melee cache the Melee plugin keeps (`configured`, $SSBM_ASSETS, `../Melee/assets`, its
-        /// `assets_dir.txt`) and, if it lacks Pikachu's and the Ice Climbers' models, extracts them once from the
-        /// user's Melee disc (`configuredDisc`, or one beside this plugin, the Melee plugin, its cache or the Pikmin assets). Without either
-        /// the skin is not offered.
-        public static void PreparePikachu(string configured, string configuredDisc, string here, string searchDirs)
+        /// SharedFiles' Melee folder; if it lacks Pikachu's and the Ice Climbers' models, extracts them once from a
+        /// Melee disc in put_games_here (the Melee plugin isn't needed). Without either the skin is not offered.
+        public static void PreparePikachu()
         {
             try
             {
-                meleeDir = ResolveMelee(configured, here);
-                if (meleeDir == null)
-                {
-                    Plugin.Log.LogInfo("Captain Pikachu: no Melee cache found (set Skins.MeleeAssets), so he is not offered");
-                    return;
-                }
+                meleeDir = SharedFiles.Assets(SharedFiles.Melee);
                 if (Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) == 0)
                 {
-                    string disc = configuredDisc?.Trim();
-                    if (string.IsNullOrEmpty(disc) || !File.Exists(disc))
+                    using (SharedFiles.Lock(SharedFiles.Melee))
                     {
-                        var found = new byte[1024];
-                        // Beside this plugin, beside the Melee plugin (where its disc usually is) and its cache, and the Pikmin assets.
-                        string where = string.Join(";", new[] { here, Path.GetFullPath(Path.Combine(here, "../Melee")), meleeDir, searchDirs });
-                        disc = Native.pik_ssbm_find_disc(Native.CString(where), found, (uint)found.Length) != 0
-                            ? Native.Utf8(found) : null;
-                    }
-                    if (string.IsNullOrEmpty(disc))
-                    {
-                        Plugin.Log.LogInfo("Captain Pikachu: the Ice Climbers models are not extracted and no Melee disc was found (set Skins.MeleeDisc), so he is not offered");
-                        return;
-                    }
-                    Plugin.Log.LogInfo($"Captain Pikachu: extracting the Ice Climbers models from {disc} into {meleeDir}...");
-                    if (Native.pik_ssbm_extract_ice_climbers(Native.CString(disc), Native.CString(meleeDir)) != 0)
-                    {
-                        Plugin.Log.LogWarning("Captain Pikachu: extraction from the Melee disc failed (it must be GALE01 revision 2), so he is not offered");
-                        return;
+                        // Another plugin may have just extracted them.
+                        if (Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) == 0)
+                        {
+                            var found = new byte[1024];
+                            string disc = Native.pik_ssbm_find_disc(Native.CString(SharedFiles.SearchList()), found, (uint)found.Length) != 0
+                                ? Native.Utf8(found) : null;
+                            if (string.IsNullOrEmpty(disc))
+                            {
+                                Plugin.Log.LogInfo("Captain Pikachu: no Melee disc found, so he is not offered. " +
+                                                   SharedFiles.MissingDisc("Super Smash Bros. Melee (USA, revision 1.02)"));
+                                return;
+                            }
+                            Plugin.Log.LogInfo($"Captain Pikachu: extracting the Ice Climbers models from {disc} into {meleeDir}...");
+                            if (Native.pik_ssbm_extract_ice_climbers(Native.CString(disc), Native.CString(meleeDir)) != 0)
+                            {
+                                Plugin.Log.LogWarning("Captain Pikachu: extraction from the Melee disc failed (it must be GALE01 revision 2), so he is not offered");
+                                return;
+                            }
+                        }
                     }
                 }
                 pikachuReady = Native.pik_ssbm_ice_climbers_complete(Native.CString(meleeDir)) != 0;
@@ -176,27 +149,6 @@ namespace OlimarTest
             {
                 Plugin.Log.LogWarning($"Captain Pikachu: {e.Message}");
             }
-        }
-
-        static string ResolveMelee(string configured, string here)
-        {
-            if (!string.IsNullOrWhiteSpace(configured)) return configured.Trim();
-            string env = Environment.GetEnvironmentVariable("SSBM_ASSETS");
-            if (!string.IsNullOrWhiteSpace(env) && Directory.Exists(env.Trim())) return env.Trim();
-            foreach (var rel in new[] { "../Melee/assets", "assets", "Melee/assets" })
-            {
-                var p = Path.GetFullPath(Path.Combine(here, rel));
-                if (File.Exists(Path.Combine(p, "PlCo.dat"))) return p;
-            }
-            var pointer = Path.GetFullPath(Path.Combine(here, "../Melee/assets_dir.txt"));
-            if (File.Exists(pointer))
-            {
-                var target = File.ReadAllText(pointer).Trim();
-                if (!string.IsNullOrWhiteSpace(target) && Directory.Exists(target)) return target;
-            }
-            // The Melee plugin's cache in the shared GameCube library.
-            var shared = GameCubeLibrary.AssetsFor(Plugin.LibraryRoot, GameCubeLibrary.Melee);
-            return shared != null && File.Exists(Path.Combine(shared, "PlCo.dat")) ? shared : null;
         }
 
         /// Loads Pikachu and the Ice Climbers into a new view (before the model table is read); false when unavailable.
@@ -214,32 +166,28 @@ namespace OlimarTest
         /// Whether Louie can be drawn (Pikmin 2's player files are extracted).
         public static bool LouieAvailable => louieReady;
 
-        /// The Pikmin 2 disc for Louie, the P2 enemies and the treasures: the config's image path when it exists, else
-        /// the first one `pik_p2_find_disc` finds beside this plugin or in `searchDirs` (the GameCube library's
-        /// search list, `;`-separated). Null when there is none.
-        internal static string FindPikmin2Disc(string configuredDisc, string here, string searchDirs)
+        /// The Pikmin 2 disc for Louie, the P2 enemies and the treasures: the first one `pik_p2_find_disc` finds in
+        /// `searchDirs` (SharedFiles' disc folders, `;`-separated). Null when there is none.
+        internal static string FindPikmin2Disc(string searchDirs)
         {
-            string disc = configuredDisc?.Trim();
-            if (!string.IsNullOrEmpty(disc) && File.Exists(disc)) return disc;
             var found = new byte[1024];
-            return Native.pik_p2_find_disc(Native.CString(here + ";" + searchDirs), found, (uint)found.Length) != 0
+            return Native.pik_p2_find_disc(Native.CString(searchDirs), found, (uint)found.Length) != 0
                 ? Native.Utf8(found) : null;
         }
 
         /// Finds the Pikmin 2 disc and extracts Louie's files from it once, into `cacheDir` (a few small
-        /// archives, so on the calling thread). Without a disc Louie is simply not offered. `configuredDisc`
-        /// is the config's image path; see `FindPikmin2Disc` for where else it looks.
-        public static void PrepareLouie(string configuredDisc, string cacheDir, string here, string searchDirs)
+        /// archives, so on the calling thread). Without a disc Louie is simply not offered.
+        public static void PrepareLouie(string cacheDir, string searchDirs)
         {
             louieDir = cacheDir;
             try
             {
                 if (Native.pik_p2_complete(Native.CString(cacheDir)) == 0)
                 {
-                    string disc = FindPikmin2Disc(configuredDisc, here, searchDirs);
+                    string disc = FindPikmin2Disc(searchDirs);
                     if (string.IsNullOrEmpty(disc))
                     {
-                        Plugin.Log.LogInfo("Louie: no Pikmin 2 disc found (set Skins.Pikmin2Disc), so he is not offered");
+                        Plugin.Log.LogInfo("Louie: no Pikmin 2 disc found, so he is not offered. " + SharedFiles.MissingDisc("Pikmin 2"));
                         return;
                     }
                     Plugin.Log.LogInfo($"Louie: extracting Pikmin 2's player files from {disc} into {cacheDir}...");
