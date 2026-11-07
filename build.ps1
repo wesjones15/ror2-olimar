@@ -1,8 +1,9 @@
-# Builds libpikmin's DLL and OlimarTest, staging both with an extracted-assets pointer.
+# Builds libpikmin's DLL and OlimarTest, staging both under target/BepInEx/plugins/wesleyasaurus-Olimar/ (the
+# folder name r2modman gives the Thunderstore package).
 # Intro audio is generated on first run under assets/ror2_audio, just like Mario.
 #
 #   powershell -ExecutionPolicy Bypass -File build.ps1 [-RoR2Dir <game to compile against>]
-#       [-InstallDir <game to install into>] [-NoInstall]
+#       [-InstallDir <folder to stage under; default ..\target, never the game>] [-NoInstall]
 #
 param(
     [string]$RoR2Dir = (Join-Path $PSScriptRoot "..\2026 Mod Stuff\RiskOfRain2_DLC4"),
@@ -44,7 +45,10 @@ Remove-Item (Join-Path $dist "assets_dir.txt") -ErrorAction SilentlyContinue
 Write-Host "built $dist"
 
 if (-not $NoInstall) {
-    $plugins = Join-Path $InstallDir "BepInEx\plugins\OlimarTest"
+    # The folder r2modman names the Thunderstore package; the old staged name is removed so the plugin isn't loaded twice.
+    $plugins = Join-Path $InstallDir "BepInEx\plugins\wesleyasaurus-Olimar"
+    $legacy = Join-Path $InstallDir "BepInEx\plugins\OlimarTest"
+    if (Test-Path $legacy) { Remove-Item $legacy -Recurse -Force; Write-Host "removed the old staged folder $legacy" }
     New-Item -ItemType Directory -Force $plugins | Out-Null
     foreach ($file in @("OlimarTest.dll", "pikmin.dll")) {
         Copy-Item -LiteralPath (Join-Path $dist $file) -Destination $plugins -Force

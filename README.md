@@ -33,7 +33,7 @@ Mario's TOO BAD onset: more than 20m below last safe ground with no floor within
 2000m, or a valid stage return zone. Lower platforms remain valid landing targets.
 Olimar and his squad return together; his Dolphin/Onion arrival stays unchanged.
 Build/API and common detector validation pass; in-game validation is pending.
-All future deploys stage under ../target/BepInEx/plugins/OlimarTest/; the user
+All future deploys stage under ../target/BepInEx/plugins/wesleyasaurus-Olimar/; the user
 copies files to their game installation. Older direct-install examples below
 are historical.
 
