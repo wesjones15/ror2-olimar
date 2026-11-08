@@ -98,6 +98,11 @@ Olimar instead. Without either game, both use shapes. Enemy bodies have generic
 fallbacks too. The stand-in Onion retracts its legs in flight; the generic captain
 rises into it, hides during the ride and reappears when dropped.
 
+The stand-in cursor is a pink circle. Free aiming keeps it flat on the ground;
+lock-on uses the textured cursor's native placement, upright facing and spin.
+Numbered pellets use the same color table as stand-in Pikmin and the simulation's
+radius and scale, including shrinking during absorption.
+
 Shared crew parts count for everyone in co-op; competitive progress is per player. Unlocks can be earned before the extra assets are installed. See the [Pianta](DOCS/pianta-skin.md), [captain skin](DOCS/pikachu-skin.md) and [Louie](DOCS/louie-skin.md) notes for implementation details. Use the setup below for current asset paths.
 
 ## First run and configuration

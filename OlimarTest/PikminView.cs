@@ -77,7 +77,7 @@ namespace OlimarTest
             new Color(0.85f, 0.75f, 0.5f), // bud
             new Color(1f, 1f, 1f),         // flower
         };
-        static readonly Color PelletColour = new Color(0.45f, 0.35f, 0.3f);
+        static readonly Color PelletColour = new Color(0.9f, 0.9f, 0.9f);
         static readonly Color OnionWhite = new Color(0.9f, 0.9f, 0.85f);
 
         // Onion leg ends relative to its position, in sim units (libpikmin onion_menu
@@ -97,7 +97,7 @@ namespace OlimarTest
         readonly List<GameObject> pellets = new List<GameObject>();
         readonly List<GameObject> onions = new List<GameObject>();
         readonly List<GameObject> sprouts = new List<GameObject>();
-        readonly Dictionary<int, LineRenderer> cursors = new Dictionary<int, LineRenderer>();
+        readonly Dictionary<int, MarkerQuad> cursors = new Dictionary<int, MarkerQuad>();
         readonly Dictionary<int, LineRenderer> whistles = new Dictionary<int, LineRenderer>();
         Transform root;
         PrimitiveShapes captainShapes;
@@ -139,6 +139,7 @@ namespace OlimarTest
         void DisposeModels()
         {
             captainShapes?.Hide();
+            foreach (var cursor in cursors.Values) cursor.Hide();
             healingAudio.Clear();
             frozenCaptains.Clear();
             if (models != null)
@@ -155,6 +156,8 @@ namespace OlimarTest
             DisposeModels();
             bulbShapes?.Dispose();
             captainShapes?.Dispose();
+            foreach (var cursor in cursors.Values) cursor.Dispose();
+            cursors.Clear();
             ReleaseCarryHud();
         }
 
@@ -169,6 +172,7 @@ namespace OlimarTest
             pellets.Clear();
             onions.Clear();
             sprouts.Clear();
+            foreach (var cursor in cursors.Values) cursor.Dispose();
             cursors.Clear();
             whistles.Clear();
         }
@@ -431,7 +435,7 @@ namespace OlimarTest
             for (int i = 0; i < Mathf.Max(pellets.Count, world.PelletCount); i++)
             {
                 while (pellets.Count <= i) pellets.Add(null);
-                bool show = i < world.PelletCount && world.Pellets[i].state != 3 && !world.Corpses.Has(world.Pellets[i].id);
+                bool show = i < world.PelletCount && world.Pellets[i].state != 3 && world.Pellets[i].scale > 0f && !world.Corpses.Has(world.Pellets[i].id);
                 if (!show)
                 {
                     if (pellets[i]) pellets[i].SetActive(false);
@@ -441,11 +445,11 @@ namespace OlimarTest
                 if (!pellets[i])
                 {
                     pellets[i] = Prim(PrimitiveType.Cylinder, root);
-                    pellets[i].GetComponent<Renderer>().sharedMaterial = Mat(PelletColour);
                 }
                 var go = pellets[i];
+                go.GetComponent<Renderer>().sharedMaterial = Mat(p.color < 3 ? PikiColours[p.color] : PelletColour);
                 go.SetActive(true);
-                float r = p.radius * UnityHost.Scale * Mathf.Max(0.05f, p.scale);
+                float r = p.radius * UnityHost.Scale * p.scale;
                 float h = r * 0.35f;
                 go.transform.position = UnityHost.ToUnity(p.pos) + Vector3.up * h;
                 go.transform.rotation = Quaternion.Euler(0f, p.yaw * Mathf.Rad2Deg, 0f);
@@ -559,6 +563,7 @@ namespace OlimarTest
         {
             if (captainShapes == null) captainShapes = new PrimitiveShapes("Olimar fallback captains");
             captainShapes.Begin();
+            foreach (var cursor in cursors.Values) cursor.Hide();
             var seen = new HashSet<int>();
             foreach (var d in OlimarDriver.All)
             {
@@ -579,17 +584,30 @@ namespace OlimarTest
                     && OnionStandInPolicy.CaptainVisible(riding, boardAge)
                     && !OlimarVr.HidesCaptain(d))
                     captainShapes.Body(at, d.Body.transform.rotation, OlimarSkin.StandInColor(OlimarSkin.Selected(d.Body)));
-                if (cursorRings)
+                if (cursorRings && !riding)
                 {
-                    var cursor = Line(cursors, d.Captain, new Color(1f, 0.4f, 0.1f), 0.06f);
-                    Ring(cursor, UnityHost.ToUnity(d.State.cursor_world), 0.35f);
+                    if (!cursors.TryGetValue(d.ViewCaptain, out var cursor)) cursors[d.ViewCaptain] = cursor = new MarkerQuad("Olimar stand-in cursor");
+                    var center = UnityHost.ToUnity(d.State.cursor_world) + Vector3.up * UnityHost.Scale;
+                    var rotation = Quaternion.Euler(90f, 0f, 0f);
+                    // The native view still supplies its asset-independent pose,
+                    // including lock surface placement, facing and spin (XZ plane).
+                    bool posed = false;
+                    if (models != null && world.Healthy) for (int i = 0; i < models.DrawCount; i++) {
+                        var draw = models.DrawAt(i);
+                        if (draw.kind != Native.KindCursor || draw.id != (uint)d.ViewCaptain) continue;
+                        center = new Vector3(draw.pos.x, draw.pos.y, draw.pos.z) * UnityHost.Scale;
+                        rotation = new Quaternion(draw.rot_x, draw.rot_y, draw.rot_z, draw.rot_w) * Quaternion.Euler(90f, 0f, 0f);
+                        posed = true; break;
+                    }
+                    if (!posed && d.LockedOn && d.Body)
+                        cursor.ShowCircle(center, d.Body.corePosition, .7f, Time.time * 2.5f * Mathf.Rad2Deg, new Color(1f, .35f, .7f));
+                    else cursor.ShowCircle(center, rotation, .7f, new Color(1f, .35f, .7f));
                 }
                 var whistle = Line(whistles, d.Captain, new Color(1f, 0.9f, 0.2f), 0.05f);
                 bool on = d.Whistling && d.State.whistle_radius > 0f;
                 whistle.enabled = on;
                 if (on) Ring(whistle, UnityHost.ToUnity(d.State.cursor_world), d.State.whistle_radius * UnityHost.Scale);
             }
-            foreach (var kv in cursors) kv.Value.enabled = cursorRings && seen.Contains(kv.Key);
             foreach (var kv in whistles) if (!seen.Contains(kv.Key)) kv.Value.enabled = false;
             captainShapes.End();
         }
