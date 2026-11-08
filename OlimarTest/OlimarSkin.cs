@@ -175,7 +175,16 @@ namespace OlimarTest
         }
 
         /// Whether Louie can be drawn (Pikmin 2's player files are extracted).
-        public static bool LouieAvailable => louieReady;
+        public static bool LouieAvailable => true; // Gameplay and the blue stand-in need no Pikmin 2 files.
+        public static bool UsesStandIn(uint skin) => !Plugin.AssetsReady || skin == Louie && !louieReady;
+        public static Color StandInColor(uint skin) => skin == Louie ? Color.blue : new Color(0.95f, 0.75f, 0.2f);
+        public static string OverviewNote()
+        {
+            var games = new List<string>();
+            if (!Plugin.AssetsReady) games.Add("Pikmin");
+            if (Selected() == Louie && !louieReady) games.Add("Pikmin 2");
+            return AssetOverview.Missing(games.ToArray());
+        }
 
         /// The Pikmin 2 disc for Louie, the P2 enemies and the treasures: the first one `pik_p2_find_disc` finds in
         /// `searchDirs` (SharedFiles' disc folders, `;`-separated). Null when there is none.
@@ -187,7 +196,7 @@ namespace OlimarTest
         }
 
         /// Finds the Pikmin 2 disc and extracts Louie's files from it once, into `cacheDir` (a few small
-        /// archives, so on the calling thread). Without a disc Louie is simply not offered.
+        /// archives, so on the calling thread). Without a disc Louie uses a blue stand-in.
         public static void PrepareLouie(string cacheDir, string searchDirs)
         {
             louieDir = cacheDir;
@@ -202,7 +211,7 @@ namespace OlimarTest
                         // Files from an older extractor are still used as they are.
                         if (!complete)
                         {
-                            Plugin.Log.LogInfo("Louie: no Pikmin 2 disc found, so he is not offered. " + SharedFiles.MissingDisc("Pikmin 2"));
+                            Plugin.Log.LogInfo("Louie: no Pikmin 2 disc found; using a blue stand-in. " + SharedFiles.MissingDisc("Pikmin 2"));
                             return;
                         }
                     }
@@ -216,7 +225,7 @@ namespace OlimarTest
                     }
                 }
                 louieReady = Native.pik_p2_complete(Native.CString(cacheDir)) != 0;
-                if (!louieReady) Plugin.Log.LogWarning("Louie: Pikmin 2's player files aren't complete, so he is not offered");
+                if (!louieReady) Plugin.Log.LogInfo("Louie: Pikmin 2's player files aren't complete; using a blue stand-in");
             }
             catch (Exception e)
             {
@@ -282,10 +291,10 @@ namespace OlimarTest
             foreach (var spec in Specs)
             {
                 if (spec == null) continue;
-                spec.Registered = spec.Id == Olimar || (spec.Id == Pianta && ready) || (spec.Id == Louie && louieReady) || (spec.Id == Pikachu && pikachuReady);
+                spec.Registered = spec.Id == Olimar || spec.Id == Louie || (spec.Id == Pianta && ready) || (spec.Id == Pikachu && pikachuReady);
                 if (!spec.Registered) continue;
                 spec.Def = Def(spec.Name, spec.Token, model, character,
-                    Icon(spec.Id == Olimar ? new Color(0.95f, 0.75f, 0.2f) : spec.Id == Louie ? new Color(0.2f, 0.7f, 0.3f) : spec.Id == Pikachu ? new Color(1f, 0.85f, 0.1f) : new Color(0.3f, 0.7f, 0.3f)));
+                    Icon(spec.Id == Olimar || spec.Id == Louie ? StandInColor(spec.Id) : spec.Id == Pikachu ? new Color(1f, 0.85f, 0.1f) : new Color(0.3f, 0.7f, 0.3f)));
                 spec.Def.unlockableDef = OlimarSkinUnlocks.For(spec.Id);
                 loadout.Add(spec);
                 defs.Add(spec.Def);

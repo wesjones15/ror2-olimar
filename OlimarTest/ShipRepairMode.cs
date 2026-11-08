@@ -196,10 +196,10 @@ namespace OlimarTest
                 var sim = Native.pik_sim_new(Native.CString(Plugin.AssetsDir), 1);
                 try
                 {
-                    if (sim == IntPtr.Zero) assetError = "Ship Repair could not load the disc tuning.";
+                    if (sim == IntPtr.Zero) assetError = "Ship Repair could not start its simulation.";
                     else for (uint part = 0; part < 30; part++)
                         if (Native.pik_sim_ship_part_weight(sim, part) == 0 || Native.pik_sim_ship_part_weight(sim, part) > 100)
-                        { assetError = "Ship Repair needs all 30 part models and carry configs. Rebuild the asset cache; missing part " + part; break; }
+                        { assetError = "Ship Repair could not create objective " + part; break; }
                 }
                 finally { if (sim != IntPtr.Zero) Native.pik_sim_free(sim); }
                 error = assetError;
@@ -248,7 +248,7 @@ namespace OlimarTest
         internal static string LobbyError()
         {
             string error = assetError;
-            if (!Plugin.AssetsReady) error = "Ship Repair needs your extracted Pikmin disc assets. Wait for extraction to finish.";
+            if (!Plugin.AssetsSettled) error = "Ship Repair is waiting for initialization to finish.";
             else if (NetworkUser.readOnlyInstancesList.Any(u => u.isParticipating &&
                 BodyCatalog.GetBodyPrefab(u.bodyIndexPreference)?.GetComponent<OlimarDriver>() == null && !ShipRepairGuests.IsGuestUser(u)))
                 error = ShipRepairGuests.AnyGuests ? "Ship Repair requires every player to choose Olimar or Mario." : "Ship Repair requires every player to choose Olimar.";

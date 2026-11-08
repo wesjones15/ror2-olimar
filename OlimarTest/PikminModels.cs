@@ -116,6 +116,8 @@ namespace OlimarTest
         {
             if (view != IntPtr.Zero && (hasPianta || hasLouie || hasPikachu)) Native.pik_view_set_captain_skin(view, captain, (byte)skin);
         }
+        public bool HasSkin(uint skin) => skin == OlimarSkin.Olimar || skin == OlimarSkin.Louie && hasLouie
+            || skin == OlimarSkin.Pianta && hasPianta || skin == OlimarSkin.Pikachu && hasPikachu;
 
         /// The ship of Onion `onion` is Louie's Hocotate Ship (`on`) or the Dolphin. Louie's files load with him.
         public void SetShipHocotate(uint onion, bool on)

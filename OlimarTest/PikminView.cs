@@ -306,7 +306,7 @@ namespace OlimarTest
             // A pellet with its enemy's body is drawn as the body.
             models.Update(world.DataHandle, ref frame, UnityHost.Scale, d =>
                 d.kind == Native.KindVrArm && !(VrCharacter.ArmSide(d) is int s && s >= 0 && vrArmAt[s].HasValue) ||
-                (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id) || (int)d.id == vrCaptain
+                (d.kind == Native.KindCaptain ? world.CaptainHidden(d.id) || (int)d.id == vrCaptain || StandInCaptain(d.id)
                     : (d.kind == Native.KindCursor || d.kind == Native.KindMarker) && (world.CaptainArriving(d.id) || world.Riding((int)d.id))) ||
                 d.kind == Native.KindOnion && hideRide && RideOnion(d, ride) ||
                 d.kind == Native.KindPellet && TekiCorpses.Has(d.id) ||
@@ -338,7 +338,7 @@ namespace OlimarTest
                     d.PoseItems(models.ViewHandle, feet, turn, UnityHost.Scale);
                     if (user != null && d.Body == user.cachedBody) OlimarVr.FollowHead(d, models.ViewHandle, feet, turn);
                 }
-                d.HideBody(d.Arriving || drawn);
+                d.HideBody(d.Arriving || drawn || StandInCaptain((uint)d.ViewCaptain));
             }
         }
 
@@ -524,6 +524,13 @@ namespace OlimarTest
             }
         }
 
+        bool StandInCaptain(uint captain)
+        {
+            foreach (var d in OlimarDriver.All)
+                if (d.ViewCaptain == (int)captain) return models == null || !models.HasSkin(OlimarSkin.Selected(d.Body));
+            return false;
+        }
+
         void DrawCaptains(bool cursorRings)
         {
             if (captainShapes == null) captainShapes = new PrimitiveShapes("Olimar fallback captains");
@@ -533,8 +540,10 @@ namespace OlimarTest
             {
                 if (!d.HasState || d.Captain < 0 || !d.Active) continue;
                 seen.Add(d.Captain);
-                if (cursorRings && d.Body && !d.Body.currentVehicle)
-                    captainShapes.Body(d.Body.footPosition, d.Body.transform.rotation, new Color(0.95f, 0.75f, 0.2f));
+                if ((cursorRings || StandInCaptain((uint)d.ViewCaptain)) && d.Body
+                    && !d.Body.currentVehicle && !d.Arriving && !world.CaptainHidden((uint)d.ViewCaptain)
+                    && !OlimarVr.HidesCaptain(d))
+                    captainShapes.Body(d.Body.footPosition, d.Body.transform.rotation, OlimarSkin.StandInColor(OlimarSkin.Selected(d.Body)));
                 if (cursorRings)
                 {
                     var cursor = Line(cursors, d.Captain, new Color(1f, 0.4f, 0.1f), 0.06f);

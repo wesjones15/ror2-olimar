@@ -161,7 +161,7 @@ namespace OlimarTest
             StartBlue = Config.Bind("Pikmin", "StartBlue", 5, "Blue Pikmin at the start of a run.");
             StartPurple = Config.Bind("Pikmin", "StartPurple", 3,
                 "Purple Pikmin in Louie's squad at the start of a run (Pikmin 2: heavy hitters that count as ten carriers). " +
-                "Only Louie starts with them, and only when Pikmin 2's files are there.");
+                "Only Louie starts with them; without Pikmin 2's files they use colored stand-ins.");
             StartWhite = Config.Bind("Pikmin", "StartWhite", 5,
                 "White Pikmin in Louie's squad at the start of a run (Pikmin 2: fast, poison their eaters).");
             PoundGroundSeconds = Config.Bind("Pikmin", "PoundGroundSeconds", 4f,
@@ -613,14 +613,14 @@ namespace OlimarTest
             lang.SetStringByToken("OLIMARTEST_BODY_NAME", "Olimar");
             OlimarSkin.Tokens(lang);
             lang.SetStringByToken("OLIMARTEST_BODY_SUBTITLE", "Captain of the S.S. Dolphin");
-            lang.SetStringByToken("OLIMARTEST_BODY_DESCRIPTION",
+            AssetOverview.Set(lang, "OlimarTestBody", "OLIMARTEST_BODY_DESCRIPTION",
                 "Captain Olimar's ship has crashed on a strange planet, and his only help is a swarm of Pikmin: loyal little " +
                 "creatures that follow his whistle, fight at his side, and carry whatever he defeats back to the Onion to " +
                 "grow into more of themselves.\n\n" +
                 "< ! > Lead a squad of Red, Yellow and Blue Pikmin.\n\n" +
                 "< ! > Throw Pikmin onto enemies to latch on and fight, or whistle them back to safety.\n\n" +
                 "< ! > Defeated enemies are carried to the Onion, which turns them into new Pikmin.\n\n" +
-                "< ! > Sprouts grow from leaf to bud to flower, ready to be plucked and join the squad.");
+                "< ! > Sprouts grow from leaf to bud to flower, ready to be plucked and join the squad.", OlimarSkin.OverviewNote);
             lang.SetStringByToken("OLIMARTEST_ONION_NAME", "Onion");
             lang.SetStringByToken("OLIMARTEST_PIKIGROUP_NAME", "Pikmin group");
             lang.SetStringByToken("OLIMARTEST_BODY_OUTRO", "..and so he left, with a ship full of seeds.");
@@ -802,7 +802,7 @@ namespace OlimarTest
             if (onionBody) onionBody.portraitIcon = OnionPortrait();
 
             var display = Prefabs.Clone(commandoDisplay, "OlimarTestDisplay", Plugin.Guid);
-            DisplayModel.Attach(display, Plugin.Guid, OlimarDisplay.Get);
+            DisplayModel.Attach(display, Plugin.Guid, OlimarDisplay.Get, () => !OlimarSkin.UsesStandIn(OlimarSkin.Selected()));
             // His portrait, from the same lobby Olimar without the Pikmin beside him.
             Portrait.Request(body, () => OlimarDisplay.Get(OlimarSkin.Olimar), d => d.kind != Native.KindCaptain, framing: PortraitFraming.ThreeQuarter,
                 assetsDir: () => Plugin.AssetsDir);
