@@ -99,9 +99,8 @@ namespace OlimarTest
         readonly List<GameObject> sprouts = new List<GameObject>();
         readonly Dictionary<int, LineRenderer> cursors = new Dictionary<int, LineRenderer>();
         readonly Dictionary<int, LineRenderer> whistles = new Dictionary<int, LineRenderer>();
-        readonly Dictionary<Color, Material> materials = new Dictionary<Color, Material>();
-        Material baseMat;
         Transform root;
+        PrimitiveShapes captainShapes;
 
         void Awake()
         {
@@ -115,7 +114,7 @@ namespace OlimarTest
             DisposeModels();
             TekiCorpses.Clear();
             if (Ror2Common.RunAudio.Ended) return;
-            models = PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
+            models = Plugin.AssetsReady ? PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value) : null;
             // Only the world's view: the swarm grows over a run, and on a machine that can't keep up far or
             // off-screen Pikmin are re-posed less often. Not the lobby Olimar and his portrait, which are
             // drawn by another camera and must be posed on every update.
@@ -146,6 +145,7 @@ namespace OlimarTest
 
         void OnDestroy()
         {
+            captainShapes?.Dispose();
             DisposeModels();
             ReleaseCarryHud();
         }
@@ -196,7 +196,7 @@ namespace OlimarTest
             if (models != null)
                 foreach (var d in OlimarDriver.All) d.HideBody(false);
             else
-                foreach (var d in OlimarDriver.All) d.HideBody(d.Arriving);
+                foreach (var d in OlimarDriver.All) d.HideBody(d.Arriving || d.HasState);
             float a = world.RenderAlpha;
             DrawPikis(a);
             DrawPellets();
@@ -525,11 +525,15 @@ namespace OlimarTest
 
         void DrawCaptains(bool cursorRings)
         {
+            if (captainShapes == null) captainShapes = new PrimitiveShapes("Olimar fallback captains");
+            captainShapes.Begin();
             var seen = new HashSet<int>();
             foreach (var d in OlimarDriver.All)
             {
                 if (!d.HasState || d.Captain < 0 || !d.Active) continue;
                 seen.Add(d.Captain);
+                if (cursorRings && d.Body && !d.Body.currentVehicle)
+                    captainShapes.Body(d.Body.footPosition, d.Body.transform.rotation, new Color(0.95f, 0.75f, 0.2f));
                 if (cursorRings)
                 {
                     var cursor = Line(cursors, d.Captain, new Color(1f, 0.4f, 0.1f), 0.06f);
@@ -542,6 +546,7 @@ namespace OlimarTest
             }
             foreach (var kv in cursors) kv.Value.enabled = cursorRings && seen.Contains(kv.Key);
             foreach (var kv in whistles) if (!seen.Contains(kv.Key)) kv.Value.enabled = false;
+            captainShapes.End();
         }
 
         const int RingPoints = 32;
@@ -576,14 +581,7 @@ namespace OlimarTest
 
         GameObject Prim(PrimitiveType type, Transform parent)
         {
-            var go = GameObject.CreatePrimitive(type);
-            // Drawing only: no collider for RoR2's physics or our own raycasts to hit.
-            var col = go.GetComponent<Collider>();
-            if (col) Destroy(col);
-            go.transform.SetParent(parent, false);
-            var r = go.GetComponent<Renderer>();
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            return go;
+            return PrimitiveShapes.Create(type, parent);
         }
 
         // The primitive's own default material, recoloured, for rings too. RoR2 draws it fine in
@@ -592,17 +590,8 @@ namespace OlimarTest
         // LegacyShaderDetours), Sprites/Default included.
         Material Mat(Color c)
         {
-            if (materials.TryGetValue(c, out var m) && m) return m;
-            if (!baseMat)
-            {
-                var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                baseMat = probe.GetComponent<Renderer>().sharedMaterial;
-                DestroyImmediate(probe);
-            }
-            m = new Material(baseMat);
-            m.color = c;
-            materials[c] = m;
-            return m;
+            if (captainShapes == null) captainShapes = new PrimitiveShapes("Olimar fallback captains");
+            return captainShapes.Material(c);
         }
     }
 }

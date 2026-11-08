@@ -54,7 +54,7 @@ namespace OlimarTest
         readonly Dictionary<int, CaptainInfo> remoteInfo = new Dictionary<int, CaptainInfo>();
         readonly Dictionary<int, (float at, byte count)> healing = new Dictionary<int, (float, byte)>();
         const float HealingSeconds = 2f;
-        static bool warnedAssets, warnedSize;
+        static bool warnedSize;
         // Network ticks per second, and bytes sent in the last report period (Debug.LogNet).
         long bytesSent;
         float reportAt;
@@ -1944,13 +1944,8 @@ namespace OlimarTest
         internal static void ReceiveSnapshot(uint epoch, List<CaptainInfo> captains, byte[] snapshot)
         {
             if (NetworkServer.active || RunAudio.Ended) return;
-            // Without the Pikmin disc's assets there is nothing to draw it with.
-            if (!Plugin.AssetsReady)
+            if (!Plugin.AssetsSettled)
             {
-                if (!warnedAssets && Plugin.AssetsSettled)
-                    Plugin.Log.LogWarning("The host is playing Olimar, but this machine has no Pikmin assets yet " +
-                                          "(put your own Pikmin disc in wesleyasaurus-SharedFiles/put_games_here): you won't see their Pikmin.");
-                warnedAssets = true;
                 return;
             }
             if (!Stage.instance) return;

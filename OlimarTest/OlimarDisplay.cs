@@ -46,7 +46,7 @@ namespace OlimarTest
 
         /// A display Olimar starting his intro, or null (the prefab keeps Commando) if the
         /// disc's files aren't there yet or won't load.
-        public static IDisplayActor Get() => Create(OlimarSkin.Selected(), true);
+        public static IDisplayActor Get() => Plugin.AssetsReady ? Create(OlimarSkin.Selected(), true) : new PrimitiveDisplay(new Color(0.95f, 0.75f, 0.2f));
 
         /// A display of one skin, for its portrait.
         public static IDisplayActor Get(uint skin) => Create(skin, false);

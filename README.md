@@ -2,7 +2,7 @@
 
 C# host for [libpikmin](https://github.com/wesjones15/libpikmin), registering **Olimar** as a Risk of Rain 2 survivor. Lead a squad, throw Pikmin onto enemies, whistle them out of danger, and carry pellets back to the Onion to grow replacements.
 
-The native library runs the squad and captain simulation. This plugin connects it to Unity terrain, RoR2 enemies, damage, items, controls, UI and multiplayer. Models, animation, sound and effects are prepared from the player's disc image on first run.
+The native library runs the squad and captain simulation. This plugin connects it to Unity terrain, RoR2 enemies, damage, items, controls, UI and multiplayer. GameCube assets are optional: without them the mod uses its existing stand-ins, a generic captain, default gameplay tuning and a standard RoR2 drop pod. Ship Repair objectives have generic carry definitions. Original models, animation, sound and effects can be prepared from the player's own disc image.
 
 The `modern/1.5.0` branch targets the project's **RoR2 DLC4 build, Unity 2021.3 and BepInEx 5**. The `legacy/1.2.4.4` branch is frozen. For packaged downloads and dependency/install instructions, start with [ror2-characters](https://github.com/wesjones15/ror2-characters).
 
@@ -94,7 +94,7 @@ Shared crew parts count for everyone in co-op; competitive progress is per playe
 
 ## First run and configuration
 
-Install the precompiled character package and **wesleyasaurus-SharedFiles** with the release's required BepInEx dependencies. Then:
+Install the character package with the release's required BepInEx dependencies and play. No disc or asset setup is required. To add the optional original presentation, use **wesleyasaurus-SharedFiles** and:
 
 1. Put your **Pikmin 1 ISO/GCM/CISO** in `BepInEx/plugins/wesleyasaurus-SharedFiles/put_games_here/`. Filenames are arbitrary, and one level of subfolders is supported. Convert other image containers to a supported format first.
 2. Launch RoR2 and let the background extraction finish. The shared cache is `wesleyasaurus-SharedFiles/assets/pikmin/`.

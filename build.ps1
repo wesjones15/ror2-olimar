@@ -33,6 +33,9 @@ Write-Host "== OlimarTest.dll"
 dotnet build (Join-Path $PSScriptRoot "OlimarTest\OlimarTest.csproj") -c Release "-p:RoR2Dir=$RoR2Dir"
 if ($LASTEXITCODE) { throw "dotnet build failed" }
 
+dotnet run --project (Join-Path $PSScriptRoot '../ror2-common/tests/NoAssetsCheck') -c Release -- pikmin (Join-Path $LibPikmin 'target/release/pikmin.dll')
+if ($LASTEXITCODE) { throw "Olimar no-assets boundary check failed; nothing staged" }
+
 $dist = Join-Path $PSScriptRoot "dist\OlimarTest"
 New-Item -ItemType Directory -Force $dist | Out-Null
 # Remove the old build-generated clip from an existing dist folder.

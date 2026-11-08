@@ -211,7 +211,7 @@ namespace OlimarTest
             }
             bool server = NetworkServer.active;
             // An AI Olimar (Goobo Jr.'s) lives on the server; and a client needs the assets to move him.
-            if (!server && (IsAi || !Plugin.AssetsSettled || !Plugin.AssetsReady)) return;
+            if (!server && (IsAi || !Plugin.AssetsSettled)) return;
             if (captain < 0)
             {
                 // Register during the Dolphin arrival so the ship and airborne Onion draw together.
@@ -310,6 +310,7 @@ namespace OlimarTest
         public void HideBody(bool hide)
         {
             if (hide == bodyHidden) return;
+            GameSettings.StockAnimation(Body, !hide);
             if (itemDisplays != null)
             {
                 if (hide) { itemDisplays.HideStock(); itemDisplays.SetVisible(true); }

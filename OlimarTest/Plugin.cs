@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.6.0")]
+    [BepInPlugin(Guid, "Olimar", "0.6.2")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -104,7 +104,7 @@ namespace OlimarTest
         {
             get
             {
-                if (!AssetsSettled) return false;
+                if (OptionalAssets.BuiltinOnly || !AssetsSettled) return false;
                 if (assetsState == 0)
                     assetsState = Native.pik_assets_complete(Native.CString(AssetsDir)) != 0 ? 1 : 2;
                 return assetsState == 1;
@@ -433,17 +433,19 @@ namespace OlimarTest
                 return;
             }
             nativeLoaded = true;
-            AssetsDir = SharedFiles.Assets(SharedFiles.Pikmin);
+            AssetsDir = OptionalAssets.BuiltinOnly ? "" : SharedFiles.Assets(SharedFiles.Pikmin);
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
                         $"assets {AssetsDir}, controls {Scheme}");
             PrepareAssets();
             // Every disc is looked for in SharedFiles' put_games_here/ only.
             string discDirs = SharedFiles.SearchList();
+            if (!OptionalAssets.BuiltinOnly) {
             OlimarSkin.PrepareLouie(Path.Combine(AssetsDir, "p2"), discDirs);
             P2Enemies.Prepare(Path.Combine(AssetsDir, "p2"), discDirs);
             ShipRepairSession.PrepareTreasures(Path.Combine(AssetsDir, "p2"), discDirs);
             OlimarSkin.PreparePikachu();
             BakeVrArms();
+            }
             PikminDamageNumbers.Install(gameObject, Config);
             PikminHealthGauges.Install(gameObject, Config);
             ItemHooks.Install();
@@ -487,6 +489,7 @@ namespace OlimarTest
 
         static void PrepareAssets()
         {
+            if (OptionalAssets.BuiltinOnly) return;
             bool ready = Native.pik_assets_complete(Native.CString(AssetsDir)) != 0;
             string audio = Path.Combine(AssetsDir, "ror2_audio");
             bool needIntro = !File.Exists(Path.Combine(audio, "spawn.wav"))
@@ -529,7 +532,7 @@ namespace OlimarTest
             }
             if (!ready && (string.IsNullOrEmpty(disc) || !File.Exists(disc)))
             {
-                Log.LogError($"No Pikmin assets at '{AssetsDir}' and no disc image to build them from. " +
+                Log.LogInfo($"Using built-in Olimar gameplay and existing stand-ins; no optional Pikmin assets at '{AssetsDir}'. " +
                              SharedFiles.MissingDisc("Pikmin") + " " +
                              "Until then the sim runs on code defaults, which differ from the game's tuning.");
                 return;
@@ -733,15 +736,17 @@ namespace OlimarTest
             cb.baseNameToken = "OLIMARTEST_BODY_NAME";
             cb.subtitleNameToken = "OLIMARTEST_BODY_SUBTITLE";
             cb.bodyColor = new Color(0.95f, 0.75f, 0.2f);
-            cb.preferredPodPrefab = null;
-            cb.preferredInitialStateType = new SerializableEntityStateType(typeof(DolphinArrival));
+            if (Plugin.AssetsReady) {
+                cb.preferredPodPrefab = null;
+                cb.preferredInitialStateType = new SerializableEntityStateType(typeof(DolphinArrival));
+            }
             cb.baseMaxHealth = Plugin.OlimarHealth.Value;
             cb.levelMaxHealth = Plugin.OlimarHealthPerLevel.Value;
             foreach (var esm in body.GetComponents<EntityStateMachine>())
                 if (esm.customName == "Body")
                 {
                     esm.mainStateType = new SerializableEntityStateType(typeof(OlimarMain));
-                    esm.initialStateType = new SerializableEntityStateType(typeof(DolphinArrival));
+                    if (Plugin.AssetsReady) esm.initialStateType = new SerializableEntityStateType(typeof(DolphinArrival));
                 }
             // Aim/VR retains RoR2's motor and its motor-driven item states.
             if (Plugin.Scheme == ControlScheme.Pikmin) body.AddComponent<NativeBody>();
