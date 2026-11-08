@@ -4,7 +4,7 @@ C# host for [libpikmin](https://github.com/wesjones15/libpikmin), registering **
 
 The native library runs the squad and captain simulation. This plugin connects it to Unity terrain, RoR2 enemies, damage, items, controls, UI and multiplayer. GameCube assets are optional: without them the mod uses its existing stand-ins, a generic captain, default gameplay tuning and a standard RoR2 drop pod. Ship Repair objectives have generic carry definitions. Original models, animation, sound and effects can be prepared from the player's own disc image.
 
-Louie remains in the skin menu with his existing 30-part unlock requirement. Without Pikmin 2's optional files he uses a blue captain stand-in and still starts with his Purple/White squad. Ship Repair can launch without disc assets. The character overview names the missing game only while fallback presentation is selected.
+Louie remains in the skin menu with his existing 30-part unlock requirement. Without Pikmin 2's optional files he uses a blue captain stand-in and still starts with his Purple/White squad. Ship Repair can launch without disc assets. While fallback presentation is selected, the character overview names the missing game and tells you to put its disc image in `BepInEx/plugins/wesleyasaurus-SharedFiles/put_games_here/`.
 
 The `modern/1.5.0` branch targets the project's **RoR2 DLC4 build, Unity 2021.3 and BepInEx 5**. The `legacy/1.2.4.4` branch is frozen. For packaged downloads and dependency/install instructions, start with [ror2-characters](https://github.com/wesjones15/ror2-characters).
 
