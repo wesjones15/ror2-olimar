@@ -740,6 +740,7 @@ namespace OlimarTest
                 cb.preferredPodPrefab = null;
                 cb.preferredInitialStateType = new SerializableEntityStateType(typeof(DolphinArrival));
             }
+            else cb.preferredPodPrefab = LegacyResourcesAPI.Load<GameObject>("Prefabs/NetworkedObjects/SurvivorPod");
             cb.baseMaxHealth = Plugin.OlimarHealth.Value;
             cb.levelMaxHealth = Plugin.OlimarHealthPerLevel.Value;
             foreach (var esm in body.GetComponents<EntityStateMachine>())

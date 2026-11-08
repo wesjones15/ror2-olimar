@@ -210,7 +210,8 @@ namespace OlimarTest
                 return;
             }
             bool server = NetworkServer.active;
-            // An AI Olimar (Goobo Jr.'s) lives on the server; and a client needs the assets to move him.
+            // An AI Olimar (Goobo Jr.'s) lives on the server. Clients wait for optional
+            // extraction to settle, then can use the existing code-default simulation.
             if (!server && (IsAi || !Plugin.AssetsSettled)) return;
             if (captain < 0)
             {

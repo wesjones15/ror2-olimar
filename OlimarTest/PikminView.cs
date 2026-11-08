@@ -133,6 +133,7 @@ namespace OlimarTest
 
         void DisposeModels()
         {
+            captainShapes?.Hide();
             healingAudio.Clear();
             frozenCaptains.Clear();
             if (models != null)
