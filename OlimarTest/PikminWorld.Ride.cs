@@ -99,6 +99,14 @@ namespace OlimarTest
         // When a client first saw a captain riding, for the lift into the Onion.
         readonly Dictionary<int, float> rideSeen = new Dictionary<int, float>();
 
+        public float StandInBoardingAge(int captain)
+        {
+            if (!Riding(captain)) { rideSeen.Remove(captain); return 0f; }
+            if (!ClientMode) return onionOf.TryGetValue(captain, out var f) && f.ride != null ? f.ride.boardAge : 0f;
+            if (!rideSeen.TryGetValue(captain, out float since)) rideSeen[captain] = since = Time.time;
+            return Mathf.Max(0f, Time.time - since);
+        }
+
         /// Olimar presses LB in his Onion's beam (or his called Onion scoops him up). Spends a skill
         /// charge; `why` says what is missing. `fromCall` skips the standing-in-the-beam test: the
         /// called Onion has already locked its beam over him, moving or airborne.

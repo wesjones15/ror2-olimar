@@ -125,7 +125,7 @@ namespace OlimarTest
         /// other, off the arrival point, and a carry distance from the receiver.
         IEnumerator PlaceTreasures(PikminWorld world, uint epoch, System.Random rng, NodeGraph graph, List<NodeGraph.NodeIndex> nodes, List<Vector3> goals, CharacterBody body)
         {
-            if (treasuresPerStage <= 0 || nodes.Count == 0) yield break;
+            if (!Pikmin2Session.Enabled || treasuresPerStage <= 0 || nodes.Count == 0) yield break;
             var table = TreasureTable(world);
             if (table.Count == 0) { Plugin.Log.LogInfo("Ship Repair: no Pikmin 2 treasures (the Pikmin 2 files are not extracted)."); yield break; }
             // The race shares one pool of treasures; each extra racer adds two to it.

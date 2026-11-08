@@ -4,7 +4,7 @@ C# host for [libpikmin](https://github.com/wesjones15/libpikmin), registering **
 
 The native library runs the squad and captain simulation. This plugin connects it to Unity terrain, RoR2 enemies, damage, items, controls, UI and multiplayer. GameCube assets are optional: without them the mod uses its existing stand-ins, a generic captain, default gameplay tuning and a standard RoR2 drop pod. Ship Repair objectives have generic carry definitions. Original models, animation, sound and effects can be prepared from the player's own disc image.
 
-Louie remains in the skin menu with his existing 30-part unlock requirement. Without Pikmin 2's optional files he uses a blue captain stand-in and still starts with his Purple/White squad. Ship Repair can launch without disc assets. While fallback presentation is selected, the character overview names the missing game and tells you to put its disc image in `BepInEx/plugins/wesleyasaurus-SharedFiles/put_games_here/`.
+Louie remains in the skin menu with his existing 30-part unlock requirement. Missing skin art uses Olimar's available model or a blue captain stand-in. Purple/White starting squads, Onion color acceptance, P2 buds, enemies and treasures share one optional Pikmin 2 session flag. It is enabled when every lobby player has the complete required Pikmin 2 data, independently of Pikmin 1 art; solo uses local data. A mixed lobby explains the unavailable bonus pack and disc folder. The result locks at run launch; incompatible late joins receive an explanation and are disconnected to wait for a compatible new run. Ship Repair can launch without disc assets. The character overview names locally missing presentation games.
 
 The `modern/1.5.0` branch targets the project's **RoR2 DLC4 build, Unity 2021.3 and BepInEx 5**. The `legacy/1.2.4.4` branch is frozen. For packaged downloads and dependency/install instructions, start with [ror2-characters](https://github.com/wesjones15/ror2-characters).
 
@@ -14,7 +14,7 @@ The default opening squad is **10 Red, 5 Yellow and 5 Blue**, with a field cap o
 
 Enemy kills produce pellets. Carry teams bring them to the Onion, which produces seeds; sprouts grow from leaf to bud to flower and can be plucked into the squad. Nectar blooms existing Pikmin. The active squad and stored stock carry between stages; units left outside those groups can be left behind.
 
-Candypop Buds around the map let Olimar obtain Purple and White Pikmin when the optional data is available. Louie starts with 3 Purple and 5 White by default. Color roles matter: Reds resist fire, Yellows gain bonuses against airborne/mechanical targets, Blues benefit in water, Whites poison enemies that eat them, and Purples carry heavy loads and can bring fliers down.
+Candypop Buds around the map let Olimar obtain Purple and White Pikmin when the session enables Pikmin 2 content. Louie then starts with 3 Purple and 5 White by default; otherwise he uses the ordinary starting squad. Color roles matter: Reds resist fire, Yellows gain bonuses against airborne/mechanical targets, Blues benefit in water, Whites poison enemies that eat them, and Purples carry heavy loads and can bring fliers down.
 
 Pikmin are vulnerable to enemy attacks, explosions and shake-offs. Their health and attacks scale through the host's rules and Olimar's stats. Current defaults also let dead Pikmin return as buried leaf sprouts at a configured chance; `Pikmin.RebirthChance` below zero disables that extension.
 
@@ -84,13 +84,19 @@ Scaling, limits and current defaults are configured in [`OlimarTest/Plugin.cs`](
 
 Select **Ship Repair** from the game-mode menu to recover **30 unique ship parts** and deliver them to the Dolphin. It defaults to competitive races; set `ShipRepair.CompetitiveMode = false` for shared crew progress. Additional enemies, parts, optional treasures and stage music support that mode.
 
-Alternate captains unlock on the player's profile and are offered when their required local assets are available:
+Alternate captains unlock on the player's profile. Pianta is offered with Mario installed, Captain Pikachu with Melee installed, and Louie with Olimar alone. Local discs affect rendering rather than menu indices:
 
 | Skin | Unlock | Additional data |
 | --- | --- | --- |
 | Pianta | Complete a stage 1 or later teleporter event as Olimar. | Sunshine cache prepared by the Mario plugin. |
 | Captain Pikachu | Complete a stage 2 or later teleporter event as Olimar. | Melee USA revision 1.02; this plugin handles the extraction. |
 | Louie | Recover all 30 unique parts in one Ship Repair run as Olimar. | Pikmin 2 disc; also supplies optional squad/enemy content. |
+
+Captain and army art load independently: Sunshine-only Pianta or Melee-only Captain
+Pikachu can lead generic Pikmin. With only Pikmin art, missing alternate skins show
+Olimar instead. Without either game, both use shapes. Enemy bodies have generic
+fallbacks too. The stand-in Onion retracts its legs in flight; the generic captain
+rises into it, hides during the ride and reappears when dropped.
 
 Shared crew parts count for everyone in co-op; competitive progress is per player. Unlocks can be earned before the extra assets are installed. See the [Pianta](DOCS/pianta-skin.md), [captain skin](DOCS/pikachu-skin.md) and [Louie](DOCS/louie-skin.md) notes for implementation details. Use the setup below for current asset paths.
 

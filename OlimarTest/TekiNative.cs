@@ -71,13 +71,13 @@ namespace OlimarTest
         {
             get
             {
-                if (!tried && Plugin.AssetsReady) Load();
-                foreach (bool h in have) if (h) return true;
+                if (!tried && Plugin.AssetsSettled) Load();
+                for(byte i=0;i<have.Length;i++) if (have[i] && Pikmin2Session.EnemyAllowed(i)) return true;
                 return false;
             }
         }
 
-        public static bool Has(byte kind) => Ready && kind < Kinds && have[kind];
+        public static bool Has(byte kind) => Ready && kind < Kinds && have[kind] && Pikmin2Session.EnemyAllowed(kind);
         public static TekiNative.Info Get(byte kind) => infos[kind];
 
         static void Load()

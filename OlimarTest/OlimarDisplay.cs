@@ -60,7 +60,6 @@ namespace OlimarTest
             if (spare.Count > 0) d = spare.Pop();
             else
             {
-                if (Native.pik_assets_complete(Native.CString(Plugin.AssetsDir)) == 0) return null;
                 var view = PikminModels.Create(Plugin.AssetsDir, null, sound: Plugin.Sound.Value, name: "Olimar (lobby)");
                 if (view == null)
                 {

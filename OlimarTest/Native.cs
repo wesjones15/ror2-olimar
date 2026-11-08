@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 64;
+        public const uint AbiVersion = 65;
         /// libpikmin's replica snapshot format, checked alongside the ABI: the snapshot is nested
         /// bytes in PikminEnvelope, so an ABI match alone is not enough to know a host's snapshots
         /// can be decoded here. Set by Load.
@@ -231,6 +231,7 @@ namespace OlimarTest
             public uint Stored(uint color) => color == 0 ? stored0 : color == 1 ? stored1 : color == 2 ? stored2 : color == 3 ? stored3 : color == 4 ? stored4 : 0;
             public uint StoredTotal => stored0 + stored1 + stored2 + stored3 + stored4;
         }
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_view_has_base(IntPtr view);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct Sprout

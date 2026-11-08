@@ -30,7 +30,7 @@ namespace OlimarTest
     // of Pikmin that follow, get thrown onto enemies, attack them through RoR2's damage, and
     // carry corpses home to an Onion for more Pikmin. No R2API: content goes in through RoR2's
     // own content-pack hook (ror2-common's ContentProvider).
-    [BepInPlugin(Guid, "Olimar", "0.6.2")]
+    [BepInPlugin(Guid, "Olimar", "0.6.3")]
     // Use the pack's fixes first when installed; no pack APIs are required by this plugin.
     [BepInDependency("___riskofthunder.RoR2BepInExPack", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
@@ -433,6 +433,7 @@ namespace OlimarTest
                 return;
             }
             nativeLoaded = true;
+            Pikmin2Session.Install(gameObject);
             AssetsDir = OptionalAssets.BuiltinOnly ? "" : SharedFiles.Assets(SharedFiles.Pikmin);
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
                         $"assets {AssetsDir}, controls {Scheme}");

@@ -17,7 +17,7 @@ namespace OlimarTest
         public string Name, Token, Text;
         /// The SkinDef, set at registration.
         public SkinDef Def;
-        /// Offered right now (its files are there and, if locked, it is registered with its key).
+        /// Offered for the installed mod set, with its existing earned unlock key.
         public bool Registered;
     }
 
@@ -63,7 +63,7 @@ namespace OlimarTest
         }
 
         /// SharedFiles' Sunshine folder (filled by the Mario plugin from the player's own Sunshine disc); the Pianta
-        /// is offered when his files are there.
+        /// supplies local Pianta art; the Mario mod controls whether the skin is offered.
         public static void Discover()
         {
             sunshineDir = SharedFiles.Assets(SharedFiles.Sunshine);
@@ -112,7 +112,7 @@ namespace OlimarTest
         public static bool PikachuAvailable => pikachuReady;
 
         /// SharedFiles' Melee folder; if it lacks Pikachu's and the Ice Climbers' models, extracts them once from a
-        /// Melee disc in put_games_here (the Melee plugin isn't needed). Without either the skin is not offered.
+        /// Melee disc in put_games_here. The Melee mod controls registration; missing art uses a fallback.
         /// Versions of the extractors' output (SharedFiles extracted.txt): bump one when its extractor writes an
         /// existing file differently, so installed caches are extracted again.
         const int IceClimbersExtractorVersion = 1, P2ExtractorVersion = 1;
@@ -139,7 +139,7 @@ namespace OlimarTest
                             {
                                 // Files from an older extractor are still used as they are.
                                 if (!complete)
-                                    Plugin.Log.LogInfo("Captain Pikachu: no Melee disc found, so he is not offered. " +
+                                    Plugin.Log.LogInfo("Captain Pikachu: no Melee disc found; using local fallback art. " +
                                                        SharedFiles.MissingDisc("Super Smash Bros. Melee (USA, revision 1.02)"));
                             }
                             else
@@ -154,7 +154,7 @@ namespace OlimarTest
                     }
                 }
                 pikachuReady = Complete();
-                if (!pikachuReady) Plugin.Log.LogInfo("Captain Pikachu: his Melee files aren't complete, so he is not offered");
+                if (!pikachuReady) Plugin.Log.LogInfo("Captain Pikachu: his Melee files aren't complete; using local fallback art");
             }
             catch (Exception e)
             {
@@ -176,14 +176,17 @@ namespace OlimarTest
 
         /// Whether Louie can be drawn (Pikmin 2's player files are extracted).
         public static bool LouieAvailable => true; // Gameplay and the blue stand-in need no Pikmin 2 files.
-        public static bool UsesStandIn(uint skin) => !Plugin.AssetsReady || skin == Louie && !louieReady;
+        public static bool ArtReady(uint skin) => skin == Pianta ? ready : skin == Pikachu ? pikachuReady : skin == Louie ? louieReady : Plugin.AssetsReady;
+        public static bool UsesStandIn(uint skin) => !Plugin.AssetsReady && !ArtReady(skin);
         public static Color StandInColor(uint skin) => skin == Louie ? Color.blue : new Color(0.95f, 0.75f, 0.2f);
         public static string OverviewNote()
         {
             var games = new List<string>();
             if (!Plugin.AssetsReady) games.Add("Pikmin");
-            if (Selected() == Louie && !louieReady) games.Add("Pikmin 2");
-            return AssetOverview.Missing(games.ToArray());
+            uint skin = Selected();
+            if (!ArtReady(skin) && skin != Olimar) games.Add(skin == Pianta ? "Super Mario Sunshine" : skin == Pikachu ? "Super Smash Bros. Melee" : "Pikmin 2");
+            return games.Count == 0 ? null : AssetOverview.Fallback(Plugin.AssetsReady && !ArtReady(skin)
+                ? "Showing Olimar's model for the selected costume." : "Using procedural stand-ins for missing presentation.", games.ToArray());
         }
 
         /// The Pikmin 2 disc for Louie, the P2 enemies and the treasures: the first one `pik_p2_find_disc` finds in
@@ -291,7 +294,7 @@ namespace OlimarTest
             foreach (var spec in Specs)
             {
                 if (spec == null) continue;
-                spec.Registered = spec.Id == Olimar || spec.Id == Louie || (spec.Id == Pianta && ready) || (spec.Id == Pikachu && pikachuReady);
+                spec.Registered = spec.Id == Olimar || spec.Id == Louie || (spec.Id == Pianta && ModPresence.Mario) || (spec.Id == Pikachu && ModPresence.Melee);
                 if (!spec.Registered) continue;
                 spec.Def = Def(spec.Name, spec.Token, model, character,
                     Icon(spec.Id == Olimar || spec.Id == Louie ? StandInColor(spec.Id) : spec.Id == Pikachu ? new Color(1f, 0.85f, 0.1f) : new Color(0.3f, 0.7f, 0.3f)));

@@ -22,6 +22,7 @@ namespace OlimarTest
 
         /// The meshes (ror2-common), for hosts that place the draws themselves.
         public ModelView Models { get; }
+        public bool BaseAssets { get; private set; }
         /// The native view handle, for per-captain anchor queries (`pik_view_anchor`).
         public IntPtr ViewHandle => view;
         /// What loaded ("15 models; sound 48000 Hz, 2 channels").
@@ -41,6 +42,7 @@ namespace OlimarTest
         {
             this.view = view;
             Models = models;
+            BaseAssets = Native.pik_view_has_base(view) != 0;
             models.NativePoseBudget = true;
             Status = Native.Utf8(Native.pik_view_status(view));
             particles = new Particles(view, parent);
@@ -116,7 +118,7 @@ namespace OlimarTest
         {
             if (view != IntPtr.Zero && (hasPianta || hasLouie || hasPikachu)) Native.pik_view_set_captain_skin(view, captain, (byte)skin);
         }
-        public bool HasSkin(uint skin) => skin == OlimarSkin.Olimar || skin == OlimarSkin.Louie && hasLouie
+        public bool HasSkin(uint skin) => BaseAssets || skin == OlimarSkin.Louie && hasLouie
             || skin == OlimarSkin.Pianta && hasPianta || skin == OlimarSkin.Pikachu && hasPikachu;
 
         /// The ship of Onion `onion` is Louie's Hocotate Ship (`on`) or the Dolphin. Louie's files load with him.

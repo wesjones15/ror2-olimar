@@ -101,9 +101,14 @@ namespace OlimarTest
         readonly Dictionary<int, LineRenderer> whistles = new Dictionary<int, LineRenderer>();
         Transform root;
         PrimitiveShapes captainShapes;
+        PrimitiveShapes bulbShapes;
+        readonly Native.Bulb[] standInBulbs = new Native.Bulb[128];
+        static PikminView activeView;
+        internal static bool EnemyArtReady => activeView && activeView.models != null && activeView.models.BaseAssets;
 
         void Awake()
         {
+            activeView=this;
             root = new GameObject("PikminShapes").transform;
             root.SetParent(transform, false);
         }
@@ -114,7 +119,7 @@ namespace OlimarTest
             DisposeModels();
             TekiCorpses.Clear();
             if (Ror2Common.RunAudio.Ended) return;
-            models = Plugin.AssetsReady ? PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value) : null;
+            models = PikminModels.Create(Plugin.AssetsDir, transform, Plugin.Sound.Value);
             // Only the world's view: the swarm grows over a run, and on a machine that can't keep up far or
             // off-screen Pikmin are re-posed less often. Not the lobby Olimar and his portrait, which are
             // drawn by another camera and must be posed on every update.
@@ -146,8 +151,10 @@ namespace OlimarTest
 
         void OnDestroy()
         {
-            captainShapes?.Dispose();
+            if(activeView==this)activeView=null;
             DisposeModels();
+            bulbShapes?.Dispose();
+            captainShapes?.Dispose();
             ReleaseCarryHud();
         }
 
@@ -155,6 +162,7 @@ namespace OlimarTest
 
         public void Clear()
         {
+            standInFeet.Clear();standInBoardFrom.Clear();bulbShapes?.Hide();
             DisposeModels();
             foreach (Transform t in root) Destroy(t.gameObject);
             pikis.Clear();
@@ -190,7 +198,8 @@ namespace OlimarTest
             if (models != null && world.Healthy)
             {
                 DrawModels();
-                DrawCaptains(cursorRings: false);
+                if (!models.BaseAssets) { DrawPikis(world.RenderAlpha); DrawPellets(); DrawOnions(); DrawSprouts(); DrawBulbStandIns(); }
+                DrawCaptains(cursorRings: !models.BaseAssets);
                 world.Corpses.Update(world);
                 return;
             }
@@ -203,6 +212,7 @@ namespace OlimarTest
             DrawPellets();
             DrawOnions();
             DrawSprouts();
+            DrawBulbStandIns();
             DrawCaptains(cursorRings: true);
             world.Corpses.Update(world);
         }
@@ -459,6 +469,8 @@ namespace OlimarTest
                 onions[i].SetActive(true);
                 onions[i].transform.position = UnityHost.ToUnity(o.pos);
                 onions[i].transform.localScale = Vector3.one * UnityHost.Scale;
+                var legs = onions[i].transform.Find("Legs");
+                if (legs) legs.gameObject.SetActive(OnionStandInPolicy.LegsVisible(world.OnionAirborne(o.id) || o.anim >= 3 && o.anim <= 6));
             }
         }
 
@@ -485,12 +497,14 @@ namespace OlimarTest
             for (int k = 0; k < PikiColours.Length; k++)
                 if (colours == 1u << k) c = PikiColours[k];
             var pod = Prim(PrimitiveType.Sphere, go.transform);
-            pod.transform.localPosition = new Vector3(0f, 110f, 0f);
+            pod.transform.localPosition = new Vector3(0f, OnionStandInPolicy.PodHeightSim, 0f);
             pod.transform.localScale = new Vector3(90f, 70f, 90f);
             pod.GetComponent<Renderer>().sharedMaterial = Mat(c);
+            var legs = new GameObject("Legs").transform;
+            legs.SetParent(go.transform, false);
             for (int k = 0; k < 3; k++)
             {
-                var leg = Prim(PrimitiveType.Cylinder, go.transform);
+                var leg = Prim(PrimitiveType.Cylinder, legs);
                 var from = LegFeet[k];
                 var to = LegTops[k];
                 leg.transform.localPosition = (from + to) * 0.5f;
@@ -523,6 +537,14 @@ namespace OlimarTest
                 go.GetComponent<Renderer>().sharedMaterial = Mat(colour);
             }
         }
+        void DrawBulbStandIns()
+        {
+            if(bulbShapes==null)bulbShapes=new PrimitiveShapes("Candypop stand-ins");bulbShapes.Begin();
+            int count=(int)System.Math.Min((uint)standInBulbs.Length,Native.pik_sim_bulbs(world.DataHandle,standInBulbs,(uint)standInBulbs.Length));
+            for(int i=0;i<count;i++){var b=standInBulbs[i];var at=UnityHost.ToUnity(b.pos);
+                bulbShapes.Show(PrimitiveType.Cylinder,at+Vector3.up*.15f,new Vector3(.9f,.15f,.9f),Quaternion.identity,PikiColours[Mathf.Min((int)b.colour,4)]);}
+            bulbShapes.End();
+        }
 
         bool StandInCaptain(uint captain)
         {
@@ -531,6 +553,8 @@ namespace OlimarTest
             return false;
         }
 
+        readonly Dictionary<int, Vector3> standInFeet = new Dictionary<int, Vector3>();
+        readonly Dictionary<int, Vector3> standInBoardFrom = new Dictionary<int, Vector3>();
         void DrawCaptains(bool cursorRings)
         {
             if (captainShapes == null) captainShapes = new PrimitiveShapes("Olimar fallback captains");
@@ -540,10 +564,21 @@ namespace OlimarTest
             {
                 if (!d.HasState || d.Captain < 0 || !d.Active) continue;
                 seen.Add(d.Captain);
-                if ((cursorRings || StandInCaptain((uint)d.ViewCaptain)) && d.Body
-                    && !d.Body.currentVehicle && !d.Arriving && !world.CaptainHidden((uint)d.ViewCaptain)
+                bool riding = world.Riding(d.ViewCaptain);
+                float boardAge = world.StandInBoardingAge(d.ViewCaptain);
+                var at = d.Body ? d.Body.footPosition : Vector3.zero;
+                if (riding && world.RideOnionFoot(d.ViewCaptain, out var onionFoot))
+                {
+                    if (!standInBoardFrom.TryGetValue(d.ViewCaptain, out var from))
+                        standInBoardFrom[d.ViewCaptain] = from = standInFeet.TryGetValue(d.ViewCaptain, out var previous) ? previous : at;
+                    at = Vector3.Lerp(from, onionFoot + Vector3.up * OnionStandInPolicy.BoardingHeight(UnityHost.Scale), OnionStandInPolicy.Lift(boardAge));
+                }
+                else { standInBoardFrom.Remove(d.ViewCaptain); standInFeet[d.ViewCaptain] = at; }
+                if (StandInCaptain((uint)d.ViewCaptain) && d.Body
+                    && !d.Body.currentVehicle && !d.Arriving && (riding || !world.CaptainHidden((uint)d.ViewCaptain))
+                    && OnionStandInPolicy.CaptainVisible(riding, boardAge)
                     && !OlimarVr.HidesCaptain(d))
-                    captainShapes.Body(d.Body.footPosition, d.Body.transform.rotation, OlimarSkin.StandInColor(OlimarSkin.Selected(d.Body)));
+                    captainShapes.Body(at, d.Body.transform.rotation, OlimarSkin.StandInColor(OlimarSkin.Selected(d.Body)));
                 if (cursorRings)
                 {
                     var cursor = Line(cursors, d.Captain, new Color(1f, 0.4f, 0.1f), 0.06f);

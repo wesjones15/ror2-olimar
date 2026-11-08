@@ -505,6 +505,7 @@ namespace OlimarTest
             driverOf.Clear();
             onionIds.Clear();
             onionOf.Clear();
+            rideSeen.Clear();
             healing.Clear();
             dolphins.Clear();
             guestUsers.Clear();
@@ -759,7 +760,7 @@ namespace OlimarTest
             AddOnion(d.Body.footPosition + Vector3.up * 5f,
                 // Every skin's Onion takes all five colours (Pikmin 2's Purple and White come from Candypop Buds); without
                 // Pikmin 2's files only Pikmin 1's three.
-                OlimarSkin.Pikmin2Available ? 0b11111u : 0b111u, d.Body);
+                Pikmin2Session.Enabled ? 0b11111u : 0b111u, d.Body);
             int id = onionIds[onionIds.Count - 1];
             Native.pik_sim_set_onion_color(sim, (uint)id, saved.colour);
             Native.pik_sim_set_onion_owner(sim, (uint)id, captain);
@@ -1306,6 +1307,9 @@ namespace OlimarTest
         public bool OnionFlying(int captain) => ClientMode
             ? remoteInfo.TryGetValue(captain, out var info) && info.OnionAirborne
             : onionOf.TryGetValue(captain, out var f) && f.airborne;
+        public bool OnionAirborne(uint onion) => ClientMode
+            ? remoteInfo.Values.Any(info => info.onion == (int)onion && info.OnionAirborne)
+            : onionOf.Values.Any(f => f.id == (int)onion && f.airborne);
         public bool OnionMenuBeam(uint onion)
         {
             if (ClientMode)
@@ -1432,7 +1436,7 @@ namespace OlimarTest
             start[Native.Red] = Plugin.StartRed.Value;
             start[Native.Yellow] = Plugin.StartYellow.Value;
             // Louie's squad also has Pikmin 2's Purple and White.
-            if (OlimarSkin.LouieAvailable && OlimarSkin.Selected(d.Body) == OlimarSkin.Louie)
+            if (Pikmin2Session.Enabled && OlimarSkin.Selected(d.Body) == OlimarSkin.Louie)
             {
                 start[Native.Purple] = Plugin.StartPurple.Value;
                 start[Native.White] = Plugin.StartWhite.Value;

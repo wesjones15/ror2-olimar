@@ -27,15 +27,12 @@ namespace OlimarTest
                 if (string.IsNullOrEmpty(Plugin.AssetsDir) || !P2Enemies.Ready) return;
                 if (Native.pik_view_load_bulbs(view, Native.CString(System.IO.Path.Combine(Plugin.AssetsDir, "p2"))) < 0)
                     Plugin.Log.LogWarning("Candypop Buds: their models did not load; no buds are placed");
-                else bulbModels = true;
             }
             catch (Exception e)
             {
                 Plugin.Log.LogWarning($"Candypop Buds: {e.Message}");
             }
         }
-
-        static bool bulbModels;
 
         /// Colour for the n-th bud of a stage: the first five are each colour once (in a shuffled order) where the stage has
         /// enough buds for that, then by Pikmin 2's odds. The rainbow Pop is opt-in (`Candypop/PopShare`).
@@ -60,7 +57,7 @@ namespace OlimarTest
         IEnumerator ScatterBulbs(IntPtr forSim, uint forEpoch)
         {
             int wanted = ShipRepairMode.Active ? Plugin.BulbsShipRepair.Value : Plugin.BulbsOther.Value;
-            if (wanted <= 0 || !bulbModels || ClientMode) yield break;
+            if (wanted <= 0 || !Pikmin2Session.Enabled || ClientMode) yield break;
             CharacterBody player = null;
             float deadline = Time.unscaledTime + 90f;
             while (Time.unscaledTime < deadline && !player)

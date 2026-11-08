@@ -81,6 +81,7 @@ namespace OlimarTest
 
         void OnDestroy()
         {
+            standIn?.Dispose();
             All.Remove(this);
             if (Ai && NetworkServer.active) TekiAi.Forget(this);
         }
@@ -149,8 +150,19 @@ namespace OlimarTest
 
         // The vanilla model stays (its hurt boxes ride its bones) but isn't drawn. Items add renderers
         // as they go, so this repeats.
+        PrimitiveShapes standIn;
         void LateUpdate()
         {
+            if(body && (!PikminView.EnemyArtReady || !TekiCatalog.Has(kind))) {
+                if(standIn==null)standIn=new PrimitiveShapes("Pikmin enemy stand-in");standIn.Begin();
+                bool visible=body.healthComponent && body.healthComponent.alive;
+                if(Ai && NetworkServer.active && aiHave)visible &= aiState.Visible;
+                else if(Ai && TekiAi.Remote.TryGetValue(body.netId.Value,out var remoteState))visible &= remoteState.state.Visible;
+                if(visible)standIn.Body(body.footPosition,body.transform.rotation,
+                    kind>=27&&kind!=56?new Color(.65f,.35f,.8f):new Color(.65f,.3f,.12f),
+                    Mathf.Max(.8f,Vector3.Distance(body.corePosition,body.footPosition)*2f),Mathf.Max(.3f,body.radius));
+                standIn.End();
+            } else standIn?.Hide();
             shownFor += Time.deltaTime;
             if (shownFor > 0.5f && (Time.frameCount + (int)id) % 15 != 0) return;
             var model = body && body.modelLocator ? body.modelLocator.modelTransform : null;
