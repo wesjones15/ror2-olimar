@@ -387,6 +387,11 @@ namespace OlimarTest
         /// The sim to read the world from and draw: the real one, or on a client the replica of it.
         internal IntPtr DataHandle => sim;
 
+        /// <summary>How far a stand-in captain's body tips forward (radians) for his dismiss strike, 0 when he is
+        /// not striking. Read from the sim or, on a client, the replica, whose snapshots carry the strike clock.</summary>
+        public float StrikePitch(int captain)
+            => sim != IntPtr.Zero && Native.pik_sim_captain_strike_pitch(sim, (uint)captain, out float pitch) != 0 ? pitch : 0f;
+
         /// Whether his controls have a sim to act on.
         public bool Controllable => ClientMode ? moverSim != IntPtr.Zero && !moverPoisoned : Healthy;
 

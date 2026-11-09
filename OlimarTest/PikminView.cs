@@ -583,7 +583,8 @@ namespace OlimarTest
                     && !d.Body.currentVehicle && !d.Arriving && (riding || !world.CaptainHidden((uint)d.ViewCaptain))
                     && OnionStandInPolicy.CaptainVisible(riding, boardAge)
                     && !OlimarVr.HidesCaptain(d))
-                    captainShapes.Body(at, d.Body.transform.rotation, OlimarSkin.StandInColor(OlimarSkin.Selected(d.Body)));
+                    captainShapes.Body(at, d.Body.transform.rotation, OlimarSkin.StandInColor(OlimarSkin.Selected(d.Body)),
+                        strikePitch: world.StrikePitch(d.ViewCaptain));
                 if (cursorRings && !riding)
                 {
                     if (!cursors.TryGetValue(d.ViewCaptain, out var cursor)) cursors[d.ViewCaptain] = cursor = new MarkerQuad("Olimar stand-in cursor");

@@ -13,7 +13,7 @@ namespace OlimarTest
     internal static class Native
     {
         public const string Dll = "pikmin";
-        public const uint AbiVersion = 65;
+        public const uint AbiVersion = 66;
         /// libpikmin's replica snapshot format, checked alongside the ABI: the snapshot is nested
         /// bytes in PikminEnvelope, so an ABI match alone is not enough to know a host's snapshots
         /// can be decoded here. Set by Load.
@@ -530,6 +530,8 @@ namespace OlimarTest
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void pik_sim_store_in_onion(IntPtr sim, uint onion, uint color, uint happa, uint n);
 
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_captain(IntPtr sim, uint captain, out Captain state);
+        /// <summary>Radians a stand-in captain tips forward during his dismiss strike; 1 while striking (sim or replica).</summary>
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern byte pik_sim_captain_strike_pitch(IntPtr sim, uint captain, out float pitch);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_pikis(IntPtr sim, [Out] Piki[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_pellets(IntPtr sim, [Out] Pellet[] outArr, uint max);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern uint pik_sim_onions(IntPtr sim, [Out] Onion[] outArr, uint max);
