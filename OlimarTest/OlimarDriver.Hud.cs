@@ -1,6 +1,7 @@
 using System;
 using Ror2Common;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace OlimarTest
 {
@@ -16,7 +17,21 @@ namespace OlimarTest
         int lifeCircleStep = -1;
         float lastLife = 1f, lifeHurtAt;
         float bottomLoadAt;
-        GUIStyle bottomLabel;
+        GUIStyle bottomLabel, bottomFallbackNumber;
+        const string HudFontKey = "RoR2/Base/Common/Fonts/Bombardier/BOMBARD_.ttf";
+        static Font hudFont;
+        static bool hudFontTried;
+
+        static Font BottomHudFont()
+        {
+            if (!hudFontTried)
+            {
+                hudFontTried = true;
+                try { hudFont = Addressables.LoadAssetAsync<Font>(HudFontKey).WaitForCompletion(); }
+                catch (Exception e) { Plugin.Log.LogWarning($"RoR2 HUD font could not load: {e.Message}"); }
+            }
+            return hudFont;
+        }
 
         void DisposeBottomHud()
         {
@@ -150,9 +165,17 @@ namespace OlimarTest
                 bottomLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 19,
                     fontStyle = FontStyle.Bold };
             bottomLabel.normal.textColor = new Color(0.8f, 0.88f, 0.74f);
-            BottomCount(438f, y, "FREE", free, 3, freeDigits);
-            BottomCount(619f, y, "SQUAD", squad, 3, squadDigits);
-            BottomCount(800f, y, "TOTAL", total, 4, totalDigits);
+            bool fallbackDigits = Array.Exists(bottomDigits, digit => !digit);
+            bottomLabel.font = fallbackDigits ? BottomHudFont() : GUI.skin.label.font;
+            bottomLabel.fontStyle = fallbackDigits ? FontStyle.Normal : FontStyle.Bold;
+            if (fallbackDigits && bottomFallbackNumber == null)
+            {
+                bottomFallbackNumber = new GUIStyle(bottomLabel) { fontSize = 48 };
+                bottomFallbackNumber.normal.textColor = Color.white;
+            }
+            BottomCount(438f, y, "FREE", free, 3, freeDigits, fallbackDigits);
+            BottomCount(619f, y, "SQUAD", squad, 3, squadDigits, fallbackDigits);
+            BottomCount(800f, y, "TOTAL", total, 4, totalDigits, fallbackDigits);
             GUI.color = savedColor;
             GUI.matrix = savedMatrix;
         }
@@ -189,11 +212,15 @@ namespace OlimarTest
             GUI.DrawTexture(rect, lifeCircle);
         }
 
-        void BottomCount(float x, float y, string label, int count, int minimumDigits, HudDigitChanges changes)
+        void BottomCount(float x, float y, string label, int count, int minimumDigits, HudDigitChanges changes, bool fallback)
         {
             GUI.Label(new Rect(x, y + 5f, 165f, 26f), label, bottomLabel);
             PikminUiSkin.Bubble(bottomIcons[21], new Rect(x, y + 33f, 165f, 89f));
-            PikminUiSkin.Digits(bottomDigits, count, new Rect(x + 7f, y + 45f, 151f, 61f), minimumDigits, changes);
+            var numberRect = new Rect(x + 7f, y + 45f, 151f, 61f);
+            if (fallback)
+                GUI.Label(numberRect, count.ToString().PadLeft(minimumDigits, '0'), bottomFallbackNumber);
+            else
+                PikminUiSkin.Digits(bottomDigits, count, numberRect, minimumDigits, changes);
         }
     }
 }
