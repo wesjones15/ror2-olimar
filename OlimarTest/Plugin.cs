@@ -436,6 +436,7 @@ namespace OlimarTest
             }
             nativeLoaded = true;
             Pikmin2Session.Install(gameObject);
+            ShipRepairFiles.Install(gameObject);
             AssetsDir = OptionalAssets.BuiltinOnly ? "" : SharedFiles.Assets(SharedFiles.Pikmin);
             Log.LogInfo($"libpikmin ABI {Native.pik_abi_version()}, {Native.pik_tick_hz()} Hz, " +
                         $"assets {AssetsDir}, controls {Scheme}");

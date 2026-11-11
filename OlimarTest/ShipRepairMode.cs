@@ -249,6 +249,7 @@ namespace OlimarTest
         {
             string error = assetError;
             if (!Plugin.AssetsSettled) error = "Ship Repair is waiting for initialization to finish.";
+            else if (ShipRepairFiles.Problem() is string files) error = files;
             else if (NetworkUser.readOnlyInstancesList.Any(u => u.isParticipating &&
                 BodyCatalog.GetBodyPrefab(u.bodyIndexPreference)?.GetComponent<OlimarDriver>() == null && !ShipRepairGuests.IsGuestUser(u)))
                 error = ShipRepairGuests.AnyGuests ? "Ship Repair requires every player to choose Olimar or Mario." : "Ship Repair requires every player to choose Olimar.";
@@ -282,6 +283,7 @@ namespace OlimarTest
             if (NetworkServer.active && ShipRepairMode.LobbyActive && Time.unscaledTime >= ruleSendAt)
             {
                 ruleSendAt = Time.unscaledTime + 1f; ShipRepairMode.SendLobbyRule();
+                ShipRepairFiles.Enforce();
             }
         }
         void OnGUI()
