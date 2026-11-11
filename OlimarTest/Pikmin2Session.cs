@@ -7,6 +7,7 @@ namespace OlimarTest
     {
         static OptionalContentSession session;
         static uint? cached;
+        internal static uint LocalMask() => Local();
         static uint Local()
         {
             if(OptionalAssets.BuiltinOnly || !Plugin.AssetsSettled)return 0;
