@@ -116,6 +116,8 @@ namespace OlimarTest
             Log = Logger;
             CommonLog.Log = Logger;
             Experimental.ShareWithLobby();
+            PreparingNotice.Attach(gameObject, "Olimar", "Pikmin",
+                "until they finish you will see stand-ins, hear no Pikmin sounds, and Olimar arrives in the stock pod.", () => assetsBusy);
             OnionMenuEquipment.Install();
             string here = Path.GetDirectoryName(Info.Location);
             RunAudio.Initialize(() => { if (PikminWorld.Instance) PikminWorld.Instance.StopPresentation(); });
